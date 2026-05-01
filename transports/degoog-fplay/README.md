@@ -115,7 +115,3 @@ Keep the browser running with the extension connected (popup shows **Connected**
 - **Who receives data:** The machine running Degoog receives those cookies so curl can replay them. Treat that server like any other privileged component on your network.
 - **WebSocket exposure:** Binding fplay to **localhost** keeps traffic on one machine. If you use a **LAN IP**, anyone who can reach that port could attempt to connect — use the **transport password** in that case. Plain **`ws://` is not encrypted on the wire**; treat the network accordingly.
 - **Compared to transports without a browser:** You deliberately trade “server-only HTTP” for **real browser-issued cookies**, which improves compatibility but increases what your Degoog instance can derive from those sessions.
-
-## Related paths in this repo
-
-When this pack is installed under Degoog’s data directory, paths align with `data/transports/fplay/` in the main project: transport `index.js` lives beside `extension/`.
