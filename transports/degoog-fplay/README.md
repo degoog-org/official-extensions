@@ -54,7 +54,7 @@ services:
   degoog:
     image: ghcr.io/degoog-org/degoog:latest
     entrypoint: >
-      sh -c "curl -fsSL https://github.com/lexiforest/curl-impersonate/releases/download/v1.2.2/curl-impersonate-v1.2.2.x86_64-linux-musl.tar.gz
+      sh -c "apk add --no-cache bash && curl -fsSL https://github.com/lexiforest/curl-impersonate/releases/download/v1.2.2/curl-impersonate-v1.2.2.x86_64-linux-musl.tar.gz
       | tar -xz -C /usr/local/bin || true && exec /entrypoint.sh"
     volumes:
       - ./data:/app/data
