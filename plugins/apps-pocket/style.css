@@ -44,11 +44,18 @@ html[dir="rtl"] .apps-pocket-panel {
 }
 
 @media (max-width: 767.98px) {
-  #results-header .apps-pocket-launcher {
+  #results-header .apps-pocket-wrapper {
     position: absolute;
     top: 1rem;
-    right: 3.25rem;
+    right: 1.25rem;
+    display: flex;
     margin-left: 0;
+  }
+
+  #results-header #nav-settings-results {
+    position: relative;
+    top: auto;
+    right: auto;
   }
 }
 
