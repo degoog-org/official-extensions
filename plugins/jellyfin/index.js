@@ -2,7 +2,9 @@ const JELLYFIN_PLUGIN_ID = "plugin-jellyfin";
 
 let jellyfinUrl = "";
 let apiKey = "";
+let headerName = "X-Emby-Token";
 let template = "";
+let resultItemTpl = "";
 
 const JELLYFIN_LOGO =
   "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@refs/heads/main/svg/jellyfin.svg";
@@ -14,6 +16,15 @@ function escHtml(s) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+const _renderMain = (data) =>
+  template.replace(/\{\{(\w+)\}\}/g, (_, k) => data[k] ?? "");
+
+const _thumbnailBlock = (src) => {
+  const u = escHtml(src);
+  if (!u) return "";
+  return `<div class="result-thumbnail-wrap degoog-result--thumb"><img class="result-thumbnail-img" src="${u}" alt="" loading="lazy" onerror="this.parentElement.style.display = 'none'" /></div>`;
+};
 
 function searchVariants(term) {
   const variants = [term];
@@ -39,60 +50,93 @@ const SEASON_PATTERNS = [
 function parseEpisodeQuery(term) {
   for (const re of EPISODE_PATTERNS) {
     const m = term.match(re);
-    if (m) return { series: m[1].trim(), season: parseInt(m[2], 10), episode: parseInt(m[3], 10) };
+    if (m)
+      return {
+        series: m[1].trim(),
+        season: parseInt(m[2], 10),
+        episode: parseInt(m[3], 10),
+      };
   }
   for (const re of SEASON_PATTERNS) {
     const m = term.match(re);
-    if (m) return { series: m[1].trim(), season: parseInt(m[2], 10), episode: null };
+    if (m)
+      return {
+        series: m[1].trim(),
+        season: parseInt(m[2], 10),
+        episode: null,
+      };
   }
   return null;
 }
 
-function renderItem(item) {
+function buildSnippet(item) {
   const type = String(item["Type"] || "");
-  const year = item["ProductionYear"] ? ` (${item["ProductionYear"]})` : "";
-
-  let subtitle = "";
+  const parts = [];
   if (type === "Episode") {
     const series = item["SeriesName"] || "";
     const sNum = item["ParentIndexNumber"];
     const eNum = item["IndexNumber"];
-    const parts = [];
-    if (series) parts.push(series);
+    const ep = [];
+    if (series) ep.push(series);
     if (sNum != null && eNum != null)
-      parts.push(`S${String(sNum).padStart(2, "0")}E${String(eNum).padStart(2, "0")}`);
-    else if (eNum != null) parts.push(`Episode ${eNum}`);
-    if (parts.length)
-      subtitle = `<div class="result-episode-context">${escHtml(parts.join(" \u2014 "))}</div>`;
+      ep.push(`S${String(sNum).padStart(2, "0")}E${String(eNum).padStart(2, "0")}`);
+    else if (eNum != null) ep.push(`Episode ${eNum}`);
+    if (ep.length) parts.push(ep.join(" — "));
   } else if (type === "Season") {
     const series = item["SeriesName"] || "";
-    if (series)
-      subtitle = `<div class="result-episode-context">${escHtml(series)}</div>`;
+    if (series) parts.push(series);
   }
+  const overview = String(item["Overview"] || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 280);
+  if (overview) parts.push(overview);
+  return parts.join(" — ");
+}
+
+function renderCard(item, index) {
+  const type = String(item["Type"] || "");
+  const year = item["ProductionYear"] ? ` (${item["ProductionYear"]})` : "";
 
   const matchedPeople = item["MatchedPeople"];
-  let badges = `<span class="result-engine-tag">${escHtml(type)}</span><span class="result-engine-tag">Jellyfin</span>`;
-  if (matchedPeople?.length)
-    badges += `<span class="result-engine-tag">${escHtml(matchedPeople.join(", "))}</span>`;
+  const badgeParts = [type, "Jellyfin"];
+  if (matchedPeople?.length) badgeParts.push(matchedPeople.join(", "));
+  const sources = badgeParts
+    .filter(Boolean)
+    .map(
+      (t) =>
+        `<span class="result-engine-tag degoog-badge degoog-badge--engine-tag">${escHtml(t)}</span>`,
+    )
+    .join("");
 
   const imageTags = item["ImageTags"];
   const hasThumb = !!imageTags?.["Primary"];
-  const thumbSrc = `/api/proxy/image?auth_id=${JELLYFIN_PLUGIN_ID}&url=${encodeURIComponent(`${jellyfinUrl}/Items/${item["Id"]}/Images/Primary?maxHeight=120`)}`;
-  const thumbBlock = hasThumb
-    ? `<div class="result-thumbnail-wrap"><img class="result-thumbnail-img" src="${escHtml(thumbSrc)}" alt=""></div>`
+  const thumbSrc = hasThumb
+    ? `/api/proxy/image?auth_id=${JELLYFIN_PLUGIN_ID}&url=${encodeURIComponent(`${jellyfinUrl}/Items/${item["Id"]}/Images/Primary?maxHeight=120`)}`
     : "";
 
+  let host = "";
+  try {
+    host = new URL(jellyfinUrl).hostname;
+  } catch {
+    host = "";
+  }
+  const cite = host ? `${host} · ${type}` : jellyfinUrl;
+
   const data = {
-    faviconSrc: JELLYFIN_LOGO,
-    cite: escHtml(jellyfinUrl),
-    itemUrl: escHtml(`${jellyfinUrl}/web/index.html#!/details?id=${item["Id"]}`),
+    index: String(index),
+    thumbnail_block: thumbSrc ? _thumbnailBlock(thumbSrc) : "",
+    favicon_url: escHtml(JELLYFIN_LOGO),
+    favicon_host: escHtml(host),
+    cite_url: escHtml(cite),
+    url: escHtml(`${jellyfinUrl}/web/index.html#!/details?id=${item["Id"]}`),
+    link_target: "_blank",
+    link_rel: "noopener noreferrer",
     title: escHtml(String(item["Name"] || "")) + year,
-    subtitle,
-    overview: escHtml(String(item["Overview"] || "")),
-    badges,
-    thumbBlock,
+    snippet: escHtml(buildSnippet(item)),
+    sources,
   };
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => data[key] ?? "");
+  return resultItemTpl.replace(/\{\{(\w+)\}\}/g, (_, key) => data[key] ?? "");
 }
 
 async function findEpisode(epQuery, authHeaders, itemFields, limit, startIndex, fetchFn = fetch) {
@@ -165,17 +209,20 @@ export default {
       type: "text",
       default: "X-Emby-Token",
       placeholder: "X-Emby-Token",
-      description: "HTTP header used to authenticate image proxy requests. Change only if your server requires a different header.",
+      description:
+        "HTTP header used to authenticate image proxy requests. Change only if your server requires a different header.",
     },
   ],
 
-  init(ctx) {
+  async init(ctx) {
     template = ctx.template;
+    resultItemTpl = await ctx.readFile("result.html");
   },
 
   configure(settings) {
     jellyfinUrl = settings.url || "";
     apiKey = settings.apiKey || "";
+    headerName = settings.headerName || "X-Emby-Token";
   },
 
   async isConfigured() {
@@ -204,7 +251,7 @@ export default {
       const perPage = 25;
       const startIndex = (page - 1) * perPage;
 
-      const authHeaders = { "X-Emby-Token": apiKey };
+      const authHeaders = { [headerName]: apiKey };
       const itemFields =
         "Overview,People,SeriesName,SeasonName,IndexNumber,ParentIndexNumber,ImageTags,ProductionYear";
       const itemTypes =
@@ -214,10 +261,12 @@ export default {
       if (epQuery) {
         const epResults = await findEpisode(epQuery, authHeaders, itemFields, perPage, startIndex, fetchFn);
         if (epResults.length > 0) {
-          const results = epResults.map((item) => renderItem(item)).join("");
+          const results = epResults
+            .map((item, i) => renderCard(item, startIndex + i))
+            .join("");
           return {
             title: `Jellyfin: ${term} — ${epResults.length} results`,
-            html: `<div class="command-result">${results}</div>`,
+            html: _renderMain({ content: results }),
           };
         }
       }
@@ -337,14 +386,16 @@ export default {
         };
       }
 
-      const results = allItems.map((item) => renderItem(item)).join("");
+      const results = allItems
+        .map((item, i) => renderCard(item, startIndex + i))
+        .join("");
 
       const totalHints = totalRecordCount || allItems.length;
       const totalPages = Math.ceil(totalHints / perPage);
       const pageInfo = totalPages > 1 ? ` — Page ${page} of ${totalPages}` : "";
       return {
         title: `Jellyfin: ${term} — ${totalHints} results${pageInfo}`,
-        html: `<div class="command-result">${results}</div>`,
+        html: _renderMain({ content: results }),
         totalPages,
       };
     } catch {

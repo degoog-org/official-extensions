@@ -6,6 +6,7 @@ let urlField = "url";
 let contentField = "content";
 let thumbnailField = "thumbnail";
 let template = "";
+let resultItemTpl = "";
 
 function escHtml(s) {
   return String(s)
@@ -18,6 +19,45 @@ function escHtml(s) {
 const PER_PAGE = 20;
 const MEILISEARCH_LOGO =
   "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@refs/heads/main/svg/meilisearch.svg";
+
+const _renderMain = (data) =>
+  template.replace(/\{\{(\w+)\}\}/g, (_, k) => data[k] ?? "");
+
+const _renderItem = (tpl, data) =>
+  tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => data[k] ?? "");
+
+const _thumbnailBlock = (url) => {
+  const u = escHtml(url);
+  if (!u) return "";
+  return `<div class="result-thumbnail-wrap degoog-result--thumb"><img class="result-thumbnail-img" src="${u}" alt="" loading="lazy" onerror="this.parentElement.style.display = 'none'" /></div>`;
+};
+
+const _sourcesFromTags = (tags) =>
+  tags
+    .filter((t) => t && String(t).trim())
+    .map(
+      (t) =>
+        `<span class="result-engine-tag degoog-badge degoog-badge--engine-tag">${escHtml(String(t).trim())}</span>`,
+    )
+    .join("");
+
+const _citeFromUrl = (url) => {
+  try {
+    const u = new URL(url);
+    const path = u.pathname === "/" ? "" : u.pathname;
+    return `${u.hostname}${path}`;
+  } catch {
+    return String(url).slice(0, 120);
+  }
+};
+
+const _meiliHostname = () => {
+  try {
+    return new URL(meiliUrl).hostname;
+  } catch {
+    return "";
+  }
+};
 
 async function searchIndex(meiliUrlVal, apiKeyVal, index, query, offset, fetchFn = fetch) {
   const headers = { "Content-Type": "application/json" };
@@ -104,8 +144,9 @@ export default {
     },
   ],
 
-  init(ctx) {
+  async init(ctx) {
     template = ctx.template;
+    resultItemTpl = await ctx.readFile("result.html");
   },
 
   configure(settings) {
@@ -172,54 +213,74 @@ export default {
         };
       }
 
-      const results = allHits
-        .map(({ hit, formatted, index }) => {
-          const title = String(hit[titleField] || "");
-          const url = String(hit[urlField] || "");
-          const fmt = formatted || {};
-          const content = String(
-            fmt[contentField] || fmt["description"] || fmt["summary"] || fmt["body"] || fmt["text"] ||
-            hit[contentField] || hit["description"] || hit["summary"] || hit["body"] || hit["text"] ||
-            hit["metadata_summary"] || ""
-          );
-          const thumbnail = String(hit[thumbnailField] || "");
-          const source = String(hit["source"] || "");
-          const type = String(hit["type"] || "");
+      const host = _meiliHostname();
+      let rowIndex = offset;
+      const chunks = [];
 
-          if (!title || !url) return "";
+      for (const { hit, formatted, index } of allHits) {
+        const title = String(hit[titleField] || "");
+        const url = String(hit[urlField] || "");
+        const fmt = formatted || {};
+        const content = String(
+          fmt[contentField] ||
+            fmt["description"] ||
+            fmt["summary"] ||
+            fmt["body"] ||
+            fmt["text"] ||
+            hit[contentField] ||
+            hit["description"] ||
+            hit["summary"] ||
+            hit["body"] ||
+            hit["text"] ||
+            hit["metadata_summary"] ||
+            "",
+        );
+        const rawThumb = String(hit[thumbnailField] || "").trim();
+        const thumbUrl =
+          rawThumb && context?.signProxyUrl
+            ? context.signProxyUrl(rawThumb)
+            : rawThumb;
+        const source = String(hit["source"] || "");
+        const type = String(hit["type"] || "");
 
-          const thumbBlock = thumbnail
-            ? `<div class="result-thumbnail-wrap"><img class="result-thumbnail-img" src="${escHtml(thumbnail)}" alt=""></div>`
-            : "";
+        if (!title || !url) continue;
 
-          const indexLabel = index.replace(/_content$/, "");
-          const badges = [
-            `<span class="result-engine-tag">${escHtml(indexLabel)}</span>`,
-            type ? `<span class="result-engine-tag">${escHtml(type)}</span>` : "",
-            source ? `<span class="result-engine-tag">${escHtml(source)}</span>` : "",
-          ]
-            .filter(Boolean)
-            .join("");
+        const indexLabel = index.replace(/_content$/, "");
+        const sources = _sourcesFromTags(
+          [indexLabel, type, source].filter((x) => x && String(x).trim()),
+        );
 
-          const data = {
-            faviconSrc: MEILISEARCH_LOGO,
-            cite: escHtml(url),
-            itemUrl: escHtml(url),
+        const citeDisp = _citeFromUrl(url) || host;
+
+        chunks.push(
+          _renderItem(resultItemTpl, {
+            index: String(rowIndex++),
+            thumbnail_block: _thumbnailBlock(thumbUrl),
+            favicon_url: escHtml(MEILISEARCH_LOGO),
+            favicon_host: escHtml(host),
+            cite_url: escHtml(citeDisp),
+            url: escHtml(url),
+            link_target: "_blank",
+            link_rel: "noopener noreferrer",
             title: escHtml(title),
             snippet: escHtml(content.slice(0, 300)),
-            badges,
-            thumbBlock,
-          };
-          return template.replace(/\{\{(\w+)\}\}/g, (_, key) => data[key] ?? "");
-        })
-        .filter(Boolean)
-        .join("");
+            sources,
+          }),
+        );
+      }
+
+      if (chunks.length === 0) {
+        return {
+          title: "Meilisearch",
+          html: `<div class="command-result"><p>No results found for "${escHtml(term)}"</p></div>`,
+        };
+      }
 
       const totalPages = Math.ceil(totalEstimated / PER_PAGE);
       const pageInfo = totalPages > 1 ? ` — Page ${page} of ${totalPages}` : "";
       return {
         title: `Meilisearch: ${term} — ${totalEstimated} results${pageInfo}`,
-        html: `<div class="command-result">${results}</div>`,
+        html: _renderMain({ content: chunks.join("") }),
         totalPages,
       };
     } catch {

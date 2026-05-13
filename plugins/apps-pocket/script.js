@@ -1,5 +1,5 @@
-const APPS_API = "/api/plugin/apps-pocket/apps";
-const SETTINGS_API = "/api/plugin/apps-pocket/settings";
+const APPS_API = `/api/plugin/${__PLUGIN_ID__}/apps`;
+const SETTINGS_API = `/api/plugin/${__PLUGIN_ID__}/settings`;
 const LAUNCHER_ID = "apps-pocket-launcher";
 const PANEL_ID = "apps-pocket-panel";
 const MODAL_ID = "apps-pocket-modal";
@@ -167,7 +167,7 @@ const _copyText = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
       return true;
-    } catch { }
+    } catch {}
   }
   const ta = document.createElement("textarea");
   ta.value = text;
@@ -181,7 +181,7 @@ const _copyText = async (text) => {
   let ok = false;
   try {
     ok = document.execCommand("copy");
-  } catch { }
+  } catch {}
   ta.remove();
   return ok;
 };
