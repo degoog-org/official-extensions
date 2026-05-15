@@ -125,8 +125,8 @@ Generate a five-color palette. Command: `!colors` for a random palette, or pass 
 <details>
 <summary>Screenshot</summary>
 
-![Colors 1](plugins/colors/screnshots/1.png)
-![Colors 2](plugins/colors/screnshots/2.png)
+![Colors 1](plugins/colors/screenshots/1.png)
+![Colors 2](plugins/colors/screenshots/2.png)
 
 </details>
 
