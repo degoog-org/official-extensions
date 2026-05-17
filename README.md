@@ -191,6 +191,17 @@ Intercepts search queries and corrects spelling using [LanguageTool](https://lan
 
 Type `!!` followed by any DuckDuckGo bang command to trigger them directly from degoog. This will route through DuckDuckGo.
 
+### Highlight Terms
+
+Automatically wraps query-matching words in `<strong>` on result titles and snippets on every search page. No configuration needed — install and it works. Use `!highlight` to confirm it is active.
+
+<details>
+<summary>Screenshot</summary>
+
+![Highlight Terms](plugins/highlight-terms/screenshots/1.png)
+
+</details>
+
 ### File tab results
 
 Adds a Files tab to search results that finds downloadable files via file-type engines.
