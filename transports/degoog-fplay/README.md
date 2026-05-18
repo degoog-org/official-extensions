@@ -72,7 +72,12 @@ services:
 
 ### Install
 
-Load the `extension/` folder as an unpacked extension:
+Download the latest build for your browser:
+
+- **Chrome / Edge / Brave:** [degoog-fplay-chrome.zip](https://github.com/degoog-org/4play/releases/download/latest/degoog-fplay-chrome.zip)
+- **Firefox:** [degoog-fplay-firefox.zip](https://github.com/degoog-org/4play/releases/download/latest/degoog-fplay-firefox.zip)
+
+Or load unpacked from source:
 
 **Chrome / Edge**
 
