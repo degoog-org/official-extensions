@@ -85,18 +85,25 @@ const appendHistory = (entry) => {
     keepalive: true,
   }).catch(() => {});
 }
-
+// Replace the previous focusin trigger with mousedown so the search history dropdown opens only on left click and does not overlap FreshRSS feeds on page load.
 function initSearchHistory() {
-  document.addEventListener("focusin", (e) => {
+  document.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return; // Only on left Clik
+
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;
+
+    const input = target.closest('#search-input, #results-search-input');
+    if (!(input instanceof HTMLInputElement)) return;
+
     const performSearch = window.performSearch;
-    if (target.id === "search-input") {
-      const dropdown = document.getElementById("ac-dropdown-home");
-      if (dropdown) fetchAndShowHistory(target, dropdown, performSearch);
-    } else if (target.id === "results-search-input") {
-      const dropdown = document.getElementById("ac-dropdown-results");
-      if (dropdown) fetchAndShowHistory(target, dropdown, performSearch);
+
+    if (input.id === 'search-input') {
+      const dropdown = document.getElementById('ac-dropdown-home');
+      if (dropdown) fetchAndShowHistory(input, dropdown, performSearch);
+    } else if (input.id === 'results-search-input') {
+      const dropdown = document.getElementById('ac-dropdown-results');
+      if (dropdown) fetchAndShowHistory(input, dropdown, performSearch);
     }
   });
 
