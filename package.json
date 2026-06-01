@@ -335,8 +335,8 @@
     {
       "path": "engines/reddit",
       "name": "Reddit",
-      "description": "Reddit post search via the public JSON API.",
-      "version": "1.0.0",
+      "description": "Reddit post search via the public RSS feed.",
+      "version": "1.0.2",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "reddit",
