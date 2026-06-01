@@ -200,8 +200,8 @@
     {
       "path": "transports/camoufox",
       "name": "Camoufox",
-      "description": "Fetches pages through a self-hosted Camoufox service (stealth Firefox). Patches bot-detection signals at the C++ level, bypassing Google and Cloudflare. See homelab/camoufox for the Docker service.",
-      "version": "1.0.1"
+      "description": "Fetches pages through a self-hosted Camoufox service (stealth Firefox). Patches bot-detection signals at the C++ level, bypassing Google and Cloudflare. See Korosys/camoufox-degoog for the Docker service.",
+      "version": "1.0.2"
     },
     {
       "path": "transports/degoog-fplay",

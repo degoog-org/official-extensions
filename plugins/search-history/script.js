@@ -87,16 +87,23 @@ const appendHistory = (entry) => {
 }
 
 function initSearchHistory() {
-  document.addEventListener("focusin", (e) => {
+  document.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;
+
+    const input = target.closest('#search-input, #results-search-input');
+    if (!(input instanceof HTMLInputElement)) return;
+
     const performSearch = window.performSearch;
-    if (target.id === "search-input") {
-      const dropdown = document.getElementById("ac-dropdown-home");
-      if (dropdown) fetchAndShowHistory(target, dropdown, performSearch);
-    } else if (target.id === "results-search-input") {
-      const dropdown = document.getElementById("ac-dropdown-results");
-      if (dropdown) fetchAndShowHistory(target, dropdown, performSearch);
+
+    if (input.id === 'search-input') {
+      const dropdown = document.getElementById('ac-dropdown-home');
+      if (dropdown) fetchAndShowHistory(input, dropdown, performSearch);
+    } else if (input.id === 'results-search-input') {
+      const dropdown = document.getElementById('ac-dropdown-results');
+      if (dropdown) fetchAndShowHistory(input, dropdown, performSearch);
     }
   });
 
