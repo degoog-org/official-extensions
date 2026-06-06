@@ -255,14 +255,30 @@
 
     let streamDone = false;
     let expandClicked = false;
+    let expanded = false;
+
+    const collapse = () => {
+      expanded = false;
+      if (bodyEl) bodyEl.classList.add("glance-ai-body--clamped");
+      if (expandBtn) expandBtn.hidden = false;
+      const chatWrap = box.querySelector(".glance-ai-chat");
+      if (chatWrap) chatWrap.hidden = true;
+    };
+
+    const onDocClick = (e) => {
+      if (expanded && !box.contains(e.target)) collapse();
+    };
+
+    document.addEventListener("click", onDocClick, { capture: true });
 
     if (expandBtn && bodyEl) {
       expandBtn.addEventListener("click", () => {
         expandClicked = true;
+        expanded = true;
         bodyEl.classList.remove("glance-ai-body--clamped");
         expandBtn.hidden = true;
         if (streamDone) openChat(box);
-      }, { once: true });
+      });
     }
 
     const query = getQuery();
