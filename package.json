@@ -254,7 +254,7 @@
       "path": "engines/bing",
       "name": "Bing",
       "description": "Bing web search.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "bing",
@@ -265,7 +265,7 @@
       "path": "engines/bing-images",
       "name": "Bing Images",
       "description": "Bing image search.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "bing-images",
@@ -276,7 +276,7 @@
       "path": "engines/bing-videos",
       "name": "Bing Videos",
       "description": "Bing video search.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "bing-videos",
@@ -287,7 +287,7 @@
       "path": "engines/bing-news",
       "name": "Bing News",
       "description": "Bing news search.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "bing-news",
