@@ -8,7 +8,7 @@
       "path": "plugins/ai-summary",
       "name": "AI Summary",
       "description": "AI-powered summary panel for search results. Supports OpenAI-compatible, Gemini, and Anthropic providers.",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "type": "slot",
       "minDegoogVersion": "0.19.1",
       "legacyIds": [
@@ -207,7 +207,7 @@
       "path": "transports/lolcat-4play",
       "name": "4play (lolcat)",
       "description": "Fetches pages using a real Firefox session via the official lolcat 4play browser extension.",
-      "version": "1.0.0"
+      "version": "1.2.0"
     },
     {
       "path": "transports/degoog-fplay",
@@ -254,7 +254,7 @@
       "path": "engines/bing",
       "name": "Bing",
       "description": "Bing web search.",
-      "version": "1.0.0",
+      "version": "1.0.3",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "bing",
@@ -265,7 +265,7 @@
       "path": "engines/bing-images",
       "name": "Bing Images",
       "description": "Bing image search.",
-      "version": "1.0.0",
+      "version": "1.0.2",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "bing-images",
@@ -276,7 +276,7 @@
       "path": "engines/bing-videos",
       "name": "Bing Videos",
       "description": "Bing video search.",
-      "version": "1.0.0",
+      "version": "1.0.2",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "bing-videos",
@@ -287,7 +287,7 @@
       "path": "engines/bing-news",
       "name": "Bing News",
       "description": "Bing news search.",
-      "version": "1.0.0",
+      "version": "1.0.2",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "bing-news",
@@ -353,13 +353,13 @@
       "path": "engines/ecosia",
       "name": "Ecosia",
       "description": "Adds the Ecosia engine to degoog. Note: Ecosia may return no results when Cloudflare blocks server-side requests; use another engine if that happens.",
-      "version": "1.0.6"
+      "version": "1.0.7"
     },
     {
       "path": "engines/startpage",
       "name": "Startpage",
       "description": "Adds the Startpage engine to degoog. You can enable Anonymous View so result links open via Startpage's proxy.",
-      "version": "1.1.6"
+      "version": "1.1.7"
     },
     {
       "path": "engines/internet-archive",
@@ -371,7 +371,7 @@
       "path": "engines/lemmy",
       "name": "Lemmy World",
       "description": "Adds the Lemmy engine to degoog. Searches Lemmy for posts, comments, and communities.",
-      "version": "1.0.3"
+      "version": "1.0.4"
     },
     {
       "path": "engines/brave-api-search",
@@ -383,7 +383,7 @@
       "path": "engines/duckduckgo-images",
       "name": "DuckDuckGo Images",
       "description": "Adds the DuckDuckGo images search engine to degoog, adding an extra ~70 images per page to the image results.",
-      "version": "1.1.2"
+      "version": "1.1.3"
     },
     {
       "path": "engines/openverse",
@@ -413,7 +413,7 @@
       "path": "engines/duckduckgo-news",
       "name": "DuckDuckGo News",
       "description": "Adds the DuckDuckGo News engine to degoog.",
-      "version": "1.0.3"
+      "version": "1.0.4"
     },
     {
       "path": "engines/the-guardian",

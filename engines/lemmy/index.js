@@ -1,15 +1,7 @@
 const DEFAULT_INSTANCE = "https://lemmy.world";
 const SEARCH_LIMIT = 20;
 
-const USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0",
-    "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
-];
-
-const _getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 
 const _normalizeInstance = (value) => {
     const trimmed = (value || "").trim().replace(/\/+$/, "");
@@ -83,7 +75,7 @@ export default class LemmyEngine {
             const response = await doFetch(url, {
                 headers: {
                     "accept": "application/json",
-                    "User-Agent": _getRandomUserAgent()
+                    "User-Agent": context?.userAgent?.() ?? FALLBACK_UA
                 },
                 method: "GET",
             });

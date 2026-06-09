@@ -3,6 +3,16 @@ import * as cheerio from "cheerio";
 const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 const ASYNC_PAGE_SIZE = 35;
 
+const _bingMkt = (lang, buildAL) => {
+  if (lang.includes("-")) return lang;
+  const al = buildAL?.();
+  if (al) {
+    const primary = al.split(",")[0].split(";")[0].trim();
+    if (primary.includes("-")) return primary;
+  }
+  return lang;
+};
+
 const SIZE_MAP = { small: "Small", medium: "Medium", large: "Large", wallpaper: "Wallpaper" };
 const COLOR_MAP = {
   monochrome: "BW", red: "FGcls_RED", orange: "FGcls_ORANGE", yellow: "FGcls_YELLOW",
@@ -48,7 +58,7 @@ export default class BingImagesEngine {
     const first = (page - 1) * ASYNC_PAGE_SIZE;
     const lang = context?.lang;
     let url = `https://www.bing.com/images/async?q=${encodeURIComponent(query)}&async=content&count=${ASYNC_PAGE_SIZE}&first=${first}`;
-    if (lang) url += `&setlang=${lang}`;
+    if (lang) url += `&setlang=${lang}&mkt=${_bingMkt(lang, context?.buildAcceptLanguage)}`;
     const nsfw = context?.imageFilter?.nsfw;
     let adlt = this.safeSearch === "strict" || this.safeSearch === "moderate" ? this.safeSearch : "off";
     if (nsfw === "on") adlt = "strict";

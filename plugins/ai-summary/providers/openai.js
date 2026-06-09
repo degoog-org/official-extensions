@@ -64,16 +64,9 @@ const buildBody = (config, messages, opts) => {
   };
   if (opts.enableThinking) {
     body.reasoning_effort = "medium";
-    body.reasoning = { effort: "medium" };
     body.chat_template_kwargs = { enable_thinking: true };
     body.enable_thinking = true;
     body.thinking = { type: "enabled" };
-  } else {
-    body.reasoning_effort = "none";
-    body.reasoning = { exclude: true };
-    body.chat_template_kwargs = { enable_thinking: false };
-    body.enable_thinking = false;
-    body.thinking = { type: "disabled" };
   }
   return body;
 };

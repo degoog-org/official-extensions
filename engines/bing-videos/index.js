@@ -2,6 +2,16 @@ import * as cheerio from "cheerio";
 
 const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 
+const _bingMkt = (lang, buildAL) => {
+  if (lang.includes("-")) return lang;
+  const al = buildAL?.();
+  if (al) {
+    const primary = al.split(",")[0].split(";")[0].trim();
+    if (primary.includes("-")) return primary;
+  }
+  return lang;
+};
+
 const _parseMmeta = (raw) => {
   try { return JSON.parse(raw); } catch { return null; }
 };
@@ -46,7 +56,7 @@ export default class BingVideosEngine {
     const first = (page - 1) * pageSize;
     const lang = context?.lang;
     let url = `https://www.bing.com/videos/search?q=${encodeURIComponent(query)}&count=${pageSize}&first=${first}&FORM=HDRSC3`;
-    if (lang) url += `&setlang=${lang}`;
+    if (lang) url += `&setlang=${lang}&mkt=${_bingMkt(lang, context?.buildAcceptLanguage)}`;
     if (this.safeSearch !== "off") url += `&adlt=${this.safeSearch}`;
     if (timeFilter && timeFilter !== "any" && timeFilter !== "custom") {
       const map = { hour: "Hour", day: "Day", week: "Week", month: "Month", year: "Year" };

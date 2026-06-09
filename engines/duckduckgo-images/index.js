@@ -1,12 +1,6 @@
 export const type = "images";
 
-const USER_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
-];
+const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 
 const DDG_SIZE_MAP = {
   large: "Large",
@@ -49,8 +43,6 @@ const DDG_NSFW_MAP = {
   moderate: "-1",
   on: "1",
 };
-
-const _randAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 
 const _extractVqd = (html) => {
   const match = html.match(/vqd=['"]([^'"]+)['"]/);
@@ -104,7 +96,7 @@ export default class DuckDuckGoImagesEngine {
 
   async executeSearch(query, page = 1, _timeFilter, context) {
     const doFetch = context?.fetch ?? fetch;
-    const ua = _randAgent();
+    const ua = context?.userAgent?.() ?? FALLBACK_UA;
     const headers = {
       "User-Agent": ua,
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",

@@ -1,5 +1,30 @@
-const FETCH_TIMEOUT_MS = 30000;
-const PROXY_TYPES = ["socks5", "socks4", "http", "https"];
+import { ContainerPool } from "./src/container-pool.js";
+import { tabSpell } from "./src/browser.js";
+import {
+  curlFetchWithBrowserHeaders,
+  proxyUrlFromSettings,
+  resolveCurlBinary,
+  seedCookieJarFromHeaders,
+} from "./src/curl-session.js";
+import {
+  OriginBlockedError,
+  inspectPageJs,
+  looksBlocked,
+  originFor,
+  sleep,
+  warmupKeyFor,
+  warmupSearchJs,
+} from "./src/origin-warmup.js";
+import { wrapResponse } from "./src/response.js";
+import {
+  FETCH_TIMEOUT_MS,
+  containerConfigKey,
+  normaliseSettings,
+  settingsSchemaFor,
+  DEFAULT_CONTAINER_TTL_H,
+} from "./src/settings.js";
+
+const WEB_RESPONSE_TYPES = ["main_frame", "xmlhttprequest"];
 
 export default class FourPlayTransport {
   isClientExposed = true;
@@ -10,7 +35,6 @@ export default class FourPlayTransport {
 
   _password = "";
   _timeoutMs = 30000;
-  _apiFetch = true;
   _useContainer = false;
   _proxyType = "none";
   _proxyHost = "";
@@ -19,104 +43,85 @@ export default class FourPlayTransport {
   _proxyPassword = "";
   _proxyDns = true;
   _session = null;
+  _containerConfigKey = "";
+  _maxPoolSize = 5;
+  _containerTtlMs = DEFAULT_CONTAINER_TTL_H * 60 * 60 * 1000;
+  _warmupQuery = "weather";
+  _warmupTtlMs = 60 * 60 * 1000;
+  _blockCooldownMs = 20 * 60 * 1000;
+  _warmupSettleMs = 1500;
+
+  _urlPending = new Map();
+  _tabPending = new Map();
+  _domPending = new Map();
+  _originWarmups = new Map();
+  _browserHeaderSessions = new Map();
+  _ownedTabIds = new Set();
+
+  _containers = new ContainerPool({
+    command: (action, params, timeoutMs) => this._cmd(action, params, timeoutMs),
+    hasSession: () => Boolean(this._session),
+    buildProxy: () => this._dressProxy(),
+    proxyType: () => this._proxyType,
+    timeoutMs: () => this._timeoutMs,
+    maxPoolSize: () => this._maxPoolSize,
+    ttlMs: () => this._containerTtlMs,
+  });
 
   get settingsSchema() {
-    return [
-      {
-        key: "wsUrl",
-        label: "WebSocket path",
-        type: "info",
-        default: `/ws/${this.name}`,
-      },
-      {
-        key: "password",
-        label: "Password",
-        type: "password",
-        default: "",
-        description:
-          "Acts as the WebSocket path segment (e.g. password 'cnc' -> ws://host:4444/ws/lolcat-4play-transport/cnc). Must match what you set in the extension popup.",
-      },
-      {
-        key: "timeout",
-        label: "Page load timeout (ms)",
-        type: "number",
-        placeholder: "30000",
-        description:
-          "Maximum time to wait for a page to fully load (5000-120000 ms).",
-      },
-      {
-        key: "apiFetch",
-        label: "API response forwarding",
-        type: "toggle",
-        default: "true",
-        description:
-          "When a page returns non-HTML content (e.g. a JSON API endpoint), the transport makes an additional browser XHR request to retrieve the raw response. Required for engines that target JSON APIs. Disable if you only use this transport for HTML pages.",
-      },
-      {
-        key: "useContainer",
-        label: "Container isolation",
-        type: "toggle",
-        default: "false",
-        description:
-          "Open each request in a fresh Firefox container and delete it afterwards. Enabled automatically when a proxy is configured.",
-      },
-      {
-        key: "proxyType",
-        label: "Proxy type",
-        type: "select",
-        options: ["none", "socks5", "socks4", "http", "https"],
-        default: "none",
-        description:
-          "Proxy protocol to attach to the container. Enabling any proxy type turns on container isolation automatically.",
-      },
-      {
-        key: "proxyHost",
-        label: "Proxy host",
-        type: "text",
-        placeholder: "127.0.0.1",
-        description: "Proxy server hostname or IP address.",
-      },
-      {
-        key: "proxyPort",
-        label: "Proxy port",
-        type: "number",
-        placeholder: "1080",
-        description: "Proxy server port.",
-      },
-      {
-        key: "proxyUsername",
-        label: "Proxy username",
-        type: "text",
-        description: "Optional proxy username.",
-      },
-      {
-        key: "proxyPassword",
-        label: "Proxy password",
-        type: "password",
-        description: "Optional proxy password.",
-      },
-      {
-        key: "proxyDns",
-        label: "Proxy DNS",
-        type: "toggle",
-        default: "true",
-        description:
-          "Route DNS lookups through the proxy. Recommended for SOCKS to avoid DNS leaks.",
-      },
-    ];
+    return settingsSchemaFor(this.name);
   }
 
   wsHandler = {
     onUpgrade: (passwordPath) => passwordPath === `/${this._password}`,
 
     onOpen: () => {
-      console.log("[lolcat-4play] browser extension connected");
+      this._cmd("web_response_whitelist", { list: WEB_RESPONSE_TYPES }).catch(() => { });
     },
 
-    onMessage: () => {},
+    onMessage: (_ws, raw) => {
+      let msg;
+      try {
+        msg = JSON.parse(raw);
+      } catch {
+        return;
+      }
+
+      if (msg?.action === "dom_ready" || msg?.action === "dom_load_fail") {
+        this._settleDom(msg);
+        return;
+      }
+
+      if (msg?.action === "web_request") {
+        this._rememberBrowserHeaders(msg.data);
+        return;
+      }
+
+      if (msg?.action !== "web_response") return;
+
+      const { id: tabId, url, body } = msg?.data ?? {};
+
+      const byTab = typeof tabId === "number" && this._tabPending.get(tabId);
+      if (byTab) {
+        this._settlePending(byTab, byTab.resolve, { url, body });
+        return;
+      }
+
+      const byUrl =
+        typeof url === "string" ? this._firstUrlPending(url) : null;
+      if (byUrl) {
+        this._settlePending(byUrl, byUrl.resolve, { url, body });
+      }
+    },
 
     onClose: () => {
-      console.log("[lolcat-4play] browser extension disconnected");
+      this._session = null;
+      this._containers.clear();
+      this._originWarmups.clear();
+      this._browserHeaderSessions.clear();
+      this._ownedTabIds.clear();
+      this._drainDomPending("lolcat-4play: browser extension disconnected");
+      this._drainPending("lolcat-4play: browser extension disconnected");
     },
   };
 
@@ -124,23 +129,32 @@ export default class FourPlayTransport {
     this._session = session;
   }
 
-  configure(settings) {
-    this._timeoutMs = Math.max(
-      5000,
-      Math.min(120000, Number(settings.timeout) || 30000),
-    );
-    this._apiFetch = settings.apiFetch !== "false";
-    this._useContainer = settings.useContainer === "true";
-    this._proxyType = PROXY_TYPES.includes(settings.proxyType)
-      ? settings.proxyType
-      : "none";
-    this._proxyHost = (settings.proxyHost || "").trim();
-    this._proxyPort = parseInt(settings.proxyPort, 10) || 1080;
-    this._proxyUsername = (settings.proxyUsername || "").trim();
-    this._proxyPassword = (settings.proxyPassword || "").trim();
-    this._proxyDns = settings.proxyDns !== "false";
-    this._password =
-      typeof settings.password === "string" ? settings.password : "";
+  configure(settings = {}) {
+    const oldKey = this._containerConfigKey;
+    const next = normaliseSettings(settings);
+
+    this._timeoutMs = next.timeoutMs;
+    this._maxPoolSize = next.maxPoolSize;
+    this._containerTtlMs = next.containerTtlMs;
+    this._useContainer = next.useContainer;
+    this._proxyType = next.proxyType;
+    this._proxyHost = next.proxyHost;
+    this._proxyPort = next.proxyPort;
+    this._proxyUsername = next.proxyUsername;
+    this._proxyPassword = next.proxyPassword;
+    this._proxyDns = next.proxyDns;
+    this._password = next.password;
+    this._warmupQuery = next.warmupQuery;
+    this._warmupTtlMs = next.warmupTtlMs;
+    this._blockCooldownMs = next.blockCooldownMs;
+    this._warmupSettleMs = next.warmupSettleMs;
+    this._containerConfigKey = containerConfigKey(next);
+
+    if (oldKey && oldKey !== this._containerConfigKey) {
+      this._containers.yerOldGetOuttaHere();
+      this._originWarmups.clear();
+      this._browserHeaderSessions.clear();
+    }
   }
 
   available() {
@@ -156,16 +170,7 @@ export default class FourPlayTransport {
     return this._session.cmd(action, params, timeoutMs);
   }
 
-  _awaitDom(tabid) {
-    if (!this._session) {
-      return Promise.reject(
-        new Error("lolcat-4play: transport session not initialized"),
-      );
-    }
-    return this._session.awaitDom(tabid, this._timeoutMs);
-  }
-
-  _buildProxy() {
+  _dressProxy() {
     const proxy = {
       type: this._proxyType === "socks5" ? "socks" : this._proxyType,
       host: this._proxyHost,
@@ -177,164 +182,358 @@ export default class FourPlayTransport {
     return proxy;
   }
 
-  _injectText(injectResp) {
-    const body = injectResp?.result?.[0]?.result ?? "";
-    return typeof body === "string" ? body : String(body);
+  _firstUrlPending(url) {
+    return this._urlPending.get(url)?.values().next().value ?? null;
   }
 
-  _isHtml(text) {
-    const t = String(text ?? "").trimStart();
-    return t.startsWith("<") || t.startsWith("<!");
+  _forgetUrlPending(entry) {
+    const entries = this._urlPending.get(entry.url);
+    if (!entries) return;
+
+    entries.delete(entry);
+    if (!entries.size) this._urlPending.delete(entry.url);
   }
 
-  _toResponse(text) {
-    const trimmed = String(text ?? "").trimStart();
-    const isJson =
-      this._apiFetch &&
-      (trimmed.startsWith("{") ||
-        trimmed.startsWith("[") ||
-        trimmed.startsWith(")]}'"));
-    return new Response(String(text ?? ""), {
-      status: 200,
-      headers: {
-        "Content-Type": isJson
-          ? "application/json; charset=utf-8"
-          : "text/html; charset=utf-8",
-      },
+  _settlePending(entry, settle, value) {
+    if (!entry || entry.settled) return;
+
+    entry.settled = true;
+    clearTimeout(entry.timer);
+    this._forgetUrlPending(entry);
+    if (typeof entry.tabId === "number") this._tabPending.delete(entry.tabId);
+    settle(value);
+  }
+
+  _registerPending(url) {
+    let entry;
+    const promise = new Promise((resolve, reject) => {
+      entry = { url, resolve, reject, timer: null, tabId: null, settled: false };
+    });
+    promise.catch(() => { });
+
+    entry.timer = setTimeout(() => {
+      this._settlePending(entry, entry.reject, new Error("lolcat-4play: web_response timed out"));
+    }, this._timeoutMs);
+
+    const entries = this._urlPending.get(url) ?? new Set();
+    entries.add(entry);
+    this._urlPending.set(url, entries);
+    return { entry, promise };
+  }
+
+  _upgradePending(entry, tabId) {
+    if (!entry || entry.settled) return;
+
+    this._forgetUrlPending(entry);
+    entry.tabId = tabId;
+    this._tabPending.set(tabId, entry);
+  }
+
+  _drainPending(reason) {
+    const error = new Error(reason);
+    const entries = new Set();
+    for (const group of this._urlPending.values()) {
+      for (const entry of group) entries.add(entry);
+    }
+    for (const entry of this._tabPending.values()) entries.add(entry);
+    for (const entry of entries) this._settlePending(entry, entry.reject, error);
+  }
+
+  _drainDomPending(reason) {
+    const error = new Error(reason);
+    for (const [tabId, waiter] of this._domPending.entries()) {
+      clearTimeout(waiter.timer);
+      this._domPending.delete(tabId);
+      waiter.reject(error);
+    }
+  }
+
+  async _closeTabQuietly(tabId) {
+    if (typeof tabId !== "number") return;
+    await this._cmd("tab_close", { tabid: [tabId] }).catch(() => { });
+  }
+
+  _settleDom(msg) {
+    const tabId = msg?.data?.id;
+    const waiter = typeof tabId === "number" ? this._domPending.get(tabId) : null;
+    if (!waiter) return;
+
+    clearTimeout(waiter.timer);
+    this._domPending.delete(tabId);
+    if (msg.action === "dom_load_fail") {
+      waiter.reject(new Error("lolcat-4play: warmup page failed to load"));
+      return;
+    }
+    waiter.resolve(msg.data);
+  }
+
+  _awaitDom(tabId, timeoutMs = this._timeoutMs) {
+    if (typeof tabId !== "number") return Promise.resolve(null);
+    const existing = this._domPending.get(tabId);
+    if (existing) {
+      clearTimeout(existing.timer);
+      this._domPending.delete(tabId);
+      existing.resolve(null);
+    }
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this._domPending.delete(tabId);
+        resolve(null);
+      }, Math.min(timeoutMs, this._timeoutMs));
+      this._domPending.set(tabId, { resolve, reject, timer });
     });
   }
 
-  _primaryInjectJs() {
-    if (!this._apiFetch) {
-      return "(() => document.documentElement.outerHTML)()";
+  async _inject(tabId, js, timeoutMs = this._timeoutMs) {
+    const result = await this._cmd("tab_inject_js", { tabid: tabId, js }, timeoutMs);
+    if (result?.status !== true) return null;
+    const frameResult = Array.isArray(result.result) ? result.result[0] : null;
+    return frameResult?.result ?? null;
+  }
+
+  _warmupState(origin, containerId) {
+    return this._originWarmups.get(warmupKeyFor(origin, containerId));
+  }
+
+  _headerSession(origin, containerId) {
+    return this._browserHeaderSessions.get(warmupKeyFor(origin, containerId));
+  }
+
+  _rememberBrowserHeaders(data = {}) {
+    if (!this._isReusableBrowserRequest(data)) return;
+    if (typeof data.id !== "number" || !this._ownedTabIds.has(data.id)) return;
+    const origin = originFor(data.url);
+    if (!origin) return;
+
+    const containerId = data.container || null;
+    const cookieJar = seedCookieJarFromHeaders(origin, containerId, data.headers);
+    const session = {
+      headers: data.headers,
+      url: data.url,
+      cookieJar,
+      capturedAt: Date.now(),
+    };
+    this._browserHeaderSessions.set(warmupKeyFor(origin, containerId), session);
+    if (!containerId || containerId === "firefox-default") {
+      this._browserHeaderSessions.set(warmupKeyFor(origin, null), session);
     }
-    return `(async () => {
-      const ct = document.contentType || "";
-      if (ct && !ct.startsWith("text/html")) {
-        const r = await fetch(location.href, { credentials: "include" });
-        return await r.text();
+  }
+
+  _isReusableBrowserRequest(data = {}) {
+    if (!Array.isArray(data.headers) || !data.url) return false;
+    if (data.type !== "main_frame" || String(data.method || "GET").toUpperCase() !== "GET") return false;
+    return Boolean(originFor(data.url));
+  }
+
+  _usableHeaderSession(origin, containerId) {
+    const session = this._headerSession(origin, containerId);
+    if (!session?.headers?.length) return null;
+    if (Date.now() - session.capturedAt > this._warmupTtlMs) return null;
+    return session;
+  }
+
+  _setWarmupState(origin, containerId, state) {
+    this._originWarmups.set(warmupKeyFor(origin, containerId), state);
+  }
+
+  _markOriginBlocked(origin, containerId, reason = "blocked") {
+    this._setWarmupState(origin, containerId, {
+      blockedUntil: Date.now() + this._blockCooldownMs,
+      reason,
+    });
+    this._containers.retireContainer(containerId);
+  }
+
+  _assertOriginUsable(origin, containerId) {
+    const state = this._warmupState(origin, containerId);
+    if (state?.blockedUntil > Date.now()) {
+      throw new OriginBlockedError(origin, state.reason);
+    }
+  }
+
+  async _inspectWarmupPage(origin, containerId, tabId) {
+    const page = await this._inject(tabId, inspectPageJs(), Math.min(10000, this._timeoutMs));
+    const haystack = `${page?.title || ""}\n${page?.href || ""}\n${page?.text || ""}`;
+    if (looksBlocked(haystack)) {
+      this._markOriginBlocked(origin, containerId, "warmup page block/captcha");
+      throw new OriginBlockedError(origin, "warmup page block/captcha");
+    }
+    return page;
+  }
+
+  async _openWarmupTab(origin, containerId) {
+    const tabResp = await this._cmd("tab_open", tabSpell(`${origin}/`, containerId));
+    const tabId = tabResp?.data?.id;
+    if (typeof tabId !== "number") {
+      throw new Error("lolcat-4play: warmup tab_open did not return a valid tab id");
+    }
+    this._ownedTabIds.add(tabId);
+    await this._awaitDom(tabId, this._timeoutMs).catch(() => null);
+    await sleep(this._warmupSettleMs);
+    return tabId;
+  }
+
+  async _tryFormWarmup(origin, containerId, tabId) {
+    const submitted = await this._inject(
+      tabId,
+      warmupSearchJs(this._warmupQuery),
+      Math.min(10000, this._timeoutMs),
+    );
+    if (!submitted?.submitted) return false;
+
+    await this._awaitDom(tabId, Math.min(10000, this._timeoutMs)).catch(() => null);
+    await sleep(this._warmupSettleMs);
+    await this._inspectWarmupPage(origin, containerId, tabId);
+    return true;
+  }
+
+  async _ensureOriginWarm(url, containerId) {
+    const origin = originFor(url);
+    if (!origin) return null;
+
+    this._assertOriginUsable(origin, containerId);
+
+    const state = this._warmupState(origin, containerId);
+    if (state?.warmedAt && Date.now() - state.warmedAt < this._warmupTtlMs) {
+      return origin;
+    }
+    if (state?.promise) {
+      await state.promise;
+      return origin;
+    }
+
+    const promise = this._warmOriginNow(origin, containerId);
+    this._setWarmupState(origin, containerId, { promise });
+    try {
+      await promise;
+      const session = this._usableHeaderSession(origin, containerId);
+      if (session) {
+        this._setWarmupState(origin, containerId, { warmedAt: Date.now() });
+      } else {
+        this._originWarmups.delete(warmupKeyFor(origin, containerId));
+        console.warn(`[lolcat-4play] origin warmup for ${origin} did not capture a reusable main-frame browser session`);
       }
-      return document.documentElement.outerHTML;
-    })()`;
-  }
-
-  _originFetchJs(url) {
-    return `(async () => {
-      const r = await fetch(${JSON.stringify(url)}, { credentials: "include" });
-      return await r.text();
-    })()`;
-  }
-
-  async _originFetch(tabId, url) {
-    const injectResp = await this._cmd("tab_inject_js", {
-      tabid: tabId,
-      js: this._originFetchJs(url),
-      isolated: false,
-    });
-    if (injectResp?.status !== true) {
-      throw new Error(
-        `lolcat-4play: origin fallback inject failed - ${injectResp?.status ?? "unknown"}`,
-      );
+      return origin;
+    } catch (error) {
+      if (error instanceof OriginBlockedError) throw error;
+      this._originWarmups.delete(warmupKeyFor(origin, containerId));
+      console.warn(`[lolcat-4play] origin warmup failed for ${origin}: ${error?.message || error}`);
+      return origin;
     }
-    return this._injectText(injectResp);
   }
 
-  async fetch(url) {
-    const needsContainer = this._proxyType !== "none" || this._useContainer;
-    let containerId = null;
+  async _warmOriginNow(origin, containerId) {
     let tabId = null;
+    try {
+      tabId = await this._openWarmupTab(origin, containerId);
+      await this._inspectWarmupPage(origin, containerId, tabId);
+      await this._tryFormWarmup(origin, containerId, tabId);
+    } finally {
+      await this._closeTabQuietly(tabId);
+      this._ownedTabIds.delete(tabId);
+    }
+  }
 
-    const mkTabParams = (target) => {
-      const params = { url: target };
-      if (containerId) params.container = containerId;
-      return params;
-    };
+  _wrapFetchedText(text, origin, containerId) {
+    if (origin && looksBlocked(text)) {
+      this._markOriginBlocked(origin, containerId, "response block/captcha");
+      throw new OriginBlockedError(origin, "response block/captcha");
+    }
+    return wrapResponse(text);
+  }
 
-    const closeTab = async (id) => {
-      if (typeof id !== "number") return;
-      await this._cmd("tab_close", { tabid: [id] }).catch((e) =>
-        console.error("[lolcat-4play] tab_close failed:", e?.message ?? e),
-      );
-    };
+  _curlProxyUrl() {
+    return proxyUrlFromSettings({
+      type: this._proxyType,
+      host: this._proxyHost,
+      port: this._proxyPort,
+      username: this._proxyUsername,
+      password: this._proxyPassword,
+      proxyDns: this._proxyDns,
+    });
+  }
+
+  async _curlFetchWarmed(url, origin, containerId) {
+    const session = this._usableHeaderSession(origin, containerId);
+    if (!session || !(await resolveCurlBinary())) return null;
 
     try {
-      if (needsContainer) {
-        const cr = await this._cmd("container_create");
-        if (cr?.id) {
-          containerId = cr.id;
-          if (this._proxyType !== "none") {
-            await this._cmd("container_attach_proxy", {
-              id: containerId,
-              proxy: this._buildProxy(),
-            });
-          }
-        }
-      }
+      const response = await curlFetchWithBrowserHeaders({
+        url,
+        headers: session.headers,
+        timeoutSeconds: this._timeoutMs / 1000,
+        cookieJar: session.cookieJar,
+        proxyUrl: this._curlProxyUrl(),
+      });
+      const text = await response.text();
+      return this._wrapFetchedText(text, origin, containerId);
+    } catch (error) {
+      if (error instanceof OriginBlockedError) throw error;
+      console.warn(`[lolcat-4play] warmed curl fetch failed for ${origin}: ${error?.message || error}; falling back to browser tab`);
+      return null;
+    }
+  }
 
-      const tabResp = await this._cmd("tab_open", mkTabParams(url));
+  async _browserFetch(url, origin, containerId) {
+    let tabId = null;
+    const pending = this._registerPending(url);
+
+    try {
+      const tabResp = await this._cmd("tab_open", tabSpell(url, containerId));
       tabId = tabResp?.data?.id;
       if (typeof tabId !== "number") {
         throw new Error("lolcat-4play: tab_open did not return a valid tab id");
       }
 
-      await this._awaitDom(tabId);
+      this._ownedTabIds.add(tabId);
+      this._upgradePending(pending.entry, tabId);
 
-      const injectResp = await this._cmd("tab_inject_js", {
-        tabid: tabId,
-        js: this._primaryInjectJs(),
-        isolated: false,
-      });
-
-      const injectOk = injectResp?.status === true;
-      const injectMsg = String(injectResp?.status ?? "");
-      const permBlocked =
-        !injectOk && injectMsg.includes("Missing host permission");
-
-      if (!injectOk && !permBlocked) {
-        throw new Error(
-          `lolcat-4play: JS inject failed - ${injectMsg || "unknown error"}`,
-        );
-      }
-
-      let browserText = "";
-      let needsOriginFallback = permBlocked;
-
-      if (injectOk) {
-        browserText = this._injectText(injectResp);
-        if (this._apiFetch && this._isHtml(browserText)) {
-          needsOriginFallback = true;
-        } else {
-          return this._toResponse(browserText);
-        }
-      }
-
-      if (!needsOriginFallback) {
-        throw new Error("lolcat-4play: JS inject failed");
-      }
-
-      await closeTab(tabId);
-      tabId = null;
-
-      const origin = new URL(url).origin;
-      const originResp = await this._cmd("tab_open", mkTabParams(`${origin}/`));
-      tabId = originResp?.data?.id;
-      if (typeof tabId !== "number") {
-        throw new Error("lolcat-4play: origin fallback tab_open failed");
-      }
-
-      await this._awaitDom(tabId);
-      const xhrText = await this._originFetch(tabId, url);
-      return this._toResponse(xhrText);
+      const { body } = await pending.promise;
+      const text = Buffer.from(body, "base64").toString("utf-8");
+      return this._wrapFetchedText(text, origin, containerId);
     } finally {
-      await closeTab(tabId);
-      if (containerId) {
-        await this._cmd("container_delete", { id: [containerId] }).catch((e) =>
-          console.error(
-            "[lolcat-4play] container_delete failed:",
-            e?.message ?? e,
-          ),
-        );
+      this._settlePending(
+        pending.entry,
+        pending.entry.reject,
+        new Error("lolcat-4play: request ended before web_response arrived"),
+      );
+      await this._closeTabQuietly(tabId);
+      this._ownedTabIds.delete(tabId);
+    }
+  }
+
+  async _fetchOnce(url) {
+    await this._containers.sweepRetiredContainers();
+
+    const useContainer = this._proxyType !== "none" || this._useContainer;
+    let containerId = null;
+
+    try {
+      if (useContainer) {
+        containerId = await this._containers.summonContainer();
       }
+
+      const origin = await this._ensureOriginWarm(url, containerId);
+      return (
+        (await this._curlFetchWarmed(url, origin, containerId)) ??
+        (await this._browserFetch(url, origin, containerId))
+      );
+    } finally {
+      await this._containers.tuckContainerIn(containerId, useContainer);
+    }
+  }
+
+  async fetch(url) {
+    try {
+      return await this._fetchOnce(url);
+    } catch (error) {
+      const canRetry =
+        error instanceof OriginBlockedError &&
+        (this._proxyType !== "none" || this._useContainer);
+      if (!canRetry) throw error;
+      console.warn(`[lolcat-4play] retrying ${error.origin} with a fresh container after block detection`);
+      return this._fetchOnce(url);
     }
   }
 }

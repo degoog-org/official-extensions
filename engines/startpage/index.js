@@ -1,49 +1,34 @@
-const USER_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0",
-  "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
-];
-
+const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 const BASE_URL = "https://www.startpage.com";
-const SERP_MARKER = "React.createElement(UIStartpage.AppSerpWeb, {";
+const SEARCH_URL = `${BASE_URL}/sp/search`;
 
-const _getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+const TIME_MAP = { hour: "h", day: "d", week: "w", month: "m", year: "y" };
+const SAFE_MAP = { off: "none", on: "heavy" };
+
+const _buildPrefs = (safeSearch) => {
+  const f = safeSearch === "on" ? "0" : "1";
+  return [
+    `date_timeEEEworld`,
+    `disable_family_filterEEE${f}`,
+    `disable_open_in_new_windowEEE0`,
+    `enable_post_methodEEE1`,
+    `enable_proxy_safety_suggestEEE0`,
+    `enable_stay_controlEEE0`,
+    `instant_answersEEE1`,
+    `lang_homepageEEEs%2Fdevice%2Fen`,
+    `languageEEEenglish`,
+    `language_uiEEEenglish`,
+    `num_of_resultsEEE20`,
+    `search_results_regionEEEall`,
+    `suggestionsEEE1`,
+    `wt_unitEEEcelsius`,
+  ].join("N1N");
+};
 
 const _extractSerpJson = (html) => {
-  const idx = html.indexOf(SERP_MARKER);
-  if (idx === -1) return null;
-  const start = html.indexOf("{", idx + SERP_MARKER.length);
-  if (start === -1) return null;
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-  let quote = null;
-  for (let i = start; i < html.length; i++) {
-    const c = html[i];
-    if (escape) {
-      escape = false;
-      continue;
-    }
-    if (inString) {
-      if (c === "\\") escape = true;
-      else if (c === quote) inString = false;
-      continue;
-    }
-    if (c === '"' || c === "'") {
-      inString = true;
-      quote = c;
-      continue;
-    }
-    if (c === "{") depth++;
-    else if (c === "}") {
-      depth--;
-      if (depth === 0) return html.slice(start, i + 1);
-    }
-  }
-  return null;
-}
+  const match = html.match(/React\.createElement\(UIStartpage\.AppSerpWeb, ?(.+)\),?$/m);
+  return match ? match[1] : null;
+};
 
 const _esc = (str) => {
   if (typeof str !== "string") return "";
@@ -59,7 +44,7 @@ const _esc = (str) => {
     .trim();
 };
 
-const _stripStartpageProxy = (url) => {
+const _stripProxy = (url) => {
   if (typeof url !== "string" || !url) return url;
   try {
     const u = new URL(url, BASE_URL);
@@ -81,8 +66,7 @@ export default class StartpageEngine {
       key: "useAnonymousView",
       label: "Use Anonymous View",
       type: "toggle",
-      description:
-        "Open result links via Startpage's proxy so the destination site does not see your IP.",
+      description: "Open result links via Startpage's proxy so the destination site does not see your IP.",
     },
     {
       key: "safeSearch",
@@ -95,54 +79,82 @@ export default class StartpageEngine {
 
   useAnonymousView = false;
   safeSearch = "off";
+  _searchSc = null;
 
   configure(settings) {
-    this.useAnonymousView =
-      settings.useAnonymousView === true ||
-      settings.useAnonymousView === "true";
-    if (typeof settings.safeSearch === "string") {
-      this.safeSearch = settings.safeSearch;
-    }
+    this.useAnonymousView = settings.useAnonymousView === true || settings.useAnonymousView === "true";
+    if (typeof settings.safeSearch === "string") this.safeSearch = settings.safeSearch;
+  }
+
+  _baseHeaders(context) {
+    return {
+      "User-Agent": context?.userAgent?.() ?? FALLBACK_UA,
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.5",
+      "Accept-Encoding": "gzip, deflate, br",
+      DNT: "1",
+      Connection: "keep-alive",
+      Cookie: `preferences=${_buildPrefs(this.safeSearch)}`,
+      "Upgrade-Insecure-Requests": "1",
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
+    };
+  }
+
+  async _getPage(doFetch, params, context) {
+    const url = `${SEARCH_URL}?${params.toString()}`;
+    const res = await doFetch(url, { headers: this._baseHeaders(context), redirect: "follow" });
+    context?.sentinel?.(res, this.name);
+    return res.text();
+  }
+
+  async _postPage(doFetch, body, context) {
+    const res = await doFetch(SEARCH_URL, {
+      method: "POST",
+      headers: {
+        ...this._baseHeaders(context),
+        "Content-Type": "application/x-www-form-urlencoded",
+        Referer: `${BASE_URL}/`,
+        "Sec-Fetch-Site": "same-origin",
+      },
+      body: body.toString(),
+      redirect: "follow",
+    });
+    context?.sentinel?.(res, this.name);
+    return res.text();
   }
 
   async executeSearch(query, page = 1, timeFilter, context) {
-    const p = Math.max(0, (page || 1) - 1);
-    const params = new URLSearchParams({ q: query, cat: "web" });
-    if (p > 0) params.set("page", String(p + 1));
-    if (this.safeSearch === "on") params.set("filter", "safe");
+    const doFetch = context?.fetch ?? fetch;
+    const p = Math.max(1, page || 1);
+    let html;
 
-    if (context?.lang) params.set("language", context.lang);
-
-    const timeMap = { hour: "h", day: "d", week: "w", month: "m", year: "y" };
-    if (timeFilter && timeFilter !== "any" && timeFilter !== "custom" && timeMap[timeFilter]) {
-      params.set("with_date", timeMap[timeFilter]);
-    } else if (timeFilter === "custom" && context?.dateFrom) {
-      params.set("with_date", "c");
-      params.set("date_from", context.dateFrom);
-      if (context.dateTo) params.set("date_to", context.dateTo);
+    if (p > 1 && this._searchSc) {
+      const body = new URLSearchParams({
+        query,
+        cat: "web",
+        t: "device",
+        sc: this._searchSc,
+        segment: "organic",
+        abd: "0",
+        abe: "0",
+        qsr: "all",
+        page: String(p),
+      });
+      if (this.safeSearch !== "off") body.set("qadf", SAFE_MAP[this.safeSearch] ?? "none");
+      html = await this._postPage(doFetch, body, context);
+    } else {
+      const params = new URLSearchParams({ query, cat: "web", pl: "opensearch" });
+      if (this.safeSearch !== "off") params.set("qadf", SAFE_MAP[this.safeSearch] ?? "none");
+      if (context?.lang) params.set("language", context.lang);
+      if (timeFilter && timeFilter !== "any" && timeFilter !== "custom" && TIME_MAP[timeFilter]) {
+        params.set("with_date", TIME_MAP[timeFilter]);
+      }
+      html = await this._getPage(doFetch, params, context);
     }
 
-    const doFetch = context?.fetch ?? fetch;
-
-    const response = await doFetch(`${BASE_URL}/sp/search?${params.toString()}`, {
-      headers: {
-        "User-Agent": _getRandomUserAgent(),
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": context?.buildAcceptLanguage?.() ?? "en,en-US;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
-      },
-      redirect: "follow",
-      method: "GET",
-    });
-    context?.sentinel?.(response, this.name);
-
-    const html = await response.text();
     const jsonStr = _extractSerpJson(html);
     if (!jsonStr) return [];
 
@@ -154,40 +166,24 @@ export default class StartpageEngine {
       return [];
     }
 
-    const regions = data?.presenter?.regions;
-    if (!regions) return [];
+    if (data?.render?.search_sc) this._searchSc = data.render.search_sc;
 
-    const mainline = regions.mainline;
+    const mainline = data?.render?.presenter?.regions?.mainline;
     if (!Array.isArray(mainline)) return [];
 
     const results = [];
-
     for (const block of mainline) {
       if (block?.display_type !== "web-google") continue;
-      const items = block.results;
-      if (!Array.isArray(items)) continue;
-      for (const item of items) {
-        let url = _stripStartpageProxy(item.clickUrl ?? item.url ?? "");
-
-        if (!url || typeof url !== "string" || !url.startsWith("http"))
-          continue;
-
+      if (!Array.isArray(block.results)) continue;
+      for (const item of block.results) {
+        let url = _stripProxy(item.clickUrl ?? item.url ?? "");
+        if (!url || !url.startsWith("http")) continue;
         const title = _esc(item.title ?? "");
-
         if (!title) continue;
-
-        const snippet = _esc(item.description ?? "");
-
         if (this.useAnonymousView && typeof item.anonViewUrl === "string" && item.anonViewUrl) {
           url = item.anonViewUrl;
         }
-
-        results.push({
-          title,
-          url,
-          snippet: snippet || "",
-          source: this.name,
-        });
+        results.push({ title, url, snippet: _esc(item.description ?? ""), source: this.name });
       }
     }
 
