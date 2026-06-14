@@ -1,11 +1,12 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
-const DELIMITER = randomUUID();
-const COOKIE_JAR_DIR = join(tmpdir(), "lolcat-4play-cookie-jars");
+const STATUS_DELIMITER = randomUUID();
+const COOKIE_DELIMITER = randomUUID();
+
+export const COOKIE_JAR_HEADER =
+  "# Netscape HTTP Cookie File\n# Stored by Degoog lolcat-4play transport cache\n\n";
+
 const BINARIES = [
   "curl_firefox135",
   "curl_firefox133",
@@ -28,13 +29,9 @@ const STRIP_HEADERS = new Set([
   "referer",
 ]);
 
-try {
-  mkdirSync(COOKIE_JAR_DIR, { recursive: true });
-} catch { }
-
-const run = (cmd, args) =>
+const run = (cmd, args, stdinText) =>
   new Promise((resolve) => {
-    const proc = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const proc = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"] });
     const stdout = [];
     const stderr = [];
     proc.stdout.on("data", (chunk) => stdout.push(chunk));
@@ -47,6 +44,12 @@ const run = (cmd, args) =>
         stderr: Buffer.concat(stderr).toString("utf-8"),
       }),
     );
+
+    if (proc.stdin) {
+      proc.stdin.on("error", () => { });
+      proc.stdin.write(stdinText || "");
+      proc.stdin.end();
+    }
   });
 
 let resolvedBinary;
@@ -66,11 +69,11 @@ export const resolveCurlBinary = async () => {
   return resolvedBinary;
 };
 
-const safeFilePart = (value) => String(value || "default").replace(/[^a-z0-9_.-]/gi, "_");
+export const emptyCookieJar = () => COOKIE_JAR_HEADER;
 
-export const cookieJarPathFor = (origin, containerId) => {
+export const cookieJarKeyFor = (origin, containerId) => {
   const parsed = new URL(origin);
-  return join(COOKIE_JAR_DIR, `${safeFilePart(containerId)}_${safeFilePart(parsed.hostname)}.txt`);
+  return `${containerId || "default"}:${parsed.origin}`;
 };
 
 const parseHeader = (header) => {
@@ -89,14 +92,10 @@ const browserCookieHeader = (headers = []) =>
     .find((header) => header?.name.toLowerCase() === "cookie")
     ?.value || "";
 
-export const seedCookieJarFromHeaders = (origin, containerId, headers = []) => {
-  const cookieHeader = browserCookieHeader(headers);
-  if (!cookieHeader) return null;
-
+export const cookieJarFromCookieHeader = (origin, cookieHeader) => {
   const parsed = new URL(origin);
-  const jar = cookieJarPathFor(origin, containerId);
   const secure = parsed.protocol === "https:" ? "TRUE" : "FALSE";
-  const lines = ["# Netscape HTTP Cookie File", "# Seeded from lolcat-4play browser warmup"];
+  const rows = [];
 
   for (const chunk of cookieHeader.split(";")) {
     const splitAt = chunk.indexOf("=");
@@ -104,15 +103,41 @@ export const seedCookieJarFromHeaders = (origin, containerId, headers = []) => {
     const name = chunk.slice(0, splitAt).trim();
     const value = chunk.slice(splitAt + 1).trim();
     if (!name) continue;
-    lines.push([parsed.hostname, "FALSE", "/", secure, "0", name, value].join("\t"));
+    rows.push([parsed.hostname, "FALSE", "/", secure, "0", name, value].join("\t"));
   }
 
-  try {
-    writeFileSync(jar, `${lines.join("\n")}\n`, { mode: 0o600 });
-    return jar;
-  } catch {
-    return null;
+  return `${COOKIE_JAR_HEADER}${rows.join("\n")}\n`;
+};
+
+export const seedCookieJarTextFromHeaders = (origin, headers = []) => {
+  const cookieHeader = browserCookieHeader(headers);
+  if (!cookieHeader) return null;
+  return cookieJarFromCookieHeader(origin, cookieHeader);
+};
+
+export const parseCurlStdoutWithCookieJar = (stdout) => {
+  let head = stdout;
+  let cookieJarText = null;
+
+  const cookieIdx = stdout.lastIndexOf(COOKIE_DELIMITER);
+  if (cookieIdx >= 0) {
+    head = stdout.slice(0, cookieIdx);
+    cookieJarText = stdout.slice(cookieIdx + COOKIE_DELIMITER.length).replace(/^\n/, "");
   }
+
+  const statusIdx = head.lastIndexOf(STATUS_DELIMITER);
+  if (statusIdx < 0) {
+    return { bodyText: head, status: 502, cookieJarText };
+  }
+
+  const bodyText = head.slice(0, statusIdx).replace(/\n$/, "");
+  const status = parseInt(head.slice(statusIdx + STATUS_DELIMITER.length), 10);
+
+  return {
+    bodyText,
+    status: status >= 100 ? status : 502,
+    cookieJarText,
+  };
 };
 
 export const cleanBrowserHeaders = (headers = []) => {
@@ -152,7 +177,8 @@ export const curlFetchWithBrowserHeaders = async ({
   url,
   headers = [],
   timeoutSeconds = 30,
-  cookieJar,
+  cookieJarText,
+  onCookieJarText,
   proxyUrl = "",
 }) => {
   const binary = await resolveCurlBinary();
@@ -168,13 +194,14 @@ export const curlFetchWithBrowserHeaders = async ({
     "5",
     "--max-time",
     String(Math.max(5, Math.ceil(timeoutSeconds))),
+    "-b",
+    "-",
+    "-c",
+    "-",
     "-w",
-    `\n${DELIMITER}%{http_code}`,
+    `\n${STATUS_DELIMITER}%{http_code}\n${COOKIE_DELIMITER}\n`,
   ];
 
-  if (cookieJar) {
-    args.push("-b", cookieJar, "-c", cookieJar);
-  }
   if (proxyUrl) {
     args.push("--proxy", proxyUrl);
   }
@@ -185,20 +212,18 @@ export const curlFetchWithBrowserHeaders = async ({
 
   args.push("--", url);
 
-  const result = await run(binary, args);
+  const result = await run(binary, args, cookieJarText || emptyCookieJar());
   if (result.exitCode !== 0) {
     throw new Error(result.stderr.trim() || `lolcat-4play: curl failed (${result.exitCode})`);
   }
 
-  const delimIdx = result.stdout.lastIndexOf(`\n${DELIMITER}`);
-  const bodyText = delimIdx >= 0 ? result.stdout.slice(0, delimIdx) : result.stdout;
-  const statusNum = parseInt(
-    delimIdx >= 0 ? result.stdout.slice(delimIdx + DELIMITER.length + 1) : "502",
-    10,
-  );
+  const parsed = parseCurlStdoutWithCookieJar(result.stdout);
+  if (parsed.cookieJarText && typeof onCookieJarText === "function") {
+    onCookieJarText(parsed.cookieJarText);
+  }
 
-  return new Response(bodyText, {
-    status: statusNum >= 100 ? statusNum : 502,
+  return new Response(parsed.bodyText, {
+    status: parsed.status,
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 };

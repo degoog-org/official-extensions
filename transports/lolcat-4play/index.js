@@ -1,10 +1,11 @@
 import { ContainerPool } from "./src/container-pool.js";
 import { tabSpell } from "./src/browser.js";
 import {
+  cookieJarKeyFor,
   curlFetchWithBrowserHeaders,
   proxyUrlFromSettings,
   resolveCurlBinary,
-  seedCookieJarFromHeaders,
+  seedCookieJarTextFromHeaders,
 } from "./src/curl-session.js";
 import {
   OriginBlockedError,
@@ -31,7 +32,7 @@ export default class FourPlayTransport {
   name = "lolcat-4play";
   displayName = "4play (lolcat)";
   description =
-    "Fetches pages using a real Firefox session via the official [lolcat 4play](https://git.lolcat.ca/lolcat/4play) browser extension. Point the extension at this transport's WebSocket address instead of a separate server.";
+    "Fetches pages using a real Firefox session via the official [lolcat 4play](https://addons.mozilla.org/en-GB/firefox/addon/4play/) browser extension. Point the extension at this transport's WebSocket address instead of a separate server.";
 
   _password = "";
   _timeoutMs = 30000;
@@ -57,9 +58,12 @@ export default class FourPlayTransport {
   _originWarmups = new Map();
   _browserHeaderSessions = new Map();
   _ownedTabIds = new Set();
+  _cookieCache = null;
+  _cookieJarTextSessions = new Map();
 
   _containers = new ContainerPool({
-    command: (action, params, timeoutMs) => this._cmd(action, params, timeoutMs),
+    command: (action, params, timeoutMs) =>
+      this._cmd(action, params, timeoutMs),
     hasSession: () => Boolean(this._session),
     buildProxy: () => this._dressProxy(),
     proxyType: () => this._proxyType,
@@ -76,7 +80,9 @@ export default class FourPlayTransport {
     onUpgrade: (passwordPath) => passwordPath === `/${this._password}`,
 
     onOpen: () => {
-      this._cmd("web_response_whitelist", { list: WEB_RESPONSE_TYPES }).catch(() => { });
+      this._cmd("web_response_whitelist", { list: WEB_RESPONSE_TYPES }).catch(
+        () => {},
+      );
     },
 
     onMessage: (_ws, raw) => {
@@ -107,8 +113,7 @@ export default class FourPlayTransport {
         return;
       }
 
-      const byUrl =
-        typeof url === "string" ? this._firstUrlPending(url) : null;
+      const byUrl = typeof url === "string" ? this._firstUrlPending(url) : null;
       if (byUrl) {
         this._settlePending(byUrl, byUrl.resolve, { url, body });
       }
@@ -119,6 +124,7 @@ export default class FourPlayTransport {
       this._containers.clear();
       this._originWarmups.clear();
       this._browserHeaderSessions.clear();
+      this._cookieJarTextSessions.clear();
       this._ownedTabIds.clear();
       this._drainDomPending("lolcat-4play: browser extension disconnected");
       this._drainPending("lolcat-4play: browser extension disconnected");
@@ -154,6 +160,7 @@ export default class FourPlayTransport {
       this._containers.yerOldGetOuttaHere();
       this._originWarmups.clear();
       this._browserHeaderSessions.clear();
+      this._cookieJarTextSessions.clear();
     }
   }
 
@@ -207,12 +214,23 @@ export default class FourPlayTransport {
   _registerPending(url) {
     let entry;
     const promise = new Promise((resolve, reject) => {
-      entry = { url, resolve, reject, timer: null, tabId: null, settled: false };
+      entry = {
+        url,
+        resolve,
+        reject,
+        timer: null,
+        tabId: null,
+        settled: false,
+      };
     });
-    promise.catch(() => { });
+    promise.catch(() => {});
 
     entry.timer = setTimeout(() => {
-      this._settlePending(entry, entry.reject, new Error("lolcat-4play: web_response timed out"));
+      this._settlePending(
+        entry,
+        entry.reject,
+        new Error("lolcat-4play: web_response timed out"),
+      );
     }, this._timeoutMs);
 
     const entries = this._urlPending.get(url) ?? new Set();
@@ -236,7 +254,8 @@ export default class FourPlayTransport {
       for (const entry of group) entries.add(entry);
     }
     for (const entry of this._tabPending.values()) entries.add(entry);
-    for (const entry of entries) this._settlePending(entry, entry.reject, error);
+    for (const entry of entries)
+      this._settlePending(entry, entry.reject, error);
   }
 
   _drainDomPending(reason) {
@@ -250,12 +269,13 @@ export default class FourPlayTransport {
 
   async _closeTabQuietly(tabId) {
     if (typeof tabId !== "number") return;
-    await this._cmd("tab_close", { tabid: [tabId] }).catch(() => { });
+    await this._cmd("tab_close", { tabid: [tabId] }).catch(() => {});
   }
 
   _settleDom(msg) {
     const tabId = msg?.data?.id;
-    const waiter = typeof tabId === "number" ? this._domPending.get(tabId) : null;
+    const waiter =
+      typeof tabId === "number" ? this._domPending.get(tabId) : null;
     if (!waiter) return;
 
     clearTimeout(waiter.timer);
@@ -277,16 +297,23 @@ export default class FourPlayTransport {
     }
 
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this._domPending.delete(tabId);
-        resolve(null);
-      }, Math.min(timeoutMs, this._timeoutMs));
+      const timer = setTimeout(
+        () => {
+          this._domPending.delete(tabId);
+          resolve(null);
+        },
+        Math.min(timeoutMs, this._timeoutMs),
+      );
       this._domPending.set(tabId, { resolve, reject, timer });
     });
   }
 
   async _inject(tabId, js, timeoutMs = this._timeoutMs) {
-    const result = await this._cmd("tab_inject_js", { tabid: tabId, js }, timeoutMs);
+    const result = await this._cmd(
+      "tab_inject_js",
+      { tabid: tabId, js },
+      timeoutMs,
+    );
     if (result?.status !== true) return null;
     const frameResult = Array.isArray(result.result) ? result.result[0] : null;
     return frameResult?.result ?? null;
@@ -300,6 +327,33 @@ export default class FourPlayTransport {
     return this._browserHeaderSessions.get(warmupKeyFor(origin, containerId));
   }
 
+  _persistCookieJar(origin, containerId, cookieJarText) {
+    const key = cookieJarKeyFor(origin, containerId);
+    this._cookieJarTextSessions.set(key, cookieJarText);
+    this._cookieCache
+      ?.set(key, cookieJarText, this._warmupTtlMs)
+      .catch((error) => {
+        console.warn(
+          `[lolcat-4play] failed to persist cookie jar for ${origin}: ${error?.message || error}`,
+        );
+      });
+  }
+
+  async _loadCookieJar(origin, containerId) {
+    const key = cookieJarKeyFor(origin, containerId);
+    if (this._cookieCache) {
+      try {
+        const cached = await this._cookieCache.get(key);
+        if (cached) return cached;
+      } catch (error) {
+        console.warn(
+          `[lolcat-4play] failed to read cookie jar for ${origin}: ${error?.message || error}`,
+        );
+      }
+    }
+    return this._cookieJarTextSessions.get(key) || null;
+  }
+
   _rememberBrowserHeaders(data = {}) {
     if (!this._isReusableBrowserRequest(data)) return;
     if (typeof data.id !== "number" || !this._ownedTabIds.has(data.id)) return;
@@ -307,40 +361,53 @@ export default class FourPlayTransport {
     if (!origin) return;
 
     const containerId = data.container || null;
-    const cookieJar = seedCookieJarFromHeaders(origin, containerId, data.headers);
-    if (!cookieJar) {
-      console.warn(`[lolcat-4play] ${origin} request has no cookies yet (container=${containerId || "default"}, url=${data.url}); expected for the first homepage hit, waiting for the post-warmup cookie-bearing request`);
+    const cookieJarText = seedCookieJarTextFromHeaders(origin, data.headers);
+    if (!cookieJarText) {
+      console.warn(
+        `[lolcat-4play] ${origin} request has no cookies yet (container=${containerId || "default"}, url=${data.url}); expected for the first homepage hit, waiting for the post-warmup cookie-bearing request`,
+      );
       return;
     }
 
     const session = {
       headers: data.headers,
       url: data.url,
-      cookieJar,
+      cookieJarText,
       capturedAt: Date.now(),
     };
     this._browserHeaderSessions.set(warmupKeyFor(origin, containerId), session);
     if (!containerId || containerId === "firefox-default") {
       this._browserHeaderSessions.set(warmupKeyFor(origin, null), session);
     }
-    console.warn(`[lolcat-4play] captured cookie-bearing ${origin} session for curl reuse (container=${containerId || "default"}, url=${data.url})`);
+    this._persistCookieJar(origin, containerId, cookieJarText);
+    console.warn(
+      `[lolcat-4play] captured cookie-bearing ${origin} session for curl reuse (container=${containerId || "default"}, url=${data.url})`,
+    );
   }
 
   _isReusableBrowserRequest(data = {}) {
     if (!Array.isArray(data.headers) || !data.url) return false;
-    if (data.type !== "main_frame" || String(data.method || "GET").toUpperCase() !== "GET") return false;
+    if (
+      data.type !== "main_frame" ||
+      String(data.method || "GET").toUpperCase() !== "GET"
+    )
+      return false;
     return Boolean(originFor(data.url));
   }
 
   _usableHeaderSession(origin, containerId) {
     const session = this._headerSession(origin, containerId);
     if (!session?.headers?.length) return null;
-    if (!session.cookieJar) {
-      console.warn(`[lolcat-4play] discarding poisoned ${origin} session: headers captured but no cookie jar (container=${containerId || "default"}); curl would hit the origin logged-out`);
+    if (!session.cookieJarText) {
+      console.warn(
+        `[lolcat-4play] discarding poisoned ${origin} session: headers captured but no cookie jar (container=${containerId || "default"}); curl would hit the origin logged-out`,
+      );
       return null;
     }
     if (Date.now() - session.capturedAt > this._warmupTtlMs) {
-      console.warn(`[lolcat-4play] ${origin} session expired (container=${containerId || "default"}, age=${Math.round((Date.now() - session.capturedAt) / 1000)}s); will rewarm`);
+      console.warn(
+        `[lolcat-4play] ${origin} session expired (container=${containerId || "default"}, age=${Math.round((Date.now() - session.capturedAt) / 1000)}s); will rewarm`,
+      );
       return null;
     }
     return session;
@@ -351,7 +418,9 @@ export default class FourPlayTransport {
   }
 
   _markOriginBlocked(origin, containerId, reason = "blocked") {
-    console.warn(`[lolcat-4play] tainting ${origin} session for ${Math.round(this._blockCooldownMs / 60000)}m (container=${containerId || "default"}, reason: ${reason}); retiring container`);
+    console.warn(
+      `[lolcat-4play] tainting ${origin} session for ${Math.round(this._blockCooldownMs / 60000)}m (container=${containerId || "default"}, reason: ${reason}); retiring container`,
+    );
     this._setWarmupState(origin, containerId, {
       blockedUntil: Date.now() + this._blockCooldownMs,
       reason,
@@ -367,7 +436,11 @@ export default class FourPlayTransport {
   }
 
   async _inspectWarmupPage(origin, containerId, tabId) {
-    const page = await this._inject(tabId, inspectPageJs(), Math.min(10000, this._timeoutMs));
+    const page = await this._inject(
+      tabId,
+      inspectPageJs(),
+      Math.min(10000, this._timeoutMs),
+    );
     const haystack = `${page?.title || ""}\n${page?.href || ""}\n${page?.text || ""}`;
     if (looksBlocked(haystack)) {
       this._markOriginBlocked(origin, containerId, "warmup page block/captcha");
@@ -377,10 +450,15 @@ export default class FourPlayTransport {
   }
 
   async _openWarmupTab(origin, containerId) {
-    const tabResp = await this._cmd("tab_open", tabSpell(`${origin}/`, containerId));
+    const tabResp = await this._cmd(
+      "tab_open",
+      tabSpell(`${origin}/`, containerId),
+    );
     const tabId = tabResp?.data?.id;
     if (typeof tabId !== "number") {
-      throw new Error("lolcat-4play: warmup tab_open did not return a valid tab id");
+      throw new Error(
+        "lolcat-4play: warmup tab_open did not return a valid tab id",
+      );
     }
     this._ownedTabIds.add(tabId);
     await this._awaitDom(tabId, this._timeoutMs).catch(() => null);
@@ -396,7 +474,9 @@ export default class FourPlayTransport {
     );
     if (!submitted?.submitted) return false;
 
-    await this._awaitDom(tabId, Math.min(10000, this._timeoutMs)).catch(() => null);
+    await this._awaitDom(tabId, Math.min(10000, this._timeoutMs)).catch(
+      () => null,
+    );
     await sleep(this._warmupSettleMs);
     await this._inspectWarmupPage(origin, containerId, tabId);
     return true;
@@ -426,13 +506,17 @@ export default class FourPlayTransport {
         this._setWarmupState(origin, containerId, { warmedAt: Date.now() });
       } else {
         this._originWarmups.delete(warmupKeyFor(origin, containerId));
-        console.warn(`[lolcat-4play] origin warmup for ${origin} did not capture a reusable main-frame browser session`);
+        console.warn(
+          `[lolcat-4play] origin warmup for ${origin} did not capture a reusable main-frame browser session`,
+        );
       }
       return origin;
     } catch (error) {
       if (error instanceof OriginBlockedError) throw error;
       this._originWarmups.delete(warmupKeyFor(origin, containerId));
-      console.warn(`[lolcat-4play] origin warmup failed for ${origin}: ${error?.message || error}`);
+      console.warn(
+        `[lolcat-4play] origin warmup failed for ${origin}: ${error?.message || error}`,
+      );
       return origin;
     }
   }
@@ -472,25 +556,42 @@ export default class FourPlayTransport {
     const session = this._usableHeaderSession(origin, containerId);
     if (!session || !(await resolveCurlBinary())) return null;
 
+    const cookieJarText =
+      (await this._loadCookieJar(origin, containerId)) || session.cookieJarText;
+    if (!cookieJarText) {
+      console.warn(
+        `[lolcat-4play] no cookie jar available for ${origin} (container=${containerId || "default"}); falling back to browser tab`,
+      );
+      return null;
+    }
+
     try {
       const response = await curlFetchWithBrowserHeaders({
         url,
         headers: session.headers,
         timeoutSeconds: this._timeoutMs / 1000,
-        cookieJar: session.cookieJar,
+        cookieJarText,
+        onCookieJarText: (updated) => {
+          session.cookieJarText = updated;
+          this._persistCookieJar(origin, containerId, updated);
+        },
         proxyUrl: this._curlProxyUrl(),
       });
       const text = await response.text();
       return this._wrapFetchedText(text, origin, containerId);
     } catch (error) {
       if (error instanceof OriginBlockedError) throw error;
-      console.warn(`[lolcat-4play] warmed curl fetch failed for ${origin}: ${error?.message || error}; falling back to browser tab`);
+      console.warn(
+        `[lolcat-4play] warmed curl fetch failed for ${origin}: ${error?.message || error}; falling back to browser tab`,
+      );
       return null;
     }
   }
 
   async _browserFetch(url, origin, containerId) {
-    console.warn(`[lolcat-4play] direct browser tab fetch for ${url} (container=${containerId || "default"}): no warmed curl session for this origin, returning the pre-JS network body (some origins serve a JS/consent interstitial here)`);
+    console.warn(
+      `[lolcat-4play] direct browser tab fetch for ${url} (container=${containerId || "default"}): no warmed curl session for this origin, returning the pre-JS network body (some origins serve a JS/consent interstitial here)`,
+    );
     let tabId = null;
     const pending = this._registerPending(url);
 
@@ -518,7 +619,14 @@ export default class FourPlayTransport {
     }
   }
 
-  async _fetchOnce(url) {
+  async _fetchOnce(url, options = {}, context = {}) {
+    if (context.useCache && !this._cookieCache) {
+      this._cookieCache = context.useCache(
+        "transport:lolcat-4play:cookies",
+        this._warmupTtlMs,
+      );
+    }
+
     await this._containers.sweepRetiredContainers();
 
     const useContainer = this._proxyType !== "none" || this._useContainer;
@@ -539,16 +647,18 @@ export default class FourPlayTransport {
     }
   }
 
-  async fetch(url) {
+  async fetch(url, options = {}, context = {}) {
     try {
-      return await this._fetchOnce(url);
+      return await this._fetchOnce(url, options, context);
     } catch (error) {
       const canRetry =
         error instanceof OriginBlockedError &&
         (this._proxyType !== "none" || this._useContainer);
       if (!canRetry) throw error;
-      console.warn(`[lolcat-4play] retrying ${error.origin} with a fresh container after block detection`);
-      return this._fetchOnce(url);
+      console.warn(
+        `[lolcat-4play] retrying ${error.origin} with a fresh container after block detection`,
+      );
+      return this._fetchOnce(url, options, context);
     }
   }
 }
