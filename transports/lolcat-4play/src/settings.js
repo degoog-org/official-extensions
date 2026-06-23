@@ -11,6 +11,9 @@ export const DEFAULT_WARMUP_TTL_M = 60;
 export const DEFAULT_BLOCK_COOLDOWN_M = 20;
 export const DEFAULT_WARMUP_SETTLE_MS = 1500;
 export const DEFAULT_WARMUP_QUERY = "weather";
+export const DEFAULT_FLARE_TIMEOUT_MS = 60000;
+export const MIN_FLARE_TIMEOUT_MS = 10000;
+export const MAX_FLARE_TIMEOUT_MS = 180000;
 
 export const clampTimeout = (value) =>
   Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, Number(value) || DEFAULT_TIMEOUT_MS));
@@ -31,26 +34,32 @@ export const toMinutesMs = (value, fallbackMinutes) => {
 export const clampSettleMs = (value) =>
   Math.max(0, Math.min(10000, Number(value) || DEFAULT_WARMUP_SETTLE_MS));
 
+export const clampFlareMs = (value) =>
+  Math.max(MIN_FLARE_TIMEOUT_MS, Math.min(MAX_FLARE_TIMEOUT_MS, Number(value) || DEFAULT_FLARE_TIMEOUT_MS));
+
 export const normaliseSettings = (settings = {}) => ({
   timeoutMs: clampTimeout(settings.timeout),
   maxPoolSize: clampPoolSize(settings.maxPoolSize),
   containerTtlMs: toContainerTtlMs(settings.containerTtl),
-  useContainer: settings.useContainer !== "false",
+  useContainer: settings.useContainer !== false && settings.useContainer !== "false",
   proxyType: PROXY_TYPES.includes(settings.proxyType) ? settings.proxyType : "none",
   proxyHost: (settings.proxyHost || "").trim(),
   proxyPort: parseInt(settings.proxyPort, 10) || 1080,
   proxyUsername: (settings.proxyUsername || "").trim(),
   proxyPassword: (settings.proxyPassword || "").trim(),
-  proxyDns: settings.proxyDns !== "false",
+  proxyDns: settings.proxyDns !== false && settings.proxyDns !== "false",
   password: typeof settings.password === "string" ? settings.password : "",
   warmupQuery: String(settings.warmupQuery || DEFAULT_WARMUP_QUERY).trim() || DEFAULT_WARMUP_QUERY,
   warmupTtlMs: toMinutesMs(settings.warmupTtl, DEFAULT_WARMUP_TTL_M),
   blockCooldownMs: toMinutesMs(settings.blockCooldown, DEFAULT_BLOCK_COOLDOWN_M),
   warmupSettleMs: clampSettleMs(settings.warmupSettle),
+  flaresolverrUrl: (settings.flaresolverrUrl || "").trim(),
+  flaresolverrTimeoutMs: clampFlareMs(settings.flaresolverrTimeout),
 });
 
 export const containerConfigKey = (settings) =>
   JSON.stringify({
+    useContainer: settings.useContainer,
     proxyType: settings.proxyType,
     proxyHost: settings.proxyHost,
     proxyPort: settings.proxyPort,
@@ -134,6 +143,21 @@ export const settingsSchemaFor = (transportName) => [
     placeholder: String(DEFAULT_WARMUP_SETTLE_MS),
     description:
       "Short pause after homepage/form warmup navigation so browser-set cookies and session scripts can settle before the real request.",
+  },
+  {
+    key: "flaresolverrUrl",
+    label: "FlareSolverr URL",
+    type: "text",
+    placeholder: "http://127.0.0.1:8191/v1",
+    description:
+      "Optional. When a CAPTCHA/bot-check is hit, try this FlareSolverr instance first to clear JavaScript challenges (e.g. Cloudflare) before falling back to opening a manual browser tab. The transport's proxy settings are forwarded to FlareSolverr. Leave blank to disable. Note: only solves automated JS challenges, not interactive image CAPTCHAs.",
+  },
+  {
+    key: "flaresolverrTimeout",
+    label: "FlareSolverr timeout (ms)",
+    type: "number",
+    placeholder: String(DEFAULT_FLARE_TIMEOUT_MS),
+    description: `How long FlareSolverr may spend solving a challenge (${MIN_FLARE_TIMEOUT_MS}-${MAX_FLARE_TIMEOUT_MS} ms).`,
   },
   {
     key: "proxyType",

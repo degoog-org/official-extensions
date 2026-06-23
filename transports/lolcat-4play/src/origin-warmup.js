@@ -3,6 +3,11 @@ const BLOCK_PATTERNS = [
   /unusual traffic/i,
   /automated quer(?:y|ies)/i,
   /verify\s+(?:that\s+)?you\s+are\s+human/i,
+  /confirm\s+this\s+search\s+was\s+made\s+by\s+a\s+human/i,
+  /confirm\s+you\s+are\s+(?:a\s+)?human/i,
+  /bots\s+use/i,
+  /complete\s+(?:the\s+)?following\s+challenge/i,
+  /select\s+all\s+squares/i,
   /suspicious (?:activity|behavior|behaviour)/i,
   /our systems have detected/i,
   /not a robot/i,
@@ -12,7 +17,8 @@ const BLOCK_PATTERNS = [
 export class OriginBlockedError extends Error {
   constructor(origin, reason = "blocked") {
     super(`lolcat-4play: ${origin} session appears blocked (${reason})`);
-    this.name = "OriginBlockedError";
+    this.name = "SentinelBreach";
+    this.status = "captcha";
     this.origin = origin;
     this.reason = reason;
   }
@@ -28,8 +34,60 @@ export const warmupKeyFor = (origin, containerId) => `${containerId || "default"
 
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export const looksBlocked = (text) => {
-  const sample = String(text ?? "").slice(0, 250000);
+const queryFromUrl = (url) => {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url);
+    return parsed.searchParams.get("q") || "";
+  } catch {
+    return "";
+  }
+};
+
+export const looksBlocked = (text, url = "") => {
+  if (typeof text !== "string") return false;
+
+  // 1. Extract the title from HTML if present
+  const titleMatch = /<title[^>]*>([^<]+)<\/title>/i.exec(text);
+  const title = titleMatch ? titleMatch[1].trim() : "";
+  const lowerTitle = title.toLowerCase();
+
+  // 2. Check for explicit bot check / captcha indicators in the title
+  if (
+    lowerTitle.includes("bot check") ||
+    lowerTitle.includes("robot check") ||
+    lowerTitle.includes("captcha") ||
+    lowerTitle.includes("pardon our interruption") ||
+    lowerTitle.includes("attention required") ||
+    lowerTitle.includes("just a moment")
+  ) {
+    return true;
+  }
+
+  // 3. If the title matches the query + search engine suffix exactly, it is a successful search
+  const query = queryFromUrl(url);
+  if (query) {
+    const cleanTitle = title.replace(/\s*-\s*(Google|Brave)\s*Search/i, "").trim().toLowerCase();
+    if (cleanTitle === query.toLowerCase()) {
+      return false;
+    }
+  }
+
+  // 4. Fallback: If title contains "Google Search" or "Brave Search" but NOT access denied / forbidden, assume successful
+  if (
+    (lowerTitle.includes("google search") || lowerTitle.includes("brave search")) &&
+    !lowerTitle.includes("forbidden") &&
+    !lowerTitle.includes("access denied")
+  ) {
+    return false;
+  }
+
+  // 5. Strip scripts and styles to avoid matching embedded translation JSON strings or styles
+  const cleanText = text
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
+
+  const sample = cleanText.slice(0, 250000);
   return BLOCK_PATTERNS.some((pattern) => pattern.test(sample));
 };
 

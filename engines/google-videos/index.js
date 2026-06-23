@@ -69,10 +69,50 @@ const _durationFromScope = ($, $scope) => {
   return found;
 };
 
+const MUTANT_SIGNATURES = [
+  "/httpservice/retry/enablejs",
+  'Please click <a href="/httpservice',
+  "unusual traffic from your computer network",
+  "/sorry/index?continue=",
+];
+
+const _isInterstitial = (html) => {
+  const head = html.slice(0, 4000);
+  return MUTANT_SIGNATURES.some((m) => head.includes(m));
+};
+
+const _parseDesktop = ($, name) => {
+  const results = [];
+  const seen = new Set();
+  $("a:has(h3)").each((_, el) => {
+    const linkEl = $(el);
+    const url = _resolveHref(linkEl.attr("href") || "");
+    if (!url.startsWith("http") || url.includes("google.com")) return;
+    const title = linkEl.find("h3").first().text().trim();
+    if (!title || seen.has(url)) return;
+    seen.add(url);
+    const block = linkEl.closest("[data-hveid]");
+    const snippet =
+      block.find("[data-sncf]").first().text().trim() ||
+      block.find(".VwiC3b").first().text().trim() ||
+      "";
+    results.push({
+      title,
+      url,
+      snippet,
+      source: name,
+      thumbnail: _ytThumbnail(url),
+      duration: block.length ? _durationFromScope($, block) : "",
+    });
+  });
+  return results;
+};
+
 export default class GoogleVideosEngine {
   isClientExposed = false;
   name = "Google Videos";
   safeSearch = "off";
+  resultsFormat = "lite";
   settingsSchema = [
     {
       key: "outgoingTransport",
@@ -81,6 +121,16 @@ export default class GoogleVideosEngine {
       options: ["fetch", "curl", "curl-fallback"],
       default: "curl",
       advanced: true,
+    },
+    {
+      key: "resultsFormat",
+      label: "Results format",
+      type: "select",
+      options: ["lite", "html"],
+      optionLabels: ["Lite results", "HTML results"],
+      default: "lite",
+      description:
+        "Lite results use a lightweight mobile page that works over any transport. HTML results fetch the full desktop results page for higher-quality results with proper titles, snippets and thumbnails, but require a real browser session; install [4play (lolcat)](https://github.com/degoog-org/official-extensions/tree/main/transports/lolcat-4play) from the Store tab and select it as this engine's transport.",
     },
     {
       key: "safeSearch",
@@ -93,9 +143,71 @@ export default class GoogleVideosEngine {
 
   configure(settings) {
     if (typeof settings.safeSearch === "string") this.safeSearch = settings.safeSearch;
+    if (settings.resultsFormat === "lite" || settings.resultsFormat === "html")
+      this.resultsFormat = settings.resultsFormat;
+  }
+
+  _buildParams(query, page, timeFilter, context) {
+    const start = (page - 1) * 10;
+    const lang = context?.lang || "en";
+    const params = new URLSearchParams({
+      q: query,
+      tbm: "vid",
+      hl: lang,
+      lr: `lang_${lang}`,
+      ie: "utf8",
+      oe: "utf8",
+      start: String(start),
+      filter: "0",
+    });
+
+    const tbs = timeFilter === "custom"
+      ? _resolveCustomTbs(context?.dateFrom, context?.dateTo)
+      : _resolveTbs(timeFilter);
+    if (tbs) params.set("tbs", tbs);
+    if (this.safeSearch === "on") params.set("safe", "active");
+    return params;
   }
 
   async executeSearch(query, page = 1, timeFilter, context) {
+    if (this.resultsFormat === "html") {
+      return this._searchHtml(query, page, timeFilter, context);
+    }
+    return this._searchLite(query, page, timeFilter, context);
+  }
+
+  async _searchHtml(query, page, timeFilter, context) {
+    const params = this._buildParams(query, page, timeFilter, context);
+    const userAgent = context?.userAgent?.() || _gsaAgent();
+    const doFetch = context?.fetch ?? fetch;
+    const response = await doFetch(`https://www.google.com/search?${params.toString()}`, {
+      headers: {
+        "User-Agent": userAgent,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": context?.buildAcceptLanguage?.() || "en-US,en;q=0.9",
+        Cookie: "CONSENT=YES+",
+      },
+      redirect: "follow",
+    });
+
+    context?.sentinel?.(response, this.name);
+    const html = await response.text();
+
+    if (_isInterstitial(html)) {
+      if (context?.engineError) {
+        throw context.engineError(
+          "interstitial",
+          `${this.name} returned a JavaScript/consent interstitial`,
+          { engine: this.name },
+        );
+      }
+      throw new Error(`${this.name} returned a JavaScript/consent interstitial`);
+    }
+
+    return _parseDesktop(cheerio.load(html), this.name);
+  }
+
+  async _searchLite(query, page = 1, timeFilter, context) {
     const start = (page - 1) * 10;
     const lang = context?.lang || "en";
     const params = new URLSearchParams({

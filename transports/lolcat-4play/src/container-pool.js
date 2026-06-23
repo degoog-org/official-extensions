@@ -126,12 +126,22 @@ export class ContainerPool {
     return true;
   }
 
-  async tuckContainerIn(containerId, keepWarm) {
+  async tuckContainerIn(containerId, keepWarm, hitBlock = false) {
     if (!containerId) return;
     this.leased.delete(containerId);
 
     const shouldDelete = !keepWarm || this.retired.has(containerId) || !this.hasSession() || this._isExpired(containerId);
     if (shouldDelete) {
+      if (hitBlock) {
+        this.retired.delete(containerId);
+        // Put the blocked container back in the pool so that we reuse it next time.
+        // This allows the user to solve the CAPTCHA inside this container's tab and reuse the session.
+        if (this.pool.length < this.maxPoolSize() && !this.pool.includes(containerId)) {
+          this.pool.push(containerId);
+        }
+        await this.passContainerToNextWaiter();
+        return;
+      }
       await this.banishContainer(containerId);
       await this.passContainerToNextWaiter();
       return;

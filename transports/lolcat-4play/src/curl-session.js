@@ -17,6 +17,11 @@ const BINARIES = [
   "curl",
 ];
 
+// curl-impersonate builds often ship without working Brotli/zstd decompressors.
+// Brave and similar origins negotiate br by default; --compressed then fails with
+// curl exit 23 (CURLE_WRITE_ERROR). Restrict to gzip/deflate, which --compressed handles.
+const CURL_ACCEPT_ENCODING = "gzip, deflate";
+
 const STRIP_HEADERS = new Set([
   "accept-encoding",
   "authorization",
@@ -206,6 +211,8 @@ export const curlFetchWithBrowserHeaders = async ({
     args.push("--proxy", proxyUrl);
   }
 
+  args.push("-H", `Accept-Encoding: ${CURL_ACCEPT_ENCODING}`);
+
   for (const header of cleanBrowserHeaders(headers)) {
     args.push("-H", header);
   }
@@ -214,7 +221,12 @@ export const curlFetchWithBrowserHeaders = async ({
 
   const result = await run(binary, args, cookieJarText || emptyCookieJar());
   if (result.exitCode !== 0) {
-    throw new Error(result.stderr.trim() || `lolcat-4play: curl failed (${result.exitCode})`);
+    const detail = result.stderr.trim();
+    const hint =
+      result.exitCode === 23
+        ? " (response decompression failed; origin may have ignored gzip-only Accept-Encoding)"
+        : "";
+    throw new Error(detail || `lolcat-4play: curl failed (${result.exitCode})${hint}`);
   }
 
   const parsed = parseCurlStdoutWithCookieJar(result.stdout);
