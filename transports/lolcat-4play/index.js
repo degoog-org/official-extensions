@@ -353,19 +353,28 @@ export default class FourPlayTransport {
     return frameResult?.result ?? null;
   }
 
+  _memKey(containerId) {
+    return containerId || this._containerConfigKey || "default";
+  }
+
+  _cacheKey() {
+    return this._containerConfigKey || "default";
+  }
+
   _warmupState(origin, containerId) {
-    return this._originWarmups.get(warmupKeyFor(origin, this._containerConfigKey || "default"));
+    return this._originWarmups.get(warmupKeyFor(origin, this._memKey(containerId)));
   }
 
   _headerSession(origin, containerId) {
-    return this._browserHeaderSessions.get(warmupKeyFor(origin, this._containerConfigKey || "default"));
+    return this._browserHeaderSessions.get(warmupKeyFor(origin, this._memKey(containerId)));
   }
 
   _persistCookieJar(origin, containerId, cookieJarText, headers = null) {
-    const key = cookieJarKeyFor(origin, this._containerConfigKey || "default");
-    this._cookieJarTextSessions.set(key, cookieJarText);
+    const memKey = cookieJarKeyFor(origin, this._memKey(containerId));
+    const cacheKey = cookieJarKeyFor(origin, this._cacheKey());
+    this._cookieJarTextSessions.set(memKey, cookieJarText);
     this._cookieCache
-      ?.set(key, cookieJarText, this._warmupTtlMs)
+      ?.set(cacheKey, cookieJarText, this._warmupTtlMs)
       .catch((error) => {
         console.warn(
           `[lolcat-4play] failed to persist cookie jar for ${origin}: ${error?.message || error}`,
@@ -373,7 +382,7 @@ export default class FourPlayTransport {
       });
     if (headers && this._cookieCache) {
       this._cookieCache
-        .set(key + ":headers", JSON.stringify(headers), this._warmupTtlMs)
+        .set(cacheKey + ":headers", JSON.stringify(headers), this._warmupTtlMs)
         .catch((error) => {
           console.warn(
             `[lolcat-4play] failed to persist headers for ${origin}: ${error?.message || error}`,
@@ -383,10 +392,11 @@ export default class FourPlayTransport {
   }
 
   async _loadCookieJar(origin, containerId) {
-    const key = cookieJarKeyFor(origin, this._containerConfigKey || "default");
+    const memKey = cookieJarKeyFor(origin, this._memKey(containerId));
+    const cacheKey = cookieJarKeyFor(origin, this._cacheKey());
     if (this._cookieCache) {
       try {
-        const cached = await this._cookieCache.get(key);
+        const cached = await this._cookieCache.get(cacheKey);
         if (cached) return cached;
       } catch (error) {
         console.warn(
@@ -394,20 +404,20 @@ export default class FourPlayTransport {
         );
       }
     }
-    return this._cookieJarTextSessions.get(key) || null;
+    return this._cookieJarTextSessions.get(memKey) || null;
   }
 
   async _loadSessionFromCache(origin, containerId) {
-    const key = cookieJarKeyFor(origin, this._containerConfigKey || "default");
-    const warmupKey = warmupKeyFor(origin, this._containerConfigKey || "default");
+    const cacheKey = cookieJarKeyFor(origin, this._cacheKey());
+    const warmupKey = warmupKeyFor(origin, this._memKey(containerId));
     if (this._browserHeaderSessions.has(warmupKey)) {
       return;
     }
 
     if (this._cookieCache) {
       try {
-        const cachedCookies = await this._cookieCache.get(key);
-        const cachedHeadersJson = await this._cookieCache.get(key + ":headers");
+        const cachedCookies = await this._cookieCache.get(cacheKey);
+        const cachedHeadersJson = await this._cookieCache.get(cacheKey + ":headers");
         if (cachedCookies && cachedHeadersJson) {
           const headers = JSON.parse(cachedHeadersJson);
           const session = {
@@ -441,7 +451,7 @@ export default class FourPlayTransport {
       this._persistCookieJar(origin, containerId, cookieJarText);
     }
 
-    const warmupKey = warmupKeyFor(origin, this._containerConfigKey || "default");
+    const warmupKey = warmupKeyFor(origin, this._memKey(containerId));
 
     // If it's a main_frame GET/POST, capture headers as well for curl
     const isMainFrame = data.type === "main_frame";
@@ -500,7 +510,7 @@ export default class FourPlayTransport {
   }
 
   _setWarmupState(origin, containerId, state) {
-    this._originWarmups.set(warmupKeyFor(origin, this._containerConfigKey || "default"), state);
+    this._originWarmups.set(warmupKeyFor(origin, this._memKey(containerId)), state);
   }
 
   _markOriginBlocked(origin, containerId, reason = "blocked") {
@@ -593,7 +603,7 @@ export default class FourPlayTransport {
       if (session) {
         this._setWarmupState(origin, containerId, { warmedAt: Date.now() });
       } else {
-        this._originWarmups.delete(warmupKeyFor(origin, this._containerConfigKey || "default"));
+        this._originWarmups.delete(warmupKeyFor(origin, this._memKey(containerId)));
         console.warn(
           `[lolcat-4play] origin warmup for ${origin} did not capture a reusable main-frame browser session`,
         );
@@ -601,7 +611,7 @@ export default class FourPlayTransport {
       return origin;
     } catch (error) {
       if (error instanceof OriginBlockedError) throw error;
-      this._originWarmups.delete(warmupKeyFor(origin, this._containerConfigKey || "default"));
+      this._originWarmups.delete(warmupKeyFor(origin, this._memKey(containerId)));
       console.warn(
         `[lolcat-4play] origin warmup failed for ${origin}: ${error?.message || error}`,
       );
@@ -707,25 +717,17 @@ export default class FourPlayTransport {
         proxyUrl: this._curlProxyUrl(),
       });
       const text = await response.text();
-      return this._wrapFetchedText(text, origin, containerId, url);
-    } catch (error) {
-      if (error instanceof OriginBlockedError) {
+
+      if (origin && looksBlocked(text, url)) {
         const solved = await this._solveWithFlare(url, origin, containerId);
         if (solved) return solved;
         console.warn(
-          `[lolcat-4play] curl fetch got blocked for ${origin}. Opening browser tab at ${url} to let user solve CAPTCHA.`,
+          `[lolcat-4play] warmed curl fetch for ${origin} looks blocked (IP/fingerprint challenge); falling back to the live browser session`,
         );
-        this._cmd("tab_open", tabSpell(url, containerId))
-          .then((tabResp) => {
-            const tabId = tabResp?.data?.id;
-            if (typeof tabId === "number") {
-              this._ownedTabIds.add(tabId);
-              this._captchaTabIds.add(tabId);
-            }
-          })
-          .catch(() => {});
-        throw error;
+        return null;
       }
+      return wrapResponse(text);
+    } catch (error) {
       console.warn(
         `[lolcat-4play] warmed curl fetch failed for ${origin}: ${error?.message || error}; falling back to browser tab`,
       );
