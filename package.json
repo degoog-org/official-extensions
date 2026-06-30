@@ -241,8 +241,8 @@
       "path": "engines/google-images",
       "name": "Google Images",
       "description": "Adds Google Images to degoog. Choose JSON or HTML results in engine settings - each mode links to the matching transport in the Store.",
-      "version": "1.2.1",
-      "minDegoogVersion": "0.19.0",
+      "version": "1.3.0",
+      "minDegoogVersion": "0.23.0",
       "legacyIds": [
         "google-images",
         "google-images-engine"
@@ -274,8 +274,8 @@
       "path": "engines/bing-images",
       "name": "Bing Images",
       "description": "Bing image search.",
-      "version": "1.0.3",
-      "minDegoogVersion": "0.19.0",
+      "version": "1.1.0",
+      "minDegoogVersion": "0.23.0",
       "legacyIds": [
         "bing-images",
         "bing-images-engine"
@@ -392,25 +392,40 @@
       "path": "engines/duckduckgo-images",
       "name": "DuckDuckGo Images",
       "description": "Adds the DuckDuckGo images search engine to degoog, adding an extra ~70 images per page to the image results.",
-      "version": "1.1.4"
+      "version": "1.2.0",
+      "minDegoogVersion": "0.23.0"
+    },
+    {
+      "path": "engines/brave-images",
+      "name": "Brave Images",
+      "description": "Adds the Brave Images search engine to degoog (HTML scraping of the Brave Search image results page).",
+      "version": "1.0.0",
+      "minDegoogVersion": "0.23.0",
+      "legacyIds": [
+        "brave-images",
+        "brave-images-engine"
+      ]
     },
     {
       "path": "engines/openverse",
       "name": "Openverse",
       "description": "Adds the Openverse image engine to degoog. Searches CC-licensed images aggregated from Flickr, Wikimedia and museum collections via the public Openverse API.",
-      "version": "1.1.3"
+      "version": "1.2.0",
+      "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/wikimedia-commons",
       "name": "Wikimedia Commons",
       "description": "Adds the Wikimedia Commons image engine to degoog. Searches the Wikimedia Commons media archive via the MediaWiki API.",
-      "version": "1.1.2"
+      "version": "1.2.0",
+      "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/nasa-images",
       "name": "NASA Images",
       "description": "Adds the NASA image engine to degoog. Searches the NASA Image and Video Library.",
-      "version": "1.0.4"
+      "version": "1.1.0",
+      "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/hacker-news",

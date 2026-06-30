@@ -1,4 +1,7 @@
 export const type = "images";
+export const filters = {
+  nsfw: ["on", "moderate", "off"],
+};
 
 const API_URL = "https://commons.wikimedia.org/w/api.php";
 const PAGE_SIZE = 20;
