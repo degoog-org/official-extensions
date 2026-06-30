@@ -5,6 +5,18 @@ const SEARCH_URL = `${BASE_URL}/sp/search`;
 const TIME_MAP = { hour: "h", day: "d", week: "w", month: "m", year: "y" };
 const SAFE_MAP = { off: "none", on: "heavy" };
 
+const CAPTCHA_MARKERS = [
+  "/sp/captcha",
+  "Startpage Captcha",
+  "CAPTCHA Verification",
+  "captcha-section",
+];
+
+const _isCaptcha = (html) => {
+  const head = html.slice(0, 6000);
+  return CAPTCHA_MARKERS.some((m) => head.includes(m));
+};
+
 const _buildPrefs = (safeSearch) => {
   const f = safeSearch === "on" ? "0" : "1";
   return [
@@ -160,6 +172,14 @@ export default class StartpageEngine {
         params.set("with_date", TIME_MAP[timeFilter]);
       }
       html = await this._getPage(doFetch, params, context);
+    }
+
+    if (_isCaptcha(html)) {
+      const message = `${this.name} served a CAPTCHA challenge (anti-bot block)`;
+      if (context?.engineError) {
+        throw context.engineError("captcha", message, { engine: this.name });
+      }
+      throw new Error(message);
     }
 
     const jsonStr = _extractSerpJson(html);

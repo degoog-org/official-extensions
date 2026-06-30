@@ -57,7 +57,9 @@ export default class BingVideosEngine {
     const lang = context?.lang;
     let url = `https://www.bing.com/videos/search?q=${encodeURIComponent(query)}&count=${pageSize}&first=${first}&FORM=HDRSC3`;
     if (lang) url += `&setlang=${lang}&mkt=${_bingMkt(lang, context?.buildAcceptLanguage)}`;
-    if (this.safeSearch !== "off") url += `&adlt=${this.safeSearch}`;
+    const adlt = this.safeSearch === "strict" || this.safeSearch === "moderate" ? this.safeSearch : "off";
+    if (adlt !== "off") url += `&adlt=${adlt}`;
+    const adltCookie = { strict: "STRICT", moderate: "DEMOTE", off: "OFF" }[adlt] ?? "OFF";
     if (timeFilter && timeFilter !== "any" && timeFilter !== "custom") {
       const map = { hour: "Hour", day: "Day", week: "Week", month: "Month", year: "Year" };
       if (map[timeFilter]) url += `&qft=+filterui:videoage-lt${map[timeFilter].toLowerCase()}`;
@@ -74,6 +76,7 @@ export default class BingVideosEngine {
         "Sec-Fetch-Site": "none",
         "Sec-Fetch-User": "?1",
         "Upgrade-Insecure-Requests": "1",
+        Cookie: `SRCHHPGUSR=ADLT=${adltCookie}`,
       },
       redirect: "follow",
     });

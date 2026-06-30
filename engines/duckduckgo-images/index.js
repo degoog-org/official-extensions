@@ -38,11 +38,9 @@ const DDG_LAYOUT_MAP = {
   wide: "Wide",
 };
 
-const DDG_NSFW_MAP = {
-  off: "-1",
-  moderate: "-1",
-  on: "1",
-};
+const SAFE_STRICT = "1";
+const SAFE_MODERATE = "-1";
+const SAFE_OFF = "-2";
 
 const _extractVqd = (html) => {
   const match = html.match(/vqd=['"]([^'"]+)['"]/);
@@ -94,18 +92,38 @@ export default class DuckDuckGoImagesEngine {
     }
   }
 
-  async executeSearch(query, page = 1, _timeFilter, context) {
-    const doFetch = context?.fetch ?? fetch;
-    const ua = context?.userAgent?.() ?? FALLBACK_UA;
-    const headers = {
-      "User-Agent": ua,
+  _resolveSafe(context) {
+    const nsfw = context?.imageFilter?.nsfw;
+    if (nsfw === "on") return SAFE_STRICT;
+    if (nsfw === "moderate") return SAFE_MODERATE;
+    if (nsfw === "off") return SAFE_OFF;
+    return this.safeSearch === "on" ? SAFE_STRICT : SAFE_OFF;
+  }
+
+  _region(context) {
+    const lang = context?.lang;
+    if (!lang || lang === "en") return "us-en";
+    return `${lang}-${lang}`;
+  }
+
+  _headers(context, safe, region) {
+    return {
+      "User-Agent": context?.userAgent?.() ?? FALLBACK_UA,
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language": context?.buildAcceptLanguage?.() ?? "en-US,en;q=0.9",
       "Accept-Encoding": "gzip, deflate, br",
+      Cookie: `p=${safe}; ah=${region}; l=${region}`,
     };
+  }
+
+  async executeSearch(query, page = 1, _timeFilter, context) {
+    const doFetch = context?.fetch ?? fetch;
+    const safe = this._resolveSafe(context);
+    const region = this._region(context);
+    const headers = this._headers(context, safe, region);
 
     const initRes = await doFetch(
-      `https://duckduckgo.com/?q=${encodeURIComponent(query)}&iax=images&ia=images`,
+      `https://duckduckgo.com/?q=${encodeURIComponent(query)}&iar=images&iax=images&ia=images`,
       { headers },
     );
     context?.sentinel?.(initRes, this.name);
@@ -114,19 +132,18 @@ export default class DuckDuckGoImagesEngine {
     if (!vqd) return [];
 
     const imageFilter = context?.imageFilter ?? {};
-    const nsfwP = DDG_NSFW_MAP[imageFilter.nsfw];
-    const safeP = this.safeSearch === "on" ? "1" : "-1";
     const offset = (page - 1) * 100;
 
     const params = new URLSearchParams({
+      o: "json",
       q: query,
       vqd,
-      p: nsfwP ?? safeP,
-      s: String(offset),
       u: "bing",
+      bpia: "1",
+      l: region,
+      p: safe,
+      s: String(offset),
       f: _mkFilters(imageFilter),
-      l: context?.lang ? `${context.lang}-${context.lang}` : "us-en",
-      o: "json",
       ...(this.hideAiImages === "hide" ? { kbj: "1" } : {}),
     });
 

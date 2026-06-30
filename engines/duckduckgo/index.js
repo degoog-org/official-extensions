@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 
 const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 
-const SAFE_SEARCH_MAP = { moderate: "-2", strict: "1" };
+const SAFE_SEARCH_MAP = { off: "-2", moderate: "-1", strict: "1" };
 
 const _resolveRedirect = (href) => {
   try {
@@ -43,10 +43,11 @@ export default class DuckDuckGoEngine {
   async executeSearch(query, page, timeFilter, context) {
     const offset = ((page || 1) - 1) * 30;
     const lang = context?.lang;
+    const safe = SAFE_SEARCH_MAP[this.safeSearch];
     const params = new URLSearchParams({ q: query });
     if (offset > 0) { params.set("s", String(offset)); params.set("dc", String(offset + 1)); }
     if (lang && lang !== "en") params.set("kl", `${lang}-${lang}`);
-    if (SAFE_SEARCH_MAP[this.safeSearch]) params.set("kp", SAFE_SEARCH_MAP[this.safeSearch]);
+    if (safe) params.set("kp", safe);
     if (timeFilter && timeFilter !== "any" && timeFilter !== "custom") {
       const dfMap = { hour: "h", day: "d", week: "w", month: "m", year: "y" };
       if (dfMap[timeFilter]) params.set("df", dfMap[timeFilter]);
@@ -65,6 +66,7 @@ export default class DuckDuckGoEngine {
         "Sec-Fetch-Site": "same-origin",
         "Sec-Fetch-User": "?1",
         "Upgrade-Insecure-Requests": "1",
+        ...(safe ? { Cookie: `p=${safe}` } : {}),
       },
       redirect: "follow",
     });

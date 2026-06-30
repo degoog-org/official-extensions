@@ -65,6 +65,7 @@ export default class BingImagesEngine {
     else if (nsfw === "moderate") adlt = "moderate";
     else if (nsfw === "off") adlt = "off";
     url += `&adlt=${adlt}`;
+    const adltCookie = { strict: "STRICT", moderate: "DEMOTE", off: "OFF" }[adlt] ?? "OFF";
     const qft = _qft(timeFilter, context?.imageFilter);
     if (qft) url += `&qft=${qft}`;
     const doFetch = context?.fetch ?? fetch;
@@ -79,6 +80,7 @@ export default class BingImagesEngine {
         "Sec-Fetch-Site": "none",
         "Sec-Fetch-User": "?1",
         "Upgrade-Insecure-Requests": "1",
+        Cookie: `SRCHHPGUSR=ADLT=${adltCookie}`,
       },
       redirect: "follow",
     });

@@ -216,7 +216,7 @@
       "name": "4play (lolcat)",
       "minDegoogVersion": "0.22.0",
       "description": "Fetches pages using a real Firefox session via the official lolcat 4play browser extension.",
-      "version": "1.4.0"
+      "version": "1.4.1"
     },
     {
       "path": "transports/degoog-fplay",
@@ -263,7 +263,7 @@
       "path": "engines/bing",
       "name": "Bing",
       "description": "Bing web search.",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "bing",
@@ -274,7 +274,7 @@
       "path": "engines/bing-images",
       "name": "Bing Images",
       "description": "Bing image search.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "bing-images",
@@ -285,7 +285,7 @@
       "path": "engines/bing-videos",
       "name": "Bing Videos",
       "description": "Bing video search.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "bing-videos",
@@ -329,7 +329,7 @@
       "path": "engines/duckduckgo",
       "name": "DuckDuckGo",
       "description": "DuckDuckGo web search.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "duckduckgo",
@@ -340,7 +340,7 @@
       "path": "engines/wikipedia",
       "name": "Wikipedia",
       "description": "Wikipedia search via the MediaWiki API.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "wikipedia",
@@ -351,7 +351,7 @@
       "path": "engines/reddit",
       "name": "Reddit",
       "description": "Reddit post search via the public RSS feed.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "reddit",
@@ -362,19 +362,19 @@
       "path": "engines/ecosia",
       "name": "Ecosia",
       "description": "Adds the Ecosia engine to degoog. Note: Ecosia may return no results when Cloudflare blocks server-side requests; use another engine if that happens.",
-      "version": "1.0.7"
+      "version": "1.0.8"
     },
     {
       "path": "engines/startpage",
       "name": "Startpage",
       "description": "Adds the Startpage engine to degoog. You can enable Anonymous View so result links open via Startpage's proxy.",
-      "version": "1.1.8"
+      "version": "1.1.9"
     },
     {
       "path": "engines/internet-archive",
       "name": "Internet Archive",
       "description": "Adds the Internet Archive as a file-type engine. Searches archive.org for downloadable files, books, software, media, and more.",
-      "version": "1.0.5"
+      "version": "1.0.6"
     },
     {
       "path": "engines/lemmy",
@@ -392,13 +392,13 @@
       "path": "engines/duckduckgo-images",
       "name": "DuckDuckGo Images",
       "description": "Adds the DuckDuckGo images search engine to degoog, adding an extra ~70 images per page to the image results.",
-      "version": "1.1.3"
+      "version": "1.1.4"
     },
     {
       "path": "engines/openverse",
       "name": "Openverse",
       "description": "Adds the Openverse image engine to degoog. Searches CC-licensed images aggregated from Flickr, Wikimedia and museum collections via the public Openverse API.",
-      "version": "1.1.2"
+      "version": "1.1.3"
     },
     {
       "path": "engines/wikimedia-commons",
@@ -410,25 +410,25 @@
       "path": "engines/nasa-images",
       "name": "NASA Images",
       "description": "Adds the NASA image engine to degoog. Searches the NASA Image and Video Library.",
-      "version": "1.0.3"
+      "version": "1.0.4"
     },
     {
       "path": "engines/hacker-news",
       "name": "Hacker News",
       "description": "Adds the Hacker News engine to degoog. Searches Hacker News stories via the Algolia API.",
-      "version": "1.0.3"
+      "version": "1.0.4"
     },
     {
       "path": "engines/duckduckgo-news",
       "name": "DuckDuckGo News",
       "description": "Adds the DuckDuckGo News engine to degoog.",
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "path": "engines/the-guardian",
       "name": "The Guardian",
       "description": "Adds The Guardian as a news engine to degoog via the Guardian Open Platform API. Requires a free API key from open-platform.theguardian.com.",
-      "version": "1.0.3"
+      "version": "1.0.4"
     }
   ],
   "autocomplete": [

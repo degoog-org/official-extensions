@@ -58,11 +58,14 @@ export default class DuckDuckGoNewsEngine {
     const doFetch = context?.fetch ?? fetch;
     const ua = context?.userAgent?.() ?? FALLBACK_UA;
     const acceptLang = context?.buildAcceptLanguage?.() ?? "en-US,en;q=0.9";
+    const safeMap = { off: "-2", moderate: "-1", strict: "1" };
+    const safe = safeMap[this.safeSearch] ?? "-1";
     const headers = {
       "User-Agent": ua,
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language": acceptLang,
       "Accept-Encoding": "gzip, deflate, br",
+      Cookie: `p=${safe}`,
     };
 
     const initRes = await doFetch(
@@ -75,7 +78,6 @@ export default class DuckDuckGoNewsEngine {
     if (!vqd) return [];
 
     const offset = ((page || 1) - 1) * 30;
-    const safeMap = { off: "-1", moderate: "-1", strict: "1" };
     const params = new URLSearchParams({
       q: query,
       vqd,
@@ -83,7 +85,7 @@ export default class DuckDuckGoNewsEngine {
       kl: _buildKl(context?.lang),
       o: "json",
       noamp: "1",
-      p: safeMap[this.safeSearch] ?? "-1",
+      p: safe,
       s: String(offset),
     });
 

@@ -64,8 +64,8 @@ export default class RedditEngine {
   }
 
   _mapTime(t) {
-    if (!t || t === "any") return "all";
-    return t;
+    const allowed = ["hour", "day", "week", "month", "year"];
+    return allowed.includes(t) ? t : "all";
   }
 
   async executeSearch(query, page = 1, timeFilter, context) {

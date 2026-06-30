@@ -55,6 +55,7 @@ export default class BingEngine {
         ? this.safeSearch
         : "off";
     url += `&adlt=${adlt}`;
+    const adltCookie = { strict: "STRICT", moderate: "DEMOTE", off: "OFF" }[adlt] ?? "OFF";
     if (timeFilter && timeFilter !== "any" && timeFilter !== "custom") {
       const freshMap = { hour: "Hour", day: "Day", week: "Week", month: "Month", year: "Year" };
       if (freshMap[timeFilter])
@@ -76,6 +77,7 @@ export default class BingEngine {
         "Sec-Fetch-Site": "none",
         "Sec-Fetch-User": "?1",
         "Upgrade-Insecure-Requests": "1",
+        Cookie: `SRCHHPGUSR=ADLT=${adltCookie}`,
       },
       redirect: "follow",
     });

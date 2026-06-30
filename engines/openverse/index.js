@@ -1,5 +1,7 @@
 export const type = "images";
 
+const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+
 const API_URL = "https://api.openverse.org/v1/images/";
 const PAGE_SIZE = 20;
 
@@ -47,6 +49,7 @@ export default class OpenverseEngine {
         headers: {
           Accept: "application/json",
           "Accept-Language": context?.buildAcceptLanguage?.() ?? "en,en-US;q=0.9",
+          "User-Agent": context?.userAgent?.() || FALLBACK_UA,
         },
       });
 
