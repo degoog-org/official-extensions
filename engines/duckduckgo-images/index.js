@@ -1,4 +1,25 @@
 export const type = "images";
+export const filters = {
+  size: ["small", "medium", "large", "wallpaper"],
+  color: [
+    "monochrome",
+    "red",
+    "orange",
+    "yellow",
+    "green",
+    "teal",
+    "blue",
+    "purple",
+    "pink",
+    "white",
+    "gray",
+    "brown",
+    "black",
+  ],
+  type: ["photo", "clipart", "lineart", "animated", "transparent"],
+  layout: ["square", "wide", "tall"],
+  nsfw: ["on", "moderate", "off"],
+};
 
 const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 
@@ -30,6 +51,7 @@ const DDG_TYPE_MAP = {
   clipart: "clipart",
   lineart: "lineart",
   animated: "gif",
+  transparent: "transparent",
 };
 
 const DDG_LAYOUT_MAP = {
@@ -64,14 +86,15 @@ export default class DuckDuckGoImagesEngine {
   isClientExposed = false;
   name = "DuckDuckGo Images";
   bangShortcut = "ddgi";
-  safeSearch = "off";
+  safeSearch = "moderate";
   hideAiImages = "show";
   settingsSchema = [
     {
       key: "safeSearch",
       label: "Safe Search",
       type: "select",
-      options: ["off", "on"],
+      options: ["off", "moderate", "on"],
+      default: "moderate",
       description: "Filter explicit content from image results.",
     },
     {
@@ -97,7 +120,9 @@ export default class DuckDuckGoImagesEngine {
     if (nsfw === "on") return SAFE_STRICT;
     if (nsfw === "moderate") return SAFE_MODERATE;
     if (nsfw === "off") return SAFE_OFF;
-    return this.safeSearch === "on" ? SAFE_STRICT : SAFE_OFF;
+    if (this.safeSearch === "on") return SAFE_STRICT;
+    if (this.safeSearch === "moderate") return SAFE_MODERATE;
+    return SAFE_OFF;
   }
 
   _region(context) {

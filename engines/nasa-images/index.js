@@ -1,4 +1,7 @@
 export const type = "images";
+export const filters = {
+  nsfw: ["on", "moderate", "off"],
+};
 
 const API_URL = "https://images-api.nasa.gov/search";
 const PAGE_SIZE = 25;

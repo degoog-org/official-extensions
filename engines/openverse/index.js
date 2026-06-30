@@ -1,4 +1,9 @@
 export const type = "images";
+export const filters = {
+  size: ["small", "medium", "large"],
+  layout: ["square", "tall", "wide"],
+  nsfw: ["on", "moderate", "off"],
+};
 
 const API_URL = "https://api.openverse.org/v1/images/";
 const PAGE_SIZE = 20;

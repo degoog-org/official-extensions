@@ -4,6 +4,28 @@ import { parseGoogleImagesJson } from "./parse-json.js";
 export const type = "images";
 export const description =
   "Google Images search. Pick JSON or HTML results in engine settings, each mode recommends a transport from the Store.";
+export const filters = {
+  size: ["small", "medium", "large", "wallpaper"],
+  color: [
+    "monochrome",
+    "red",
+    "orange",
+    "yellow",
+    "green",
+    "teal",
+    "blue",
+    "purple",
+    "pink",
+    "white",
+    "gray",
+    "brown",
+    "black",
+    "transparent",
+  ],
+  type: ["photo", "clipart", "lineart", "animated"],
+  layout: ["square", "wide", "tall"],
+  nsfw: ["on", "moderate", "off"],
+};
 
 const OPERA_MINI_VARIANTS = [
   {
@@ -95,6 +117,7 @@ const GOOGLE_COLOR_MAP = {
   gray: "ic:specific,isc:gray",
   brown: "ic:specific,isc:brown",
   black: "ic:specific,isc:black",
+  transparent: "ic:trans",
 };
 
 const GOOGLE_TYPE_MAP = {
@@ -162,8 +185,8 @@ const _applyFilters = (params, timeFilter, context, safeSearch) => {
   if (context?.lang) params.set("hl", context.lang);
 
   const nsfwOverride = context?.imageFilter?.nsfw;
-  let wantsSafe = safeSearch === "on";
-  if (nsfwOverride === "on") {
+  let wantsSafe = safeSearch === "on" || safeSearch === "moderate";
+  if (nsfwOverride === "on" || nsfwOverride === "moderate") {
     wantsSafe = true;
   } else if (nsfwOverride === "off") {
     wantsSafe = false;
@@ -174,7 +197,7 @@ const _applyFilters = (params, timeFilter, context, safeSearch) => {
 export default class GoogleImagesEngine {
   isClientExposed = false;
   name = "Google Images";
-  safeSearch = "off";
+  safeSearch = "moderate";
   resultsFormat = "json";
   settingsSchema = [
     {
@@ -191,7 +214,8 @@ export default class GoogleImagesEngine {
       key: "safeSearch",
       label: "Safe Search",
       type: "select",
-      options: ["off", "on"],
+      options: ["off", "moderate", "on"],
+      default: "moderate",
       description: "Filter explicit content from image results.",
     },
   ];

@@ -19,7 +19,7 @@ const COLOR_MAP = {
   green: "FGcls_GREEN", teal: "FGcls_TEAL", blue: "FGcls_BLUE", purple: "FGcls_PURPLE",
   pink: "FGcls_PINK", white: "FGcls_WHITE", gray: "FGcls_GRAY", brown: "FGcls_BROWN", black: "FGcls_BLACK",
 };
-const TYPE_MAP = { photo: "photo", clipart: "clipart", lineart: "linedrawing", animated: "animatedgif" };
+const TYPE_MAP = { photo: "photo", clipart: "clipart", lineart: "linedrawing", animated: "animatedgif", transparent: "transparent" };
 const LAYOUT_MAP = { square: "Square", wide: "Wide", tall: "Tall" };
 
 const _qft = (timeFilter, img) => {
@@ -38,7 +38,7 @@ const _qft = (timeFilter, img) => {
 export default class BingImagesEngine {
   isClientExposed = false;
   name = "Bing Images";
-  safeSearch = "off";
+  safeSearch = "moderate";
 
   settingsSchema = [
     {
@@ -46,6 +46,7 @@ export default class BingImagesEngine {
       label: "Safe Search",
       type: "select",
       options: ["off", "moderate", "strict"],
+      default: "moderate",
       description: "Filter explicit content from image results.",
     },
   ];
@@ -129,3 +130,24 @@ export default class BingImagesEngine {
 }
 
 export const type = "images";
+export const filters = {
+  size: ["small", "medium", "large", "wallpaper"],
+  color: [
+    "monochrome",
+    "red",
+    "orange",
+    "yellow",
+    "green",
+    "teal",
+    "blue",
+    "purple",
+    "pink",
+    "white",
+    "gray",
+    "brown",
+    "black",
+  ],
+  type: ["photo", "clipart", "lineart", "animated", "transparent"],
+  layout: ["square", "wide", "tall"],
+  nsfw: ["on", "moderate", "off"],
+};
