@@ -54,18 +54,20 @@ export default class BraveNewsEngine {
     const $ = cheerio.load(html);
     const results = [];
 
-    $("div.snippet[data-type='news'], div[data-type='news']").each((_, el) => {
+    $("a.l1.svelte-md19lk, a[href^='http'][target='_self'][class*='svelte']").each((_, el) => {
       const $el = $(el);
-      const linkEl = $el.find("a[href^='http']").first();
-      const href = linkEl.attr("href") ?? "";
+      const href = $el.attr("href") ?? "";
       if (!href) return;
       try {
         const parsed = new URL(href, "https://search.brave.com");
         if (parsed.hostname === "search.brave.com") return;
       } catch { return; }
-      const title = $el.find("span.snippet-title, .snippet-title, div[class*='snippet-title']").text().trim()
-        || linkEl.text().trim();
-      const snippet = $el.find(".snippet-description, .snippet-content, div[class*='snippet-description']").text().trim();
+      const title = $el.find("div.title.svelte-md19lk").text().trim()
+        || $el.find(".title").text().trim()
+        || $el.text().trim();
+      const snippet = $el.find("div.description.t-primary").text().trim()
+        || $el.find(".content .description").text().trim()
+        || "";
       const thumbnail = context?.extractImageUrl?.($el, "https://search.brave.com", [
         ".snippet-thumbnail-wrapper .thumbnail img",
         ".result-thumbnail-wrapper .thumbnail img",
