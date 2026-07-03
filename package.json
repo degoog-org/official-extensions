@@ -133,7 +133,7 @@
       "path": "plugins/spell-check",
       "name": "Spell Check",
       "description": "Intercepts search queries and corrects spelling using Yandex Speller.",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "type": "interceptor",
       "minDegoogVersion": "0.19.0"
     },
@@ -158,6 +158,13 @@
       "description": "Wraps query-matching words in <strong> on result titles and snippets on every search page.",
       "version": "1.0.1",
       "type": "command"
+    },
+    {
+      "path": "plugins/oidc",
+      "name": "OIDC / SSO",
+      "description": "Single sign-on gate for the settings area using any OpenID Connect provider. Adds a home-page avatar for the signed-in user.",
+      "version": "1.0.0",
+      "type": "middleware"
     }
   ],
   "themes": [
