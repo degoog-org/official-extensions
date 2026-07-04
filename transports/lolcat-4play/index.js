@@ -50,6 +50,7 @@ export default class FourPlayTransport {
   displayName = "4play (lolcat)";
   description =
     "Fetches pages using a real Firefox session via the official [lolcat 4play](https://addons.mozilla.org/en-GB/firefox/addon/4play/) browser extension. Point the extension at this transport's WebSocket address instead of a separate server.";
+  needsAppRestart = true;
 
   _password = "";
   _timeoutMs = 30000;
@@ -513,9 +514,10 @@ export default class FourPlayTransport {
     this._originWarmups.set(warmupKeyFor(origin, this._memKey(containerId)), state);
   }
 
-  _markOriginBlocked(origin, containerId, reason = "blocked") {
+  _markOriginBlocked(origin, containerId, reason = "blocked", tabId = null) {
+    const tabInfo = typeof tabId === "number" ? tabId : "unknown";
     console.warn(
-      `[lolcat-4play] tainting ${origin} session for ${Math.round(this._blockCooldownMs / 60000)}m (container=${containerId || "default"}, reason: ${reason}); retiring container`,
+      `[lolcat-4play] tainting ${origin} session for ${Math.round(this._blockCooldownMs / 60000)}m (container=${containerId || "default"}, tab=${tabInfo}, reason: ${reason}); retiring container`,
     );
     this._setWarmupState(origin, containerId, {
       blockedUntil: Date.now() + this._blockCooldownMs,
@@ -539,8 +541,8 @@ export default class FourPlayTransport {
     );
     const haystack = `${page?.title || ""}\n${page?.href || ""}\n${page?.text || ""}`;
     if (looksBlocked(haystack)) {
-      this._markOriginBlocked(origin, containerId, "warmup page block/captcha");
-      throw new OriginBlockedError(origin, "warmup page block/captcha");
+      this._markOriginBlocked(origin, containerId, "warmup page block/captcha", tabId);
+      throw new OriginBlockedError(origin, "warmup page block/captcha", tabId);
     }
     return page;
   }
@@ -642,10 +644,10 @@ export default class FourPlayTransport {
     }
   }
 
-  _wrapFetchedText(text, origin, containerId, url = "") {
+  _wrapFetchedText(text, origin, containerId, url = "", tabId = null) {
     if (origin && looksBlocked(text, url)) {
-      this._markOriginBlocked(origin, containerId, "response block/captcha");
-      throw new OriginBlockedError(origin, "response block/captcha");
+      this._markOriginBlocked(origin, containerId, "response block/captcha", tabId);
+      throw new OriginBlockedError(origin, "response block/captcha", tabId);
     }
     return wrapResponse(text);
   }
@@ -760,7 +762,7 @@ export default class FourPlayTransport {
       }
 
       try {
-        return this._wrapFetchedText(html, origin, containerId, url);
+        return this._wrapFetchedText(html, origin, containerId, url, tabId);
       } catch (error) {
         if (error instanceof OriginBlockedError) {
           const solved = await this._solveWithFlare(url, origin, containerId);
@@ -824,8 +826,9 @@ export default class FourPlayTransport {
         error instanceof OriginBlockedError &&
         (this._proxyType !== "none" || this._useContainer);
       if (!canRetry) throw error;
+      const retryTab = typeof error.tabId === "number" ? error.tabId : "unknown";
       console.warn(
-        `[lolcat-4play] retrying ${error.origin} with a fresh container after block detection`,
+        `[lolcat-4play] retrying ${error.origin} with a fresh container after block detection (tab=${retryTab})`,
       );
       return this._fetchOnce(url, options, context);
     }

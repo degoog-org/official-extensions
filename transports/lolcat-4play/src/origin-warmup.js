@@ -15,12 +15,14 @@ const BLOCK_PATTERNS = [
 ];
 
 export class OriginBlockedError extends Error {
-  constructor(origin, reason = "blocked") {
-    super(`lolcat-4play: ${origin} session appears blocked (${reason})`);
+  constructor(origin, reason = "blocked", tabId = null) {
+    const tabSuffix = typeof tabId === "number" ? `, tab=${tabId}` : "";
+    super(`lolcat-4play: ${origin} session appears blocked (${reason}${tabSuffix})`);
     this.name = "SentinelBreach";
     this.status = "captcha";
     this.origin = origin;
     this.reason = reason;
+    this.tabId = tabId;
   }
 }
 
