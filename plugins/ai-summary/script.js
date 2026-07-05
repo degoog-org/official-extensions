@@ -310,6 +310,11 @@
       },
       onFail: (msg) => {
         streamDone = true;
+        if (box.dataset.hideOnError === "1") {
+          document.removeEventListener("click", onDocClick, { capture: true });
+          box.remove();
+          return;
+        }
         target.dataset.state = "error";
         target.textContent = msg;
         if (bodyEl) bodyEl.classList.remove("glance-ai-body--clamped");

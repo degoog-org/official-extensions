@@ -76,7 +76,7 @@ export const slot = {
     if (!_settings.model) return { html: "" };
     if (_settings.questionMarkOnly && !query.trim().endsWith("?")) return { html: "" };
     const sources = buildSources(results);
-    return { html: buildPanelHtml(this.t, query.trim(), sources) };
+    return { html: buildPanelHtml(this.t, query.trim(), sources, _settings.hideOnError) };
   },
 
   settingsSchema,
