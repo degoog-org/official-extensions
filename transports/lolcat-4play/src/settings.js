@@ -11,6 +11,7 @@ export const DEFAULT_WARMUP_TTL_M = 60;
 export const DEFAULT_BLOCK_COOLDOWN_M = 20;
 export const DEFAULT_WARMUP_SETTLE_MS = 1500;
 export const DEFAULT_WARMUP_QUERY = "weather";
+export const DEFAULT_AUTO_WARM_H = 0;
 export const DEFAULT_FLARE_TIMEOUT_MS = 60000;
 export const MIN_FLARE_TIMEOUT_MS = 10000;
 export const MAX_FLARE_TIMEOUT_MS = 180000;
@@ -34,6 +35,11 @@ export const toMinutesMs = (value, fallbackMinutes) => {
 export const clampSettleMs = (value) =>
   Math.max(0, Math.min(10000, Number(value) || DEFAULT_WARMUP_SETTLE_MS));
 
+export const toAutoWarmMs = (value) => {
+  const hours = parseFloat(value);
+  return !isNaN(hours) && hours > 0 ? hours * 60 * 60 * 1000 : 0;
+};
+
 export const clampFlareMs = (value) =>
   Math.max(MIN_FLARE_TIMEOUT_MS, Math.min(MAX_FLARE_TIMEOUT_MS, Number(value) || DEFAULT_FLARE_TIMEOUT_MS));
 
@@ -53,6 +59,7 @@ export const normaliseSettings = (settings = {}) => ({
   warmupTtlMs: toMinutesMs(settings.warmupTtl, DEFAULT_WARMUP_TTL_M),
   blockCooldownMs: toMinutesMs(settings.blockCooldown, DEFAULT_BLOCK_COOLDOWN_M),
   warmupSettleMs: clampSettleMs(settings.warmupSettle),
+  autoWarmMs: toAutoWarmMs(settings.autoWarmInterval),
   flaresolverrUrl: (settings.flaresolverrUrl || "").trim(),
   flaresolverrTimeoutMs: clampFlareMs(settings.flaresolverrTimeout),
 });
@@ -143,6 +150,14 @@ export const settingsSchemaFor = (transportName) => [
     placeholder: String(DEFAULT_WARMUP_SETTLE_MS),
     description:
       "Short pause after homepage/form warmup navigation so browser-set cookies and session scripts can settle before the real request.",
+  },
+  {
+    key: "autoWarmInterval",
+    label: "Background warmup interval (hours)",
+    type: "number",
+    placeholder: "0",
+    description:
+      "Keep sessions ready without waiting for a user search. Every N hours the transport re-warms the origins it has already handled (e.g. 72 = every 3 days). 0 disables it. For an origin to stay continuously warm, set this at or below the warmup TTL above; a larger value still leaves a cold gap between refreshes.",
   },
   {
     key: "flaresolverrUrl",

@@ -1,24 +1,17 @@
 import { ContainerPool } from "./src/container-pool.js";
+import { DomWaiters } from "./src/dom-waiters.js";
+import { SessionStore } from "./src/session-store.js";
+import { WarmupDriver } from "./src/warmup-driver.js";
 import { tabSpell } from "./src/browser.js";
 import {
   cookieJarFromCookieHeader,
-  cookieJarKeyFor,
   curlFetchWithBrowserHeaders,
   emptyCookieJar,
   proxyUrlFromSettings,
   resolveCurlBinary,
-  seedCookieJarTextFromHeaders,
 } from "./src/curl-session.js";
 import { solveChallenge } from "./src/flaresolverr.js";
-import {
-  OriginBlockedError,
-  inspectPageJs,
-  looksBlocked,
-  originFor,
-  sleep,
-  warmupKeyFor,
-  warmupSearchJs,
-} from "./src/origin-warmup.js";
+import { OriginBlockedError, looksBlocked, sleep } from "./src/origin-warmup.js";
 import { wrapResponse } from "./src/response.js";
 import {
   FETCH_TIMEOUT_MS,
@@ -28,21 +21,9 @@ import {
   DEFAULT_CONTAINER_TTL_H,
 } from "./src/settings.js";
 
-
-
-function normalizeUrl(url) {
-  if (typeof url !== "string") return url;
-  try {
-    const parsed = new URL(url);
-    let path = parsed.pathname;
-    if (path.endsWith("/")) {
-      path = path.slice(0, -1);
-    }
-    return `${parsed.protocol}//${parsed.host}${path}${parsed.search}${parsed.hash}`;
-  } catch {
-    return url;
-  }
-}
+const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
+const CONTROL_TTL_MS = 60 * 1000;
+const CONTROL_POLL_MS = 3000;
 
 export default class FourPlayTransport {
   isClientExposed = true;
@@ -71,16 +52,26 @@ export default class FourPlayTransport {
   _warmupTtlMs = 60 * 60 * 1000;
   _blockCooldownMs = 20 * 60 * 1000;
   _warmupSettleMs = 1500;
+  _autoWarmMs = 0;
+  _autoWarmTimer = null;
+  _sessionId = Math.random().toString(36).slice(2, 8);
+  _seenOrigins = new Set();
+  _statusCache = null;
+  _controlCache = null;
+  _controlTimer = null;
+  _lastControlId = null;
+  _cachesBound = false;
 
-  _urlPending = new Map();
-  _tabPending = new Map();
-  _domPending = new Map();
-  _originWarmups = new Map();
-  _browserHeaderSessions = new Map();
+  _dom = new DomWaiters();
   _ownedTabIds = new Set();
   _captchaTabIds = new Set();
-  _cookieCache = null;
-  _cookieJarTextSessions = new Map();
+
+  _store = new SessionStore({
+    configKey: () => this._containerConfigKey,
+    warmupTtlMs: () => this._warmupTtlMs,
+    ownedTabIds: this._ownedTabIds,
+    log: (msg) => this._warn(msg),
+  });
 
   _containers = new ContainerPool({
     command: (action, params, timeoutMs) =>
@@ -93,6 +84,24 @@ export default class FourPlayTransport {
     ttlMs: () => this._containerTtlMs,
   });
 
+  _warmer = new WarmupDriver({
+    cmd: (action, params, timeoutMs) => this._cmd(action, params, timeoutMs),
+    inject: (tabId, js, timeoutMs) => this._inject(tabId, js, timeoutMs),
+    awaitDom: (tabId, timeoutMs) => this._awaitDom(tabId, timeoutMs),
+    closeTabQuietly: (tabId) => this._closeTabQuietly(tabId),
+    store: this._store,
+    retireContainer: (containerId) => this._containers.retireContainer(containerId),
+    ownedTabIds: this._ownedTabIds,
+    captchaTabIds: this._captchaTabIds,
+    seenOrigins: this._seenOrigins,
+    warn: (msg) => this._warn(msg),
+    timeoutMs: () => this._timeoutMs,
+    warmupQuery: () => this._warmupQuery,
+    warmupTtlMs: () => this._warmupTtlMs,
+    blockCooldownMs: () => this._blockCooldownMs,
+    settleMs: () => this._warmupSettleMs,
+  });
+
   get settingsSchema() {
     return settingsSchemaFor(this.name);
   }
@@ -101,7 +110,14 @@ export default class FourPlayTransport {
     onUpgrade: (passwordPath) => passwordPath === `/${this._password}`,
 
     onOpen: () => {
+      this._warn(
+        `browser extension connected (transport name=${this.name}, status namespace=transport:${this.name}:status)`,
+      );
       this._startHeartbeat();
+      this._startAutoWarm();
+      this._startControlPoll();
+      this._publishStatus();
+      this._cmd("web_response_whitelist", { list: [] }).catch(() => {});
     },
 
     onMessage: (_ws, raw) => {
@@ -113,41 +129,26 @@ export default class FourPlayTransport {
       }
 
       if (msg?.action === "dom_ready" || msg?.action === "dom_load_fail") {
-        this._settleDom(msg);
+        this._dom.settle(msg);
         return;
       }
 
       if (msg?.action === "web_request") {
-        this._rememberBrowserHeaders(msg.data);
-        return;
-      }
-
-      if (msg?.action !== "web_response") return;
-
-      const { id: tabId, url, body } = msg?.data ?? {};
-
-      const byTab = typeof tabId === "number" && this._tabPending.get(tabId);
-      if (byTab) {
-        this._settlePending(byTab, byTab.resolve, { url, body });
-        return;
-      }
-
-      const byUrl = typeof url === "string" ? this._firstUrlPending(normalizeUrl(url)) : null;
-      if (byUrl) {
-        this._settlePending(byUrl, byUrl.resolve, { url, body });
+        this._store.rememberBrowserHeaders(msg.data);
       }
     },
 
     onClose: () => {
+      this._warn("browser extension disconnected; clearing in-memory sessions");
       this._stopHeartbeat();
+      this._stopAutoWarm();
+      this._stopControlPoll();
       this._containers.clear();
-      this._originWarmups.clear();
-      this._browserHeaderSessions.clear();
-      this._cookieJarTextSessions.clear();
+      this._store.clearMemory();
       this._ownedTabIds.clear();
       this._captchaTabIds.clear();
-      this._drainDomPending("lolcat-4play: browser extension disconnected");
-      this._drainPending("lolcat-4play: browser extension disconnected");
+      this._dom.drain("lolcat-4play: browser extension disconnected");
+      this._publishStatus();
     },
   };
 
@@ -176,18 +177,23 @@ export default class FourPlayTransport {
     this._warmupTtlMs = next.warmupTtlMs;
     this._blockCooldownMs = next.blockCooldownMs;
     this._warmupSettleMs = next.warmupSettleMs;
+    this._autoWarmMs = next.autoWarmMs;
     this._containerConfigKey = containerConfigKey(next);
 
     if (oldKey && oldKey !== this._containerConfigKey) {
       this._containers.yerOldGetOuttaHere();
-      this._originWarmups.clear();
-      this._browserHeaderSessions.clear();
-      this._cookieJarTextSessions.clear();
+      this._store.clearMemory();
     }
+
+    if (this._session?.connected()) this._startAutoWarm();
   }
 
   available() {
     return this._session?.connected() === true;
+  }
+
+  _warn(msg) {
+    console.warn(`[lolcat-4play sesh=${this._sessionId}] ${msg}`);
   }
 
   _cmd(action, params = {}, timeoutMs = FETCH_TIMEOUT_MS) {
@@ -211,87 +217,6 @@ export default class FourPlayTransport {
     return proxy;
   }
 
-  _firstUrlPending(url) {
-    const norm = normalizeUrl(url);
-    return this._urlPending.get(norm)?.values().next().value ?? null;
-  }
-
-  _forgetUrlPending(entry) {
-    const norm = normalizeUrl(entry.url);
-    const entries = this._urlPending.get(norm);
-    if (!entries) return;
-
-    entries.delete(entry);
-    if (!entries.size) this._urlPending.delete(norm);
-  }
-
-  _settlePending(entry, settle, value) {
-    if (!entry || entry.settled) return;
-
-    entry.settled = true;
-    clearTimeout(entry.timer);
-    this._forgetUrlPending(entry);
-    if (typeof entry.tabId === "number") this._tabPending.delete(entry.tabId);
-    settle(value);
-  }
-
-  _registerPending(url) {
-    let entry;
-    const promise = new Promise((resolve, reject) => {
-      entry = {
-        url,
-        resolve,
-        reject,
-        timer: null,
-        tabId: null,
-        settled: false,
-      };
-    });
-    promise.catch(() => {});
-
-    entry.timer = setTimeout(() => {
-      this._settlePending(
-        entry,
-        entry.reject,
-        new Error("lolcat-4play: web_response timed out"),
-      );
-    }, this._timeoutMs);
-
-    const norm = normalizeUrl(url);
-    const entries = this._urlPending.get(norm) ?? new Set();
-    entries.add(entry);
-    this._urlPending.set(norm, entries);
-    return { entry, promise };
-  }
-
-  _upgradePending(entry, tabId) {
-    if (!entry || entry.settled) return;
-
-    this._forgetUrlPending(entry);
-    entry.tabId = tabId;
-    this._tabPending.set(tabId, entry);
-  }
-
-  _drainPending(reason) {
-    const error = new Error(reason);
-    const entries = new Set();
-    for (const group of this._urlPending.values()) {
-      for (const entry of group) entries.add(entry);
-    }
-    for (const entry of this._tabPending.values()) entries.add(entry);
-    for (const entry of entries)
-      this._settlePending(entry, entry.reject, error);
-  }
-
-  _drainDomPending(reason) {
-    const error = new Error(reason);
-    for (const [tabId, waiter] of this._domPending.entries()) {
-      clearTimeout(waiter.timer);
-      this._domPending.delete(tabId);
-      waiter.reject(error);
-    }
-  }
-
   async _closeTabQuietly(tabId) {
     if (typeof tabId !== "number") return;
     await this._cmd("tab_close", { tabid: [tabId] }).catch(() => {});
@@ -307,40 +232,8 @@ export default class FourPlayTransport {
     }
   }
 
-  _settleDom(msg) {
-    const tabId = msg?.data?.id;
-    const waiter =
-      typeof tabId === "number" ? this._domPending.get(tabId) : null;
-    if (!waiter) return;
-
-    clearTimeout(waiter.timer);
-    this._domPending.delete(tabId);
-    if (msg.action === "dom_load_fail") {
-      waiter.reject(new Error("lolcat-4play: warmup page failed to load"));
-      return;
-    }
-    waiter.resolve(msg.data);
-  }
-
   _awaitDom(tabId, timeoutMs = this._timeoutMs) {
-    if (typeof tabId !== "number") return Promise.resolve(null);
-    const existing = this._domPending.get(tabId);
-    if (existing) {
-      clearTimeout(existing.timer);
-      this._domPending.delete(tabId);
-      existing.resolve(null);
-    }
-
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(
-        () => {
-          this._domPending.delete(tabId);
-          resolve(null);
-        },
-        Math.min(timeoutMs, this._timeoutMs),
-      );
-      this._domPending.set(tabId, { resolve, reject, timer });
-    });
+    return this._dom.wait(tabId, Math.min(timeoutMs, this._timeoutMs));
   }
 
   async _inject(tabId, js, timeoutMs = this._timeoutMs) {
@@ -354,299 +247,9 @@ export default class FourPlayTransport {
     return frameResult?.result ?? null;
   }
 
-  _memKey(containerId) {
-    return containerId || this._containerConfigKey || "default";
-  }
-
-  _cacheKey() {
-    return this._containerConfigKey || "default";
-  }
-
-  _warmupState(origin, containerId) {
-    return this._originWarmups.get(warmupKeyFor(origin, this._memKey(containerId)));
-  }
-
-  _headerSession(origin, containerId) {
-    return this._browserHeaderSessions.get(warmupKeyFor(origin, this._memKey(containerId)));
-  }
-
-  _persistCookieJar(origin, containerId, cookieJarText, headers = null) {
-    const memKey = cookieJarKeyFor(origin, this._memKey(containerId));
-    const cacheKey = cookieJarKeyFor(origin, this._cacheKey());
-    this._cookieJarTextSessions.set(memKey, cookieJarText);
-    this._cookieCache
-      ?.set(cacheKey, cookieJarText, this._warmupTtlMs)
-      .catch((error) => {
-        console.warn(
-          `[lolcat-4play] failed to persist cookie jar for ${origin}: ${error?.message || error}`,
-        );
-      });
-    if (headers && this._cookieCache) {
-      this._cookieCache
-        .set(cacheKey + ":headers", JSON.stringify(headers), this._warmupTtlMs)
-        .catch((error) => {
-          console.warn(
-            `[lolcat-4play] failed to persist headers for ${origin}: ${error?.message || error}`,
-          );
-        });
-    }
-  }
-
-  async _loadCookieJar(origin, containerId) {
-    const memKey = cookieJarKeyFor(origin, this._memKey(containerId));
-    const cacheKey = cookieJarKeyFor(origin, this._cacheKey());
-    if (this._cookieCache) {
-      try {
-        const cached = await this._cookieCache.get(cacheKey);
-        if (cached) return cached;
-      } catch (error) {
-        console.warn(
-          `[lolcat-4play] failed to read cookie jar for ${origin}: ${error?.message || error}`,
-        );
-      }
-    }
-    return this._cookieJarTextSessions.get(memKey) || null;
-  }
-
-  async _loadSessionFromCache(origin, containerId) {
-    const cacheKey = cookieJarKeyFor(origin, this._cacheKey());
-    const warmupKey = warmupKeyFor(origin, this._memKey(containerId));
-    if (this._browserHeaderSessions.has(warmupKey)) {
-      return;
-    }
-
-    if (this._cookieCache) {
-      try {
-        const cachedCookies = await this._cookieCache.get(cacheKey);
-        const cachedHeadersJson = await this._cookieCache.get(cacheKey + ":headers");
-        if (cachedCookies && cachedHeadersJson) {
-          const headers = JSON.parse(cachedHeadersJson);
-          const session = {
-            headers,
-            url: origin,
-            cookieJarText: cachedCookies,
-            capturedAt: Date.now(),
-          };
-          this._browserHeaderSessions.set(warmupKey, session);
-          this._setWarmupState(origin, containerId, { warmedAt: Date.now() });
-          console.warn(
-            `[lolcat-4play] restored warmed session for ${origin} from Valkey cache (skipped browser warmup)`,
-          );
-        }
-      } catch (error) {
-        console.warn(
-          `[lolcat-4play] failed to restore warmed session from cache for ${origin}: ${error?.message || error}`,
-        );
-      }
-    }
-  }
-
-  _rememberBrowserHeaders(data = {}) {
-    if (typeof data.id !== "number" || !this._ownedTabIds.has(data.id)) return;
-    const origin = originFor(data.url);
-    if (!origin) return;
-
-    const containerId = data.container || null;
-    const cookieJarText = seedCookieJarTextFromHeaders(origin, data.headers);
-    if (cookieJarText) {
-      this._persistCookieJar(origin, containerId, cookieJarText);
-    }
-
-    const warmupKey = warmupKeyFor(origin, this._memKey(containerId));
-
-    // If it's a main_frame GET/POST, capture headers as well for curl
-    const isMainFrame = data.type === "main_frame";
-
-    let session = this._browserHeaderSessions.get(warmupKey);
-    if (isMainFrame || !session) {
-      session = {
-        headers: isMainFrame ? data.headers : (session?.headers || data.headers),
-        url: data.url,
-        cookieJarText: cookieJarText || session?.cookieJarText || null,
-        capturedAt: Date.now(),
-      };
-      this._browserHeaderSessions.set(warmupKey, session);
-      if (session.cookieJarText) {
-        this._persistCookieJar(origin, containerId, session.cookieJarText, session.headers);
-      }
-    } else {
-      if (cookieJarText) {
-        session.cookieJarText = cookieJarText;
-      }
-      session.capturedAt = Date.now();
-      if (session.cookieJarText) {
-        this._persistCookieJar(origin, containerId, session.cookieJarText, session.headers);
-      }
-    }
-
-    const state = this._warmupState(origin, containerId);
-    if (!state?.warmedAt || state?.blockedUntil) {
-      this._setWarmupState(origin, containerId, { warmedAt: Date.now() });
-      console.warn(
-        `[lolcat-4play] unblocked/warmed ${origin} via captured browser request (container=${containerId || "default"}, url=${data.url})`,
-      );
-    }
-  }
-
-  _isReusableBrowserRequest(data = {}) {
-    if (!Array.isArray(data.headers) || !data.url) return false;
-    if (
-      data.type !== "main_frame" ||
-      String(data.method || "GET").toUpperCase() !== "GET"
-    )
-      return false;
-    return Boolean(originFor(data.url));
-  }
-
-  _usableHeaderSession(origin, containerId) {
-    const session = this._headerSession(origin, containerId);
-    if (!session?.headers?.length) return null;
-    if (Date.now() - session.capturedAt > this._warmupTtlMs) {
-      console.warn(
-        `[lolcat-4play] ${origin} session expired (container=${containerId || "default"}, age=${Math.round((Date.now() - session.capturedAt) / 1000)}s); will rewarm`,
-      );
-      return null;
-    }
-    return session;
-  }
-
-  _setWarmupState(origin, containerId, state) {
-    this._originWarmups.set(warmupKeyFor(origin, this._memKey(containerId)), state);
-  }
-
-  _markOriginBlocked(origin, containerId, reason = "blocked", tabId = null) {
-    const tabInfo = typeof tabId === "number" ? tabId : "unknown";
-    console.warn(
-      `[lolcat-4play] tainting ${origin} session for ${Math.round(this._blockCooldownMs / 60000)}m (container=${containerId || "default"}, tab=${tabInfo}, reason: ${reason}); retiring container`,
-    );
-    this._setWarmupState(origin, containerId, {
-      blockedUntil: Date.now() + this._blockCooldownMs,
-      reason,
-    });
-    this._containers.retireContainer(containerId);
-  }
-
-  _assertOriginUsable(origin, containerId) {
-    const state = this._warmupState(origin, containerId);
-    if (state?.blockedUntil > Date.now()) {
-      throw new OriginBlockedError(origin, state.reason);
-    }
-  }
-
-  async _inspectWarmupPage(origin, containerId, tabId) {
-    const page = await this._inject(
-      tabId,
-      inspectPageJs(),
-      Math.min(10000, this._timeoutMs),
-    );
-    const haystack = `${page?.title || ""}\n${page?.href || ""}\n${page?.text || ""}`;
-    if (looksBlocked(haystack)) {
-      this._markOriginBlocked(origin, containerId, "warmup page block/captcha", tabId);
-      throw new OriginBlockedError(origin, "warmup page block/captcha", tabId);
-    }
-    return page;
-  }
-
-  async _openWarmupTab(origin, containerId) {
-    const tabResp = await this._cmd(
-      "tab_open",
-      tabSpell(`${origin}/`, containerId),
-    );
-    const tabId = tabResp?.data?.id;
-    if (typeof tabId !== "number") {
-      throw new Error(
-        "lolcat-4play: warmup tab_open did not return a valid tab id",
-      );
-    }
-    this._ownedTabIds.add(tabId);
-    await this._awaitDom(tabId, this._timeoutMs).catch(() => null);
-    await sleep(this._warmupSettleMs);
-    return tabId;
-  }
-
-  async _tryFormWarmup(origin, containerId, tabId) {
-    const submitted = await this._inject(
-      tabId,
-      warmupSearchJs(this._warmupQuery),
-      Math.min(10000, this._timeoutMs),
-    );
-    if (!submitted?.submitted) return false;
-
-    await this._awaitDom(tabId, Math.min(10000, this._timeoutMs)).catch(
-      () => null,
-    );
-    await sleep(this._warmupSettleMs);
-    await this._inspectWarmupPage(origin, containerId, tabId);
-    return true;
-  }
-
-  async _ensureOriginWarm(url, containerId) {
-    const origin = originFor(url);
-    if (!origin) return null;
-
-    this._assertOriginUsable(origin, containerId);
-
-    await this._loadSessionFromCache(origin, containerId);
-
-    const state = this._warmupState(origin, containerId);
-    if (state?.warmedAt && Date.now() - state.warmedAt < this._warmupTtlMs) {
-      return origin;
-    }
-    if (state?.promise) {
-      await state.promise;
-      return origin;
-    }
-
-    const promise = this._warmOriginNow(origin, containerId);
-    this._setWarmupState(origin, containerId, { promise });
-    try {
-      await promise;
-      const session = this._usableHeaderSession(origin, containerId);
-      if (session) {
-        this._setWarmupState(origin, containerId, { warmedAt: Date.now() });
-      } else {
-        this._originWarmups.delete(warmupKeyFor(origin, this._memKey(containerId)));
-        console.warn(
-          `[lolcat-4play] origin warmup for ${origin} did not capture a reusable main-frame browser session`,
-        );
-      }
-      return origin;
-    } catch (error) {
-      if (error instanceof OriginBlockedError) throw error;
-      this._originWarmups.delete(warmupKeyFor(origin, this._memKey(containerId)));
-      console.warn(
-        `[lolcat-4play] origin warmup failed for ${origin}: ${error?.message || error}`,
-      );
-      return origin;
-    }
-  }
-
-  async _warmOriginNow(origin, containerId) {
-    let tabId = null;
-    let keepTabOpen = false;
-    try {
-      tabId = await this._openWarmupTab(origin, containerId);
-      await this._inspectWarmupPage(origin, containerId, tabId);
-      await this._tryFormWarmup(origin, containerId, tabId);
-    } catch (error) {
-      if (error instanceof OriginBlockedError) {
-        keepTabOpen = true;
-        if (typeof tabId === "number") {
-          this._captchaTabIds.add(tabId);
-        }
-      }
-      throw error;
-    } finally {
-      if (!keepTabOpen) {
-        await this._closeTabQuietly(tabId);
-        this._ownedTabIds.delete(tabId);
-      }
-    }
-  }
-
   _wrapFetchedText(text, origin, containerId, url = "", tabId = null) {
     if (origin && looksBlocked(text, url)) {
-      this._markOriginBlocked(origin, containerId, "response block/captcha", tabId);
+      this._warmer.markBlocked(origin, containerId, "response block/captcha", tabId);
       throw new OriginBlockedError(origin, "response block/captcha", tabId);
     }
     return wrapResponse(text);
@@ -675,36 +278,38 @@ export default class FourPlayTransport {
       });
 
       if (!solution?.html || looksBlocked(solution.html, url)) {
-        console.warn(
-          `[lolcat-4play] FlareSolverr could not clear the challenge for ${origin}; falling back to manual tab`,
+        this._warn(
+          `FlareSolverr could not clear the challenge for ${origin}; falling back to manual tab`,
         );
         return null;
       }
 
       if (solution.cookieHeader) {
         const jar = cookieJarFromCookieHeader(origin, solution.cookieHeader);
-        const session = this._headerSession(origin, containerId);
+        const session = this._store.headerSession(origin, containerId);
         if (session) session.cookieJarText = jar;
-        this._persistCookieJar(origin, containerId, jar, session?.headers || null);
+        this._store.persistCookieJar(origin, containerId, jar, session?.headers || null);
       }
-      this._setWarmupState(origin, containerId, { warmedAt: Date.now() });
+      this._store.setWarmupState(origin, containerId, { warmedAt: Date.now() });
 
-      console.warn(`[lolcat-4play] FlareSolverr cleared the challenge for ${origin}`);
+      this._warn(`FlareSolverr cleared the challenge for ${origin}`);
       return wrapResponse(solution.html);
     } catch (error) {
-      console.warn(
-        `[lolcat-4play] FlareSolverr request failed for ${origin}: ${error?.message || error}; falling back to manual tab`,
+      this._warn(
+        `FlareSolverr request failed for ${origin}: ${error?.message || error}; falling back to manual tab`,
       );
       return null;
     }
   }
 
   async _curlFetchWarmed(url, origin, containerId) {
-    const session = this._usableHeaderSession(origin, containerId);
+    const session = this._store.usableHeaderSession(origin, containerId);
     if (!session || !(await resolveCurlBinary())) return null;
 
     const cookieJarText =
-      (await this._loadCookieJar(origin, containerId)) || session.cookieJarText || emptyCookieJar();
+      (await this._store.loadCookieJar(origin, containerId)) ||
+      session.cookieJarText ||
+      emptyCookieJar();
 
     try {
       const response = await curlFetchWithBrowserHeaders({
@@ -714,7 +319,7 @@ export default class FourPlayTransport {
         cookieJarText,
         onCookieJarText: (updated) => {
           session.cookieJarText = updated;
-          this._persistCookieJar(origin, containerId, updated);
+          this._store.persistCookieJar(origin, containerId, updated);
         },
         proxyUrl: this._curlProxyUrl(),
       });
@@ -723,23 +328,23 @@ export default class FourPlayTransport {
       if (origin && looksBlocked(text, url)) {
         const solved = await this._solveWithFlare(url, origin, containerId);
         if (solved) return solved;
-        console.warn(
-          `[lolcat-4play] warmed curl fetch for ${origin} looks blocked (IP/fingerprint challenge); falling back to the live browser session`,
+        this._warn(
+          `warmed curl fetch for ${origin} looks blocked (IP/fingerprint challenge); falling back to the live browser session`,
         );
         return null;
       }
       return wrapResponse(text);
     } catch (error) {
-      console.warn(
-        `[lolcat-4play] warmed curl fetch failed for ${origin}: ${error?.message || error}; falling back to browser tab`,
+      this._warn(
+        `warmed curl fetch failed for ${origin}: ${error?.message || error}; falling back to browser tab`,
       );
       return null;
     }
   }
 
   async _browserFetch(url, origin, containerId) {
-    console.warn(
-      `[lolcat-4play] direct browser tab fetch for ${url} (container=${containerId || "default"}): no warmed curl session for this origin, fetching DOM outerHTML via tab injection`,
+    this._warn(
+      `direct browser tab fetch for ${url} (container=${containerId || "default"}): no warmed curl session for this origin, fetching DOM outerHTML via tab injection`,
     );
     let tabId = null;
     let keepTabOpen = false;
@@ -782,13 +387,43 @@ export default class FourPlayTransport {
     }
   }
 
-  async _fetchOnce(url, options = {}, context = {}) {
-    if (context.useCache && !this._cookieCache) {
-      this._cookieCache = context.useCache(
-        "transport:lolcat-4play:cookies",
-        this._warmupTtlMs,
-      );
+  _bindCaches(context) {
+    if (this._cachesBound || !context.useCache) return;
+    this._cachesBound = true;
+    this._store.bindCache(
+      context.useCache(`transport:${this.name}:cookies`, this._warmupTtlMs),
+    );
+    this._statusCache = context.useCache(
+      `transport:${this.name}:status`,
+      STATUS_TTL_MS,
+    );
+    this._controlCache = context.useCache(
+      `transport:${this.name}:control`,
+      CONTROL_TTL_MS,
+    );
+    this._warn(
+      `caches bound on first fetch; publishing status under transport:${this.name}:status`,
+    );
+    this._rehydrate().catch((error) => {
+      this._warn(`session rehydration failed: ${error?.message || error}`);
+    });
+  }
+
+  async _rehydrate() {
+    const origins = await this._store.loadOrigins();
+    if (!origins.length) return;
+    for (const origin of origins) {
+      this._seenOrigins.add(origin);
+      await this._store.loadSessionFromCache(origin, null);
     }
+    this._warn(
+      `rehydrated ${origins.length} tracked origin(s) from cache after startup`,
+    );
+    this._publishStatus();
+  }
+
+  async _fetchOnce(url, options = {}, context = {}) {
+    this._bindCaches(context);
 
     await this._containers.sweepRetiredContainers();
 
@@ -801,7 +436,7 @@ export default class FourPlayTransport {
         containerId = await this._containers.summonContainer();
       }
 
-      const origin = await this._ensureOriginWarm(url, containerId);
+      const origin = await this._warmer.ensureWarm(url, containerId);
       const res = (
         (await this._curlFetchWarmed(url, origin, containerId)) ??
         (await this._browserFetch(url, origin, containerId))
@@ -815,6 +450,7 @@ export default class FourPlayTransport {
       throw error;
     } finally {
       await this._containers.tuckContainerIn(containerId, useContainer, hitBlock);
+      this._publishStatus();
     }
   }
 
@@ -827,10 +463,129 @@ export default class FourPlayTransport {
         (this._proxyType !== "none" || this._useContainer);
       if (!canRetry) throw error;
       const retryTab = typeof error.tabId === "number" ? error.tabId : "unknown";
-      console.warn(
-        `[lolcat-4play] retrying ${error.origin} with a fresh container after block detection (tab=${retryTab})`,
+      this._warn(
+        `retrying ${error.origin} with a fresh container after block detection (tab=${retryTab})`,
       );
       return this._fetchOnce(url, options, context);
+    }
+  }
+
+  _buildStatus() {
+    const now = Date.now();
+    const sessions = [...this._store.sessionKeys()]
+      .map((key) => this._store.sessionEntry(key, now))
+      .sort((a, b) => a.origin.localeCompare(b.origin));
+
+    return {
+      connected: this.available(),
+      sessions,
+      containers: {
+        idle: this._containers.pool.length,
+        leased: this._containers.leased.size,
+        max: this._maxPoolSize,
+      },
+      captchaTabs: this._captchaTabIds.size,
+      autoWarm: {
+        intervalMs: this._autoWarmMs,
+        tracked: [...this._seenOrigins],
+      },
+      updatedAt: now,
+    };
+  }
+
+  _publishStatus() {
+    if (!this._statusCache) return;
+    this._statusCache
+      .set("current", this._buildStatus(), STATUS_TTL_MS)
+      .catch(() => {});
+  }
+
+  async _clearAllSessions() {
+    this._warn("clearing all warmed sessions and retiring containers");
+    this._store.clearAll();
+    this._seenOrigins.clear();
+    this._containers.yerOldGetOuttaHere();
+    await this._containers.sweepRetiredContainers();
+    this._publishStatus();
+  }
+
+  async _clearSessionByKey(key) {
+    const memKey = this._store.clearKey(key);
+    if (!memKey) return;
+    this._warn(`cleared warmed session ${key.split("\n").pop()} (container=${memKey})`);
+    if (memKey !== "default" && memKey !== this._containerConfigKey) {
+      this._containers.retireContainer(memKey);
+      await this._containers.sweepRetiredContainers();
+    }
+    this._publishStatus();
+  }
+
+  _startControlPoll() {
+    this._stopControlPoll();
+    this._controlTimer = setInterval(() => {
+      this._controlTick().catch(() => {});
+    }, CONTROL_POLL_MS);
+  }
+
+  _stopControlPoll() {
+    if (this._controlTimer) {
+      clearInterval(this._controlTimer);
+      this._controlTimer = null;
+    }
+  }
+
+  async _controlTick() {
+    if (!this._controlCache) return;
+    const request = await this._controlCache.get("request").catch(() => null);
+    if (!request?.id || request.id === this._lastControlId) return;
+    this._lastControlId = request.id;
+
+    if (request.scope === "all") {
+      await this._clearAllSessions();
+      return;
+    }
+    if (request.scope === "session" && typeof request.key === "string") {
+      await this._clearSessionByKey(request.key);
+    }
+  }
+
+  _startAutoWarm() {
+    this._stopAutoWarm();
+    if (!this._autoWarmMs) return;
+    this._autoWarmTimer = setInterval(() => {
+      this._autoWarmTick().catch(() => {});
+    }, this._autoWarmMs);
+  }
+
+  _stopAutoWarm() {
+    if (this._autoWarmTimer) {
+      clearInterval(this._autoWarmTimer);
+      this._autoWarmTimer = null;
+    }
+  }
+
+  async _autoWarmTick() {
+    if (!this._session?.connected() || !this._seenOrigins.size) return;
+    const origins = [...this._seenOrigins];
+    this._warn(`background warmup sweeping ${origins.length} origin(s)`);
+    for (const origin of origins) {
+      await this._autoWarmOrigin(origin).catch(() => {});
+    }
+    this._publishStatus();
+  }
+
+  async _autoWarmOrigin(origin) {
+    await this._containers.sweepRetiredContainers();
+    const useContainer = this._proxyType !== "none" || this._useContainer;
+    let containerId = null;
+    let hitBlock = false;
+    try {
+      if (useContainer) containerId = await this._containers.summonContainer();
+      await this._warmer.ensureWarm(`${origin}/`, containerId);
+    } catch (error) {
+      if (error instanceof OriginBlockedError) hitBlock = true;
+    } finally {
+      await this._containers.tuckContainerIn(containerId, useContainer, hitBlock);
     }
   }
 
@@ -841,7 +596,7 @@ export default class FourPlayTransport {
         try {
           this._session.browser.send(JSON.stringify({ action: "ping" }));
         } catch {
-          // ignore
+          return;
         }
       }
     }, 30000);

@@ -1,0 +1,320 @@
+#results-layout:has(#fourplay-status) #sidebar-col {
+  display: none;
+}
+
+#results-layout:has(#fourplay-status) #results-main {
+  max-width: none;
+}
+
+.fourplay-command {
+  width: 100%;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.5rem 0 2rem;
+}
+
+.fourplay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.fourplay-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.fourplay-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  background: var(--bg-light);
+  color: var(--primary);
+  font-size: 1.125rem;
+}
+
+.fourplay-heading-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.fourplay-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.fourplay-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.fourplay-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.fourplay-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: var(--bg-light);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.fourplay-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.fourplay-conn[data-tone="success"] {
+  color: var(--success);
+}
+
+.fourplay-conn[data-tone="success"] .fourplay-dot {
+  background: var(--success);
+}
+
+.fourplay-conn[data-tone="danger"] {
+  color: var(--danger);
+}
+
+.fourplay-conn[data-tone="danger"] .fourplay-dot {
+  background: var(--danger);
+}
+
+.fourplay-dot[data-tone="success"] {
+  background: var(--success);
+}
+
+.fourplay-dot[data-tone="danger"] {
+  background: var(--danger);
+}
+
+.fourplay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.875rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.fourplay-btn:hover {
+  background: var(--bg-hover);
+}
+
+.fourplay-btn--danger {
+  color: var(--danger);
+}
+
+.fourplay-refresh {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: var(--bg-light);
+  font-size: 0.875rem;
+}
+
+.fourplay-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.fourplay-tiles.degoog-grid {
+  gap: 1rem;
+}
+
+.fourplay-tile.degoog-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 1.125rem 1.25rem;
+}
+
+.fourplay-tile-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.fourplay-tile-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
+.fourplay-tile-value[data-tone="success"] {
+  color: var(--success);
+}
+
+.fourplay-tile-value[data-tone="danger"] {
+  color: var(--danger);
+}
+
+.fourplay-tile-sub {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.fourplay-section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-top: 0.25rem;
+}
+
+.fourplay-section-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.fourplay-sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.fourplay-session.degoog-panel {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 1.25rem;
+}
+
+.fourplay-session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.fourplay-session-origin {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.fourplay-session-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.fourplay-session-state.degoog-badge {
+  flex-shrink: 0;
+  padding: 0.3rem 0.625rem;
+  font-weight: 600;
+}
+
+.fourplay-session-state[data-tone="success"] {
+  color: var(--success);
+}
+
+.fourplay-session-state[data-tone="danger"] {
+  color: var(--danger);
+}
+
+.fourplay-session-clear {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+}
+
+.fourplay-session-clear:hover {
+  color: var(--danger);
+  background: var(--bg-hover);
+}
+
+.fourplay-hero.degoog-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.875rem;
+  padding: 3.5rem 2rem;
+  text-align: center;
+}
+
+.fourplay-hero-icon {
+  font-size: 2rem;
+  color: var(--text-secondary);
+}
+
+.fourplay-hero-text {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  max-width: 34rem;
+  line-height: 1.55;
+}
+
+.fourplay-hero .fourplay-btn {
+  margin-top: 0.25rem;
+  background: var(--primary);
+  color: var(--white);
+}
+
+.fourplay-hero .fourplay-btn:hover {
+  background: var(--primary-hover);
+}
+
+.fourplay-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+
+.fourplay-busy {
+  pointer-events: none;
+}
+
+@media (max-width: 480px) {
+  .fourplay-session.degoog-panel {
+    flex-wrap: wrap;
+  }
+
+  .fourplay-session-state.degoog-badge {
+    order: 3;
+  }
+}

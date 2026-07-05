@@ -48,6 +48,11 @@ Settings -> Transports -> 4play (lolcat) -> Configure:
 - **Max container pool size** - maximum number of warm containers to keep available for concurrent requests.
 - **Container TTL** - how long a warm container may be reused before it is recycled.
 
+### Session warmup
+
+- **Origin warmup query / TTL / blocked cooldown / settle delay** - control the automatic per-origin browser warmup described above.
+- **Background warmup interval (hours)** - re-warms every origin the transport has already handled on a fixed schedule so sessions are ready before the next search (e.g. 72 = every 3 days). 0 (default) disables it. For an origin to stay continuously warm, set this at or below the warmup TTL; a larger value leaves a cold gap between refreshes.
+
 ### Proxy (optional)
 
 - **Proxy type** - `none` (default), `socks5`, `socks4`, `http`, or `https`. Enabling any proxy type turns on container isolation automatically.
@@ -65,6 +70,9 @@ Then, in Settings -> Engines -> Configure -> Advanced, pick `lolcat-4play` as th
 - **Tabs are visible during warmup/fallback** - normal searches use warmed browser headers with curl when available; tabs only flicker for initial warmup, session refresh, block retry, or fallback.
 - **Session state is native** - cookies persist across tabs within the same profile. Container isolation keeps parallel requests separated.
 - **Clean profile recommended** - dedicated Firefox profile, no personal data, no interfering extensions.
+- **Response-body streaming is disabled** - the transport tells the extension not to stream every web response body over the WebSocket (dead bandwidth); page HTML is fetched via warmed curl sessions or tab injection instead.
+- **Sessions survive restarts with Valkey** - warmed cookies, headers, and the tracked origin list are persisted through the app cache. With `DEGOOG_VALKEY_URL` set, a restarted degoog rehydrates every warmed session on the transport's first fetch instead of re-warming. Without Valkey the cache is in-memory and resets on restart.
+- **Status and controls** - install the companion **4play status** plugin and type `!4play` to see live session/container status and clear warmed sessions (admin gated).
 
 ## Privacy and trust
 

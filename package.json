@@ -5,6 +5,14 @@
   "author": "fccview",
   "plugins": [
     {
+      "path": "plugins/4play-status",
+      "name": "4play status",
+      "description": "Admin-gated !4play bang showing live 4play transport status: warmed sessions, blocked origins, containers, and clear controls.",
+      "version": "1.0.0",
+      "type": "command",
+      "minDegoogVersion": "0.23.0"
+    },
+    {
       "path": "plugins/ai-summary",
       "name": "AI Summary",
       "description": "AI-powered summary panel for search results. Supports OpenAI-compatible, Gemini, and Anthropic providers.",
@@ -223,7 +231,7 @@
       "name": "4play (lolcat)",
       "minDegoogVersion": "0.23.0",
       "description": "Fetches pages using a real Firefox session via the official lolcat 4play browser extension.",
-      "version": "1.4.2"
+      "version": "1.5.0"
     },
     {
       "path": "transports/degoog-fplay",
