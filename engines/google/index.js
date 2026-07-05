@@ -135,23 +135,54 @@ const _isInterstitial = (html) => {
   return MUTANT_SIGNATURES.some((m) => head.includes(m));
 };
 
+const _clean = (value) => (value || "").replace(/\s+/g, " ").trim();
+
+const _SKIP_RESULT_HOST =
+  /(?:^|\.)(?:google\.|gstatic\.|googleusercontent\.|schema\.org)/i;
+
+const _isResultUrl = (url) => {
+  if (!url.startsWith("http")) return false;
+  try {
+    const { hostname, pathname } = new URL(url);
+    if (_SKIP_RESULT_HOST.test(hostname)) return false;
+    if (hostname.endsWith("google.com") && pathname.startsWith("/search"))
+      return false;
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const _parseDesktop = ($, name) => {
   const results = [];
   const seen = new Set();
-  $("a:has(h3)").each((_, el) => {
+
+  const scoped = $("#rso a:has(h3), #rso a:has([role='heading'])");
+  const links = scoped.length
+    ? scoped
+    : $("a:has(h3), a:has([role='heading'])");
+
+  links.each((_, el) => {
     const linkEl = $(el);
     const url = _resolveHref(linkEl.attr("href") || "");
-    if (!url.startsWith("http") || url.includes("google.com")) return;
-    const title = linkEl.find("h3").first().text().trim();
-    if (!title || seen.has(url)) return;
+    if (!_isResultUrl(url) || seen.has(url)) return;
+
+    const title = _clean(
+      linkEl.find("h3").first().text() ||
+        linkEl.find("[role='heading']").first().text(),
+    );
+    if (!title) return;
     seen.add(url);
-    const block = linkEl.closest("[data-hveid]");
-    const snippet =
-      block.find("[data-sncf]").first().text().trim() ||
-      block.find(".VwiC3b").first().text().trim() ||
-      "";
+
+    const block = linkEl.closest("[data-hveid], .g");
+    const snippet = _clean(
+      block.find("[data-sncf]").first().text() ||
+        block.find(".VwiC3b").first().text() ||
+        "",
+    );
     results.push({ title, url, snippet, source: name });
   });
+
   return results;
 };
 

@@ -1,9 +1,11 @@
-import { tabSpell } from "./browser.js";
+import { tabSpell } from "../browser/browser.js";
 import {
   OriginBlockedError,
   inspectPageJs,
   looksBlocked,
+  looksConsent,
   originFor,
+  progressPageJs,
   sleep,
   warmupSearchJs,
 } from "./origin-warmup.js";
@@ -15,9 +17,9 @@ export class WarmupDriver {
     awaitDom,
     closeTabQuietly,
     store,
-    retireContainer,
     ownedTabIds,
-    captchaTabIds,
+    tabContainerIds,
+    registerCaptcha,
     seenOrigins,
     warn,
     timeoutMs,
@@ -25,15 +27,16 @@ export class WarmupDriver {
     warmupTtlMs,
     blockCooldownMs,
     settleMs,
+    acceptConsent,
   }) {
     this._cmd = cmd;
     this._inject = inject;
     this._awaitDom = awaitDom;
     this._closeTabQuietly = closeTabQuietly;
     this._store = store;
-    this._retireContainer = retireContainer;
     this._ownedTabIds = ownedTabIds;
-    this._captchaTabIds = captchaTabIds;
+    this._tabContainerIds = tabContainerIds;
+    this._registerCaptcha = registerCaptcha;
     this._seenOrigins = seenOrigins;
     this._warn = warn;
     this._timeoutMs = timeoutMs;
@@ -41,18 +44,18 @@ export class WarmupDriver {
     this._warmupTtlMs = warmupTtlMs;
     this._blockCooldownMs = blockCooldownMs;
     this._settleMs = settleMs;
+    this._acceptConsent = acceptConsent;
   }
 
   markBlocked(origin, containerId, reason = "blocked", tabId = null) {
     const tabInfo = typeof tabId === "number" ? tabId : "unknown";
     this._warn(
-      `tainting ${origin} session for ${Math.round(this._blockCooldownMs() / 60000)}m (container=${containerId || "default"}, tab=${tabInfo}, reason: ${reason}); retiring container`,
+      `tainting ${origin} session for ${Math.round(this._blockCooldownMs() / 60000)}m (container=${containerId || "default"}, tab=${tabInfo}, reason: ${reason}); keeping container reserved for manual solve`,
     );
     this._store.setWarmupState(origin, containerId, {
       blockedUntil: Date.now() + this._blockCooldownMs(),
       reason,
     });
-    this._retireContainer(containerId);
   }
 
   assertUsable(origin, containerId) {
@@ -86,14 +89,14 @@ export class WarmupDriver {
     const promise = this._warmNow(origin, containerId);
     this._store.setWarmupState(origin, containerId, { promise });
     try {
-      await promise;
+      const reachedSearch = await promise;
       const session = this._store.usableHeaderSession(origin, containerId);
-      if (session) {
+      if (reachedSearch && session) {
         this._store.setWarmupState(origin, containerId, { warmedAt: Date.now() });
       } else {
         this._store.dropWarmup(origin, containerId);
         this._warn(
-          `origin warmup for ${origin} did not capture a reusable main-frame browser session`,
+          `origin warmup for ${origin} did not reach a usable search session (reachedSearch=${reachedSearch}, session=${Boolean(session)})`,
         );
       }
       return origin;
@@ -110,13 +113,17 @@ export class WarmupDriver {
     let keepTabOpen = false;
     try {
       tabId = await this._openTab(origin, containerId);
+      await this._progressPage(origin, containerId, tabId, "opened warmup page");
       await this._inspectPage(origin, containerId, tabId);
-      await this._tryForm(origin, containerId, tabId);
+      return await this._tryForm(origin, containerId, tabId);
     } catch (error) {
       if (error instanceof OriginBlockedError) {
         keepTabOpen = true;
         if (typeof tabId === "number") {
-          this._captchaTabIds.add(tabId);
+          this._registerCaptcha(tabId, origin, "warmup");
+          this._warn(
+            `keeping warmup tab ${tabId} open for manual attention (${origin}, reason=${error.reason || error.message || "blocked"})`,
+          );
         }
       }
       throw error;
@@ -124,6 +131,7 @@ export class WarmupDriver {
       if (!keepTabOpen) {
         await this._closeTabQuietly(tabId);
         this._ownedTabIds.delete(tabId);
+        this._tabContainerIds.delete(tabId);
       }
     }
   }
@@ -140,9 +148,28 @@ export class WarmupDriver {
       );
     }
     this._ownedTabIds.add(tabId);
+    if (containerId) this._tabContainerIds.set(tabId, containerId);
     await this._awaitDom(tabId, this._timeoutMs()).catch(() => null);
     await sleep(this._settleMs());
+    await this._acceptConsent?.(tabId);
     return tabId;
+  }
+
+  async _progressPage(origin, containerId, tabId, stage) {
+    const progressed = await this._inject(
+      tabId,
+      progressPageJs(),
+      Math.min(10000, this._timeoutMs()),
+    );
+    if (!progressed?.progressed) return false;
+    this._warn(
+      `warmup progressed ${origin} (${stage}, container=${containerId || "default"}, tab=${tabId}, via=${progressed.via || "unknown"}, target=${progressed.href || "unknown"})`,
+    );
+    await this._awaitDom(tabId, Math.min(10000, this._timeoutMs())).catch(
+      () => null,
+    );
+    await sleep(this._settleMs());
+    return true;
   }
 
   async _inspectPage(origin, containerId, tabId) {
@@ -152,25 +179,42 @@ export class WarmupDriver {
       Math.min(10000, this._timeoutMs()),
     );
     const haystack = `${page?.title || ""}\n${page?.href || ""}\n${page?.text || ""}`;
-    if (looksBlocked(haystack)) {
+    if (looksConsent(haystack, page?.href)) {
+      if (await this._acceptConsent?.(tabId)) {
+        return this._inspectPage(origin, containerId, tabId);
+      }
+      throw new OriginBlockedError(origin, "warmup consent", tabId, "consent");
+    }
+    if (looksBlocked(haystack, page?.href)) {
       this.markBlocked(origin, containerId, "warmup page block/captcha", tabId);
       throw new OriginBlockedError(origin, "warmup page block/captcha", tabId);
     }
     return page;
   }
 
-  async _tryForm(origin, containerId, tabId) {
+  async _tryForm(origin, containerId, tabId, progressAttempts = 0) {
     const submitted = await this._inject(
       tabId,
       warmupSearchJs(this._warmupQuery()),
       Math.min(10000, this._timeoutMs()),
     );
-    if (!submitted?.submitted) return false;
+    if (!submitted?.submitted) {
+      if (progressAttempts >= 2) return false;
+      const progressed = await this._progressPage(
+        origin,
+        containerId,
+        tabId,
+        `search form unavailable (${submitted?.reason || "unknown"})`,
+      );
+      if (!progressed) return false;
+      return this._tryForm(origin, containerId, tabId, progressAttempts + 1);
+    }
 
     await this._awaitDom(tabId, Math.min(10000, this._timeoutMs())).catch(
       () => null,
     );
     await sleep(this._settleMs());
+    await this._progressPage(origin, containerId, tabId, "after warmup search submit");
     await this._inspectPage(origin, containerId, tabId);
     return true;
   }

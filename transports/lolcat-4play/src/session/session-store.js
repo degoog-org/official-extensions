@@ -1,14 +1,15 @@
-import { cookieJarKeyFor, seedCookieJarTextFromHeaders } from "./curl-session.js";
-import { originFor, warmupKeyFor } from "./origin-warmup.js";
+import { cookieJarKeyFor, seedCookieJarTextFromHeaders } from "../net/curl-session.js";
+import { originFor, warmupKeyFor } from "../warmup/origin-warmup.js";
 
 const ORIGINS_KEY = "__origins";
 const ORIGINS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export class SessionStore {
-  constructor({ configKey, warmupTtlMs, ownedTabIds, log }) {
+  constructor({ configKey, warmupTtlMs, ownedTabIds, tabContainerIds, log }) {
     this._configKey = configKey;
     this._warmupTtlMs = warmupTtlMs;
     this._ownedTabIds = ownedTabIds;
+    this._tabContainerIds = tabContainerIds;
     this._log = log;
     this._warmups = new Map();
     this._headerSessions = new Map();
@@ -24,8 +25,8 @@ export class SessionStore {
     return containerId || this._configKey() || "default";
   }
 
-  cacheKey() {
-    return this._configKey() || "default";
+  cacheKey(containerId = null) {
+    return containerId || this._configKey() || "default";
   }
 
   warmupState(origin, containerId) {
@@ -58,7 +59,7 @@ export class SessionStore {
 
   persistCookieJar(origin, containerId, cookieJarText, headers = null) {
     const memKey = cookieJarKeyFor(origin, this.memKey(containerId));
-    const cacheKey = cookieJarKeyFor(origin, this.cacheKey());
+    const cacheKey = cookieJarKeyFor(origin, this.cacheKey(containerId));
     this._cookieJarTexts.set(memKey, cookieJarText);
     this._cookieCache
       ?.set(cacheKey, cookieJarText, this._warmupTtlMs())
@@ -76,7 +77,7 @@ export class SessionStore {
 
   async loadCookieJar(origin, containerId) {
     const memKey = cookieJarKeyFor(origin, this.memKey(containerId));
-    const cacheKey = cookieJarKeyFor(origin, this.cacheKey());
+    const cacheKey = cookieJarKeyFor(origin, this.cacheKey(containerId));
     if (this._cookieCache) {
       try {
         const cached = await this._cookieCache.get(cacheKey);
@@ -89,7 +90,7 @@ export class SessionStore {
   }
 
   async loadSessionFromCache(origin, containerId) {
-    const cacheKey = cookieJarKeyFor(origin, this.cacheKey());
+    const cacheKey = cookieJarKeyFor(origin, this.cacheKey(containerId));
     const warmupKey = warmupKeyFor(origin, this.memKey(containerId));
     if (this._headerSessions.has(warmupKey)) return;
     if (!this._cookieCache) return;
@@ -122,7 +123,7 @@ export class SessionStore {
     const origin = originFor(data.url);
     if (!origin) return;
 
-    const containerId = data.container || null;
+    const containerId = data.container || this._tabContainerIds.get(data.id) || null;
     const cookieJarText = seedCookieJarTextFromHeaders(origin, data.headers);
     if (cookieJarText) {
       this.persistCookieJar(origin, containerId, cookieJarText);
@@ -224,7 +225,7 @@ export class SessionStore {
     this._warmups.delete(key);
     this._headerSessions.delete(key);
     this._cookieJarTexts.delete(`${memKey}:${origin}`);
-    const cacheKey = cookieJarKeyFor(origin, this.cacheKey());
+    const cacheKey = cookieJarKeyFor(origin, memKey);
     this._cookieCache?.delete(cacheKey).catch(() => {});
     this._cookieCache?.delete(cacheKey + ":headers").catch(() => {});
     return memKey;

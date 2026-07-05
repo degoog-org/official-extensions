@@ -33,8 +33,28 @@
     const connLabel = root.querySelector("[data-conn-label]");
     const subtitle = root.querySelector("[data-subtitle]");
     const clearAllBtn = root.querySelector("[data-clear-all]");
+    const actions = root.querySelector(".fourplay-actions");
 
     let refreshTimer = null;
+
+    const firefoxLink = document.createElement("a");
+    firefoxLink.className = "fourplay-btn fourplay-btn--firefox";
+    firefoxLink.target = "_blank";
+    firefoxLink.rel = "noopener noreferrer";
+    firefoxLink.hidden = true;
+    firefoxLink.innerHTML =
+      '<i class="fa-brands fa-firefox-browser"></i>Open Firefox';
+    if (actions) actions.insertBefore(firefoxLink, actions.lastChild);
+
+    const setFirefox = (url) => {
+      if (url) {
+        firefoxLink.href = url;
+        firefoxLink.hidden = false;
+      } else {
+        firefoxLink.hidden = true;
+        firefoxLink.removeAttribute("href");
+      }
+    };
 
     const setConn = (label, tone) => {
       connLabel.textContent = label;
@@ -89,7 +109,7 @@
       const state = session.blocked
         ? `blocked, ${fmtDur(session.cooldownLeftMs)} left`
         : session.alive
-          ? `warm, expires in ${fmtDur(session.expiresInMs)}`
+          ? `primed, expires in ${fmtDur(session.expiresInMs)}`
           : "cold";
       const tone = session.blocked ? "danger" : session.alive ? "success" : "muted";
       const metaBits = [`container ${session.container || "default"}`];
@@ -99,12 +119,13 @@
       if (session.blocked && session.reason) {
         metaBits.push(session.reason);
       }
+      const containerName = session.containerLabel || session.container || "default";
       return `
         <div class="fourplay-session degoog-panel" data-key="${esc(session.key)}">
           <span class="fourplay-dot" data-tone="${tone}"></span>
           <div class="fourplay-session-info">
             <span class="fourplay-session-origin">${esc(session.origin)}</span>
-            <span class="fourplay-session-meta">${esc(metaBits.join(" | "))}</span>
+            <span class="fourplay-session-meta">${esc([`container ${containerName}`, ...metaBits.slice(1)].join(" | "))}</span>
           </div>
           <span class="degoog-badge fourplay-session-state" data-tone="${tone}">${esc(state)}</span>
           <button type="button" class="degoog-icon-btn fourplay-session-clear" data-clear-key="${esc(session.key)}" aria-label="Clear session" title="Clear this session">
@@ -114,6 +135,7 @@
     };
 
     const render = (data) => {
+      const firefoxUrl = data.firefoxUrl || "";
       const status = data.status;
       if (!status) {
         renderEmpty(data);
@@ -132,42 +154,74 @@
       const sessions = Array.isArray(status.sessions) ? status.sessions : [];
       const warmCount = sessions.filter((s) => s.alive).length;
       const blockedCount = sessions.filter((s) => s.blocked).length;
-      const captchaCount = Number(status.captchaTabs) || 0;
+      const captchaTabs = Array.isArray(status.captchaTabs) ? status.captchaTabs : [];
+      const captchaCount = Array.isArray(status.captchaTabs)
+        ? captchaTabs.length
+        : Number(status.captchaTabs) || 0;
       const tracked = (autoWarm.tracked || []).length;
+      const leased = Number(containers.leased) || 0;
+      const idle = Number(containers.idle) || 0;
+      const max = Number(containers.max) || 0;
+      const aliveContainers = leased + idle;
 
       const tiles = `
         <div class="fourplay-tiles degoog-grid">
           ${tile(
-            "Sessions",
-            String(sessions.length),
-            `${warmCount} warm, ${blockedCount} blocked`,
-            blockedCount ? "danger" : warmCount ? "success" : "",
-          )}
+        "Sessions",
+        String(sessions.length),
+        `${warmCount} primed, ${blockedCount} blocked`,
+        blockedCount ? "danger" : warmCount ? "success" : "",
+      )}
           ${tile(
-            "Containers",
-            `${Number(containers.leased) || 0} / ${Number(containers.max) || 0}`,
-            `${Number(containers.idle) || 0} idle in the warm pool`,
-          )}
+        "Containers",
+        `${aliveContainers} / ${max}`,
+        `${leased} in use, ${idle} idle`,
+      )}
           ${tile(
-            "Captcha tabs",
-            String(captchaCount),
-            captchaCount ? "solve them in the browser" : "no open challenges",
-            captchaCount ? "danger" : "",
-          )}
+        "Captcha tabs",
+        String(captchaCount),
+        captchaCount ? "solve them in the browser" : "no open challenges",
+        captchaCount ? "danger" : "",
+      )}
           ${tile(
-            "Background warmup",
-            autoWarm.intervalMs ? `every ${fmtDur(autoWarm.intervalMs)}` : "off",
-            tracked ? `${tracked} origin(s) tracked` : "no origins tracked yet",
-          )}
+        "Background warmup",
+        autoWarm.intervalMs ? `every ${fmtDur(autoWarm.intervalMs)}` : "off",
+        tracked ? `${tracked} origin(s) tracked` : "no origins tracked yet",
+      )}
         </div>`;
 
       const list = sessions.length
         ? sessions.map(sessionRow).join("")
-        : hero("fa-mug-hot", "No warmed sessions yet. Run a search through the transport and they will show up here.");
+        : hero("fa-mug-hot", "No primed browser sessions yet. Run a search through the transport and they will show up here.");
+
+      const captchaList = captchaTabs.length
+        ? `<div class="fourplay-section-head">
+            <span class="fourplay-section-title">Captcha tabs</span>
+            <span class="degoog-badge">${captchaTabs.length}</span>
+          </div>
+          <div class="fourplay-sessions">
+            ${captchaTabs.map((tab) => {
+          const name = tab.title || tab.url || `Tab ${tab.id}`;
+          const container = tab.containerLabel || tab.container || "default";
+          const solveLink = firefoxUrl
+            ? `<a class="fourplay-btn fourplay-btn--firefox fourplay-session-solve" href="${esc(firefoxUrl)}" target="_blank" rel="noopener noreferrer" title="Open Firefox to solve tab ${esc(tab.id)}"><i class="fa-brands fa-firefox-browser"></i>Solve</a>`
+            : "";
+          return `<div class="fourplay-session degoog-panel">
+                <span class="fourplay-dot" data-tone="danger"></span>
+                <div class="fourplay-session-info">
+                  <span class="fourplay-session-origin">${esc(name)}</span>
+                  <span class="fourplay-session-meta">${esc(`tab ${tab.id} | container ${container}`)}</span>
+                </div>
+                <span class="degoog-badge fourplay-session-state" data-tone="danger">needs attention</span>
+                ${solveLink}
+              </div>`;
+        }).join("")}
+          </div>`
+        : "";
 
       const sectionHead = `
         <div class="fourplay-section-head">
-          <span class="fourplay-section-title">Warmed sessions</span>
+          <span class="fourplay-section-title">Primed browser sessions</span>
           <span class="degoog-badge">${sessions.length}</span>
         </div>`;
 
@@ -178,7 +232,7 @@
       footerBits.push("auto-refreshes every 10s");
       const footer = `<div class="fourplay-footer">${esc(footerBits.join(" | "))}</div>`;
 
-      body.innerHTML = `${tiles}${sectionHead}<div class="fourplay-sessions">${list}</div>${footer}`;
+      body.innerHTML = `${tiles}${captchaList}${sectionHead}<div class="fourplay-sessions">${list}</div>${footer}`;
     };
 
     const fetchStatus = async () => {
@@ -190,6 +244,7 @@
         }
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
+        setFirefox(data.firefoxUrl || "");
         render(data);
         return true;
       } catch (error) {

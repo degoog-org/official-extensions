@@ -9,6 +9,7 @@ const TRANSPORT_HINT = /4play/i;
 let template = "";
 let useCacheFn = null;
 let transportOverride = "";
+let firefoxUrl = "";
 
 const log = (msg) => {
   console.warn(`[4play-status] ${msg}`);
@@ -29,8 +30,12 @@ const apiBaseFor = (reqUrl) => {
 const tokenFrom = (req) => req.headers.get("x-settings-token") || "";
 
 const authHeaders = (req) => {
+  const headers = {};
   const token = tokenFrom(req);
-  return token ? { "x-settings-token": token } : {};
+  const cookie = req.headers.get("cookie") || "";
+  if (token) headers["x-settings-token"] = token;
+  if (cookie) headers.cookie = cookie;
+  return headers;
 };
 
 const gandalfSaysYes = async (req) => {
@@ -128,6 +133,7 @@ const statusHandler = async (req) => {
         transport: null,
         status: null,
         candidates: resolved.candidates,
+        firefoxUrl,
         hint: "No 4play transport found. Is the lolcat 4play transport installed?",
       },
       200,
@@ -144,6 +150,7 @@ const statusHandler = async (req) => {
       transport: resolved.name,
       status: resolved.status,
       candidates: resolved.candidates,
+      firefoxUrl,
       hint,
     },
     200,
@@ -238,6 +245,14 @@ export default {
       description:
         "Leave blank to auto-detect the installed 4play transport. Only set this if you run multiple 4play transports and want to pin a specific one (use the runtime name shown on the status card).",
     },
+    {
+      key: "firefoxUrl",
+      label: "Firefox browser link",
+      type: "text",
+      default: "",
+      description:
+        "Link to the Firefox instance running the 4play extension (e.g. a remote-desktop/VNC/noVNC URL like http://192.168.86.233:6080, or any URL that opens that browser). When set, the status card shows an 'Open Firefox' button and a jump link next to every captcha that needs attention, so you can hop straight over to solve it. Firefox cannot be deep-linked to a specific tab from outside, so this opens the browser and you pick the flagged tab.",
+    },
   ],
 
   routes: [
@@ -253,6 +268,7 @@ export default {
 
   configure(settings) {
     transportOverride = String(settings?.transportName || "").trim();
+    firefoxUrl = String(settings?.firefoxUrl || "").trim();
   },
 
   execute() {

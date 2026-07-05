@@ -3,8 +3,8 @@ export const DEFAULT_TIMEOUT_MS = 30000;
 export const MIN_TIMEOUT_MS = 5000;
 export const MAX_TIMEOUT_MS = 120000;
 export const PROXY_TYPES = ["socks5", "socks4", "http", "https"];
-export const MAX_CONTAINER_POOL_SIZE = 5;
-export const DEFAULT_POOL_SIZE = 5;
+export const MAX_CONTAINER_POOL_SIZE = 10;
+export const DEFAULT_POOL_SIZE = 10;
 export const MIN_POOL_SIZE = 1;
 export const DEFAULT_CONTAINER_TTL_H = 24;
 export const DEFAULT_WARMUP_TTL_M = 60;
@@ -103,14 +103,14 @@ export const settingsSchemaFor = (transportName) => [
     type: "toggle",
     default: "true",
     description:
-      "Open each request in an isolated Firefox container. Containers are reused from a warm pool and reset whenever proxy settings change. Disable only if you do not care about cookie isolation.",
+      "Give every search origin (google.com, bing.com, startpage.com, ...) its own dedicated, isolated Firefox container. Each origin's cookies, session and any solved CAPTCHA stay pinned to that one container and are reused for every later request to the same origin, so you only solve a challenge once. Containers are reset whenever proxy settings change. Disable only if you do not care about per-origin cookie isolation.",
   },
   {
     key: "maxPoolSize",
-    label: "Max container pool size",
+    label: "Max containers (one per origin)",
     type: "number",
     placeholder: String(DEFAULT_POOL_SIZE),
-    description: `Maximum number of warm containers to keep alive concurrently (minimum ${MIN_POOL_SIZE}). Requests beyond this limit queue until a container is free.`,
+    description: `How many origins can hold a dedicated container at once (minimum ${MIN_POOL_SIZE}). One container is reserved per search origin and reused across all its requests; when this limit is reached the least-recently-used idle origin's container is recycled to make room. Set this at or above the number of search engines you route through 4play.`,
   },
   {
     key: "containerTtl",
@@ -125,7 +125,7 @@ export const settingsSchemaFor = (transportName) => [
     type: "text",
     placeholder: DEFAULT_WARMUP_QUERY,
     description:
-      "Automatic per-origin browser warmup tries this harmless query through a discovered homepage search box before the real request. No engine changes or Google-specific rules are required.",
+      "Automatic per-origin browser warmup tries this harmless query through a discovered homepage search box before the real request. No engine-specific rules are required.",
   },
   {
     key: "warmupTtl",

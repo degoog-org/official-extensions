@@ -133,6 +133,22 @@
   color: var(--danger);
 }
 
+.fourplay-btn--firefox {
+  text-decoration: none;
+  background: var(--primary);
+  color: var(--white);
+}
+
+.fourplay-btn--firefox:hover {
+  background: var(--primary-hover);
+}
+
+.fourplay-session-solve {
+  flex-shrink: 0;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.75rem;
+}
+
 .fourplay-refresh {
   width: 2.25rem;
   height: 2.25rem;
