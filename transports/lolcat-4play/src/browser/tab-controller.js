@@ -1,3 +1,4 @@
+import { tabSpell } from "./browser.js";
 import { consentClickJs, readyStateJs } from "../injectors/index.js";
 import { sleep } from "../warmup/origin-warmup.js";
 
@@ -54,6 +55,25 @@ export class TabController {
     this.ownedTabIds.delete(tabId);
     this.tabContainerIds.delete(tabId);
     this.tabDetails.delete(tabId);
+  }
+
+  _adopt(tabResp, containerId) {
+    const tabId = tabResp?.data?.id;
+    if (typeof tabId !== "number") {
+      throw new Error("lolcat-4play: tab_open did not return a valid tab id");
+    }
+    this.ownedTabIds.add(tabId);
+    if (containerId) this.tabContainerIds.set(tabId, containerId);
+    return tabId;
+  }
+
+  async openTab(url, containerId) {
+    const tabResp = await this._command("tab_open", tabSpell(url, containerId));
+    return this._adopt(tabResp, containerId);
+  }
+
+  openBlank(containerId) {
+    return this.openTab("about:blank", containerId);
   }
 
   async closeTabQuietly(tabId) {
@@ -113,9 +133,16 @@ export class TabController {
     return frameResult?.result ?? null;
   }
 
+  _consentTimeout() {
+    return Math.min(CONSENT_NAVIGATION_TIMEOUT_MS, this._timeoutMs());
+  }
+
+  tryConsent(tabId) {
+    return this.inject(tabId, consentClickJs(), this._consentTimeout());
+  }
+
   async acceptConsent(tabId) {
-    const consentTimeout = () => Math.min(CONSENT_NAVIGATION_TIMEOUT_MS, this._timeoutMs());
-    const result = await this.inject(tabId, consentClickJs(), consentTimeout());
+    const result = await this.tryConsent(tabId);
     if (!result) return false;
     if (!result.consent) return true;
     if (!result.progressed) return false;

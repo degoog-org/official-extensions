@@ -97,6 +97,12 @@ export const containerConfigKey = (settings) =>
 
 export const settingsSchemaFor = (transportName) => [
   {
+    key: "_section_connection",
+    label: "Connection",
+    type: "info",
+    description: "How the Firefox extension reaches this transport.",
+  },
+  {
     key: "wsUrl",
     label: "WebSocket path",
     type: "info",
@@ -118,26 +124,37 @@ export const settingsSchemaFor = (transportName) => [
     description: `Maximum time to wait for a page to fully load (${MIN_TIMEOUT_MS}-${MAX_TIMEOUT_MS} ms).`,
   },
   {
-    key: "useContainer",
-    label: "Container isolation",
-    type: "toggle",
-    default: "true",
+    key: "_section_fetch",
+    label: "Fetch mode",
+    type: "info",
     description:
-      "Give every search origin (google.com, bing.com, startpage.com, ...) its own dedicated, isolated Firefox container. Each origin's cookies, session and any solved CAPTCHA stay pinned to that one container and are reused for every later request to the same origin, so you only solve a challenge once. Containers are reset whenever proxy settings change. Disable only if you do not care about per-origin cookie isolation.",
+      "How pages are fetched. By default the transport warms a real Firefox session, then replays it with curl (fast, battle-tested). The two knobs below change that per your needs. Search triggers need the degoog fork of the 4play extension.",
   },
   {
-    key: "maxPoolSize",
-    label: "Max containers (one per origin)",
-    type: "number",
-    placeholder: String(DEFAULT_POOL_SIZE),
-    description: `How many origins can hold a dedicated container at once (minimum ${MIN_POOL_SIZE}). One container is reserved per search origin and reused across all its requests; when this limit is reached the least-recently-used idle origin's container is recycled to make room. Set this at or above the number of search engines you route through 4play.`,
+    key: "rawHtmlFromTab",
+    label: "HTML parsing mode (raw HTML from a browser tab)",
+    type: "toggle",
+    default: "false",
+    description:
+      "Off (default): every search uses the warmed Firefox session replayed with curl. If an engine below has a trigger, that trigger drives the warmup instead of the generic homepage warmup. On: every search returns the page HTML straight from a Firefox tab after warmup, engines with a trigger return their rendered results page (fixes JS-only engines like DuckDuckGo), engines without a trigger return the raw base64 network response body of their own URL.",
   },
   {
-    key: "containerTtl",
-    label: "Container TTL (hours)",
-    type: "number",
-    placeholder: String(DEFAULT_CONTAINER_TTL_H),
-    description: "How long a container lives before being recycled (in hours). Longer is better for avoiding detection. Default is 24 hours.",
+    key: "triggers",
+    label: "Firefox search triggers",
+    type: "list",
+    addLabel: "+ Add trigger",
+    description:
+      "Map a Firefox search engine to a Degoog engine id. A configured row is active for its engine, no toggle needed. The trigger must be the Firefox search engine's exact name (e.g. 'Bing', 'Google', 'DuckDuckGo', shown in the !4play panel) or an '@keyword' you have assigned it under Firefox Settings -> Search. The engine field must match the Degoog engine id exactly (e.g. 'google-engine', or a store engine id like 'author-repo-engine'). With HTML parsing mode off the trigger drives the session warmup; with it on the trigger fetches the rendered results page. Requires the degoog fork of the 4play extension (it adds the 'search_query' command). Leave the list empty to keep the normal warmed-session behaviour.",
+    itemSchema: [
+      { key: "trigger", label: "Firefox engine name (e.g. Bing) or @keyword", type: "text" },
+      { key: "engine", label: "Engine id (e.g. google-engine)", type: "text" },
+    ],
+  },
+  {
+    key: "_section_warmup",
+    label: "Session & warmup",
+    type: "info",
+    description: "Controls the per-origin browser warmup that establishes a real session before fetching.",
   },
   {
     key: "warmupQuery",
@@ -145,7 +162,7 @@ export const settingsSchemaFor = (transportName) => [
     type: "text",
     placeholder: DEFAULT_WARMUP_QUERY,
     description:
-      "Automatic per-origin browser warmup tries this harmless query through a discovered homepage search box before the real request. No engine-specific rules are required.",
+      "Automatic per-origin browser warmup tries this harmless query through a discovered homepage search box before the real request. No engine-specific rules are required. Engines that use a trigger warm through that trigger instead.",
   },
   {
     key: "warmupTtl",
@@ -180,24 +197,38 @@ export const settingsSchemaFor = (transportName) => [
       "Keep sessions ready without waiting for a user search. Every N hours the transport re-warms the origins it has already handled (e.g. 72 = every 3 days). 0 disables it. For an origin to stay continuously warm, set this at or below the warmup TTL above; a larger value still leaves a cold gap between refreshes.",
   },
   {
-    key: "rawHtmlFromTab",
-    label: "Always fetch raw HTML from a browser tab",
-    type: "toggle",
-    default: "false",
-    description:
-      "When on, origin warmup still runs but every fetch opens a real Firefox tab and returns the site's raw base64 HTML response captured through 4play, instead of replaying the warmed session with curl. Slower and more visible, but the response matches exactly what Firefox received.",
+    key: "_section_containers",
+    label: "Containers",
+    type: "info",
+    description: "Per-origin Firefox container isolation for cookies and solved challenges.",
   },
   {
-    key: "triggers",
-    label: "Firefox search triggers",
-    type: "list",
-    addLabel: "+ Add trigger",
+    key: "useContainer",
+    label: "Container isolation",
+    type: "toggle",
+    default: "true",
     description:
-      "Map a Firefox search engine to a Degoog engine id. When that engine runs a search through this transport, the transport opens a Firefox tab, runs the query through that Firefox search engine (via browser.search), and returns the page's raw HTML. A configured row is active for its engine, no toggle needed. The trigger must be the Firefox search engine's exact name (e.g. 'Bing', 'Google', 'DuckDuckGo') or an '@keyword' you have assigned it under Firefox Settings -> Search. The engine field must match the Degoog engine id exactly (e.g. 'google', or a store engine id like 'author-repo-engine'). Requires the degoog fork of the 4play extension (it adds the 'search_query' command). Leave the list empty to keep the normal warmed-session behaviour.",
-    itemSchema: [
-      { key: "trigger", label: "Firefox engine name (e.g. Bing) or @keyword", type: "text" },
-      { key: "engine", label: "Engine id (e.g. google)", type: "text" },
-    ],
+      "Give every search origin (google.com, bing.com, startpage.com, ...) its own dedicated, isolated Firefox container. Each origin's cookies, session and any solved CAPTCHA stay pinned to that one container and are reused for every later request to the same origin, so you only solve a challenge once. Containers are reset whenever proxy settings change. Disable only if you do not care about per-origin cookie isolation.",
+  },
+  {
+    key: "maxPoolSize",
+    label: "Max containers (one per origin)",
+    type: "number",
+    placeholder: String(DEFAULT_POOL_SIZE),
+    description: `How many origins can hold a dedicated container at once (minimum ${MIN_POOL_SIZE}). One container is reserved per search origin and reused across all its requests; when this limit is reached the least-recently-used idle origin's container is recycled to make room. Set this at or above the number of search engines you route through 4play.`,
+  },
+  {
+    key: "containerTtl",
+    label: "Container TTL (hours)",
+    type: "number",
+    placeholder: String(DEFAULT_CONTAINER_TTL_H),
+    description: "How long a container lives before being recycled (in hours). Longer is better for avoiding detection. Default is 24 hours.",
+  },
+  {
+    key: "_section_challenge",
+    label: "Challenge solving",
+    type: "info",
+    description: "Optional FlareSolverr integration for automated JavaScript challenges.",
   },
   {
     key: "flaresolverrUrl",
@@ -213,6 +244,12 @@ export const settingsSchemaFor = (transportName) => [
     type: "number",
     placeholder: String(DEFAULT_FLARE_TIMEOUT_MS),
     description: `How long FlareSolverr may spend solving a challenge (${MIN_FLARE_TIMEOUT_MS}-${MAX_FLARE_TIMEOUT_MS} ms).`,
+  },
+  {
+    key: "_section_proxy",
+    label: "Proxy",
+    type: "info",
+    description: "Optional upstream proxy attached to every container. Enabling any proxy forces container isolation on.",
   },
   {
     key: "proxyType",

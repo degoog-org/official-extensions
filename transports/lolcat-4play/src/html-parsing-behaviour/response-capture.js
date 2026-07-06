@@ -1,4 +1,4 @@
-import { ResponseWaiters } from "../browser/response-waiters.js";
+import { ResponseWaiters } from "./response-waiters.js";
 
 export const RESPONSE_CAPTURE_TYPES = ["main_frame"];
 

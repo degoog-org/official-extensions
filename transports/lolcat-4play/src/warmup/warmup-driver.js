@@ -1,4 +1,5 @@
 import { tabSpell } from "../browser/browser.js";
+import { runSearch } from "../triggers/search-command.js";
 import {
   inspectPageJs,
   progressPageJs,
@@ -72,7 +73,7 @@ export class WarmupDriver {
     }
   }
 
-  async ensureWarm(url, containerId) {
+  async ensureWarm(url, containerId, trigger = null) {
     const origin = originFor(url);
     if (!origin) return null;
 
@@ -97,7 +98,7 @@ export class WarmupDriver {
       return origin;
     }
 
-    const promise = this._warmNow(origin, containerId);
+    const promise = this._warmNow(origin, containerId, trigger);
     this._store.setWarmupState(origin, containerId, { promise });
     try {
       const reachedSearch = await promise;
@@ -128,10 +129,20 @@ export class WarmupDriver {
     }
   }
 
-  async _warmNow(origin, containerId) {
+  async _warmNow(origin, containerId, trigger = null) {
     let tabId = null;
     let keepTabOpen = false;
     try {
+      if (trigger) {
+        tabId = await this._timed(origin, "trigger-search", () =>
+          this._openTriggerTab(origin, containerId, trigger),
+        );
+        await this._timed(origin, "inspect", () =>
+          this._inspectPage(origin, containerId, tabId),
+        );
+        return true;
+      }
+
       tabId = await this._timed(origin, "open+consent", () =>
         this._openTab(origin, containerId),
       );
@@ -177,6 +188,23 @@ export class WarmupDriver {
     this._ownedTabIds.add(tabId);
     if (containerId) this._tabContainerIds.set(tabId, containerId);
     await this._awaitReady(tabId, Math.min(OPEN_READY_TIMEOUT_MS, this._timeoutMs()));
+    await sleep(this._settleMs());
+    await this._acceptConsent?.(tabId);
+    return tabId;
+  }
+
+  async _openTriggerTab(origin, containerId, trigger) {
+    const tabResp = await this._cmd("tab_open", tabSpell("about:blank", containerId));
+    const tabId = tabResp?.data?.id;
+    if (typeof tabId !== "number") {
+      throw new Error(
+        "lolcat-4play: warmup tab_open did not return a valid tab id",
+      );
+    }
+    this._ownedTabIds.add(tabId);
+    if (containerId) this._tabContainerIds.set(tabId, containerId);
+    await runSearch(this._cmd, trigger.trigger, trigger.query, tabId);
+    await this._awaitReady(tabId, this._timeoutMs());
     await sleep(this._settleMs());
     await this._acceptConsent?.(tabId);
     return tabId;

@@ -120,6 +120,7 @@ export class SessionStore {
 
   rememberBrowserHeaders(data = {}) {
     if (typeof data.id !== "number" || !this._ownedTabIds.has(data.id)) return;
+    if (data.type && data.type !== "main_frame") return;
     const origin = originFor(data.url);
     if (!origin) return;
 
@@ -130,21 +131,14 @@ export class SessionStore {
     }
 
     const warmupKey = warmupKeyFor(origin, this.memKey(containerId));
-    const isMainFrame = data.type === "main_frame";
-
-    let session = this._headerSessions.get(warmupKey);
-    if (isMainFrame || !session) {
-      session = {
-        headers: isMainFrame ? data.headers : (session?.headers || data.headers),
-        url: data.url,
-        cookieJarText: cookieJarText || session?.cookieJarText || null,
-        capturedAt: Date.now(),
-      };
-      this._headerSessions.set(warmupKey, session);
-    } else {
-      if (cookieJarText) session.cookieJarText = cookieJarText;
-      session.capturedAt = Date.now();
-    }
+    const previous = this._headerSessions.get(warmupKey);
+    const session = {
+      headers: data.headers,
+      url: data.url,
+      cookieJarText: cookieJarText || previous?.cookieJarText || null,
+      capturedAt: Date.now(),
+    };
+    this._headerSessions.set(warmupKey, session);
     if (session.cookieJarText) {
       this.persistCookieJar(origin, containerId, session.cookieJarText, session.headers);
     }
@@ -153,7 +147,7 @@ export class SessionStore {
     if (!state?.warmedAt || state?.blockedUntil) {
       this.setWarmupState(origin, containerId, { warmedAt: Date.now() });
       this._log(
-        `unblocked/warmed ${origin} via captured browser request (container=${containerId || "default"}, url=${data.url})`,
+        `warmed ${origin} via captured main_frame request (container=${containerId || "default"}, url=${data.url})`,
       );
     }
   }

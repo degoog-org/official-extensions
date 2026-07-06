@@ -4,9 +4,11 @@ import { TabController } from "./src/browser/tab-controller.js";
 import { SessionStore } from "./src/session/session-store.js";
 import { CaptchaManager } from "./src/runtime/captcha-manager.js";
 import { ControlChannel, CONTROL_TTL_MS } from "./src/runtime/control-channel.js";
-import { PageFetcher } from "./src/runtime/page-fetcher.js";
-import { ResponseCapture } from "./src/runtime/response-capture.js";
-import { TriggerRouter } from "./src/runtime/trigger-router.js";
+import { SessionFetcher } from "./src/session-behaviour/session-fetcher.js";
+import { HtmlFetcher } from "./src/html-parsing-behaviour/html-fetcher.js";
+import { ResponseCapture } from "./src/html-parsing-behaviour/response-capture.js";
+import { TriggerFetcher } from "./src/triggers/trigger-fetcher.js";
+import { TriggerRouter } from "./src/triggers/trigger-router.js";
 import { Scheduler } from "./src/runtime/scheduler.js";
 import { StatusReporter, STATUS_TTL_MS } from "./src/runtime/status-reporter.js";
 import { buildExtensionProxy, curlProxyUrlFor } from "./src/net/proxy.js";
@@ -124,17 +126,39 @@ export default class FourPlayTransport {
     acceptConsent: (tabId) => this._tabs.acceptConsent(tabId),
   });
 
-  _fetcher = new PageFetcher({
-    command: (action, params, timeoutMs) => this._cmd(action, params, timeoutMs),
+  _sessionFetcher = new SessionFetcher({
     tabs: this._tabs,
     captcha: this._captcha,
-    capture: this._capture,
     store: this._store,
     markBlocked: (origin, containerId, reason, tabId) =>
       this._warmer.markBlocked(origin, containerId, reason, tabId),
     flaresolverrUrl: () => this._settings.flaresolverrUrl,
     flaresolverrTimeoutMs: () => this._settings.flaresolverrTimeoutMs,
     curlProxyUrl: () => curlProxyUrlFor(this._settings),
+    timeoutMs: () => this._settings.timeoutMs,
+    warn: (msg) => this._warn(msg),
+  });
+
+  _htmlFetcher = new HtmlFetcher({
+    tabs: this._tabs,
+    capture: this._capture,
+    captcha: this._captcha,
+    markBlocked: (origin, containerId, reason, tabId) =>
+      this._warmer.markBlocked(origin, containerId, reason, tabId),
+    solveWithFlare: (url, origin, containerId) =>
+      this._sessionFetcher.solveWithFlare(url, origin, containerId),
+    timeoutMs: () => this._settings.timeoutMs,
+    warn: (msg) => this._warn(msg),
+  });
+
+  _triggerFetcher = new TriggerFetcher({
+    command: (action, params, timeoutMs) => this._cmd(action, params, timeoutMs),
+    tabs: this._tabs,
+    captcha: this._captcha,
+    markBlocked: (origin, containerId, reason, tabId) =>
+      this._warmer.markBlocked(origin, containerId, reason, tabId),
+    solveWithFlare: (url, origin, containerId) =>
+      this._sessionFetcher.solveWithFlare(url, origin, containerId),
     timeoutMs: () => this._settings.timeoutMs,
     warn: (msg) => this._warn(msg),
   });
@@ -331,17 +355,19 @@ export default class FourPlayTransport {
 
       await this._captcha.syncAllTabs();
 
-      if (trigger) {
-        const res = await this._fetcher.triggerFetch(url, origin, containerId, trigger);
-        await this._captcha.clearTabsForOrigin(origin);
+      if (this._settings.rawHtmlFromTab) {
+        const warmedOrigin = await this._warmer.ensureWarm(url, containerId);
+        const res = trigger
+          ? await this._triggerFetcher.fetch(url, warmedOrigin, containerId, trigger)
+          : await this._htmlFetcher.rawBrowserFetch(url, warmedOrigin, containerId);
+        await this._captcha.clearTabsForOrigin(warmedOrigin);
         return res;
       }
 
-      const warmedOrigin = await this._warmer.ensureWarm(url, containerId);
-      const res = this._settings.rawHtmlFromTab
-        ? await this._fetcher.rawBrowserFetch(url, warmedOrigin, containerId)
-        : (await this._fetcher.curlFetchWarmed(url, warmedOrigin, containerId)) ??
-          (await this._fetcher.browserFetch(url, warmedOrigin, containerId));
+      const warmedOrigin = await this._warmer.ensureWarm(url, containerId, trigger);
+      const res =
+        (await this._sessionFetcher.curlFetchWarmed(url, warmedOrigin, containerId)) ??
+        (await this._sessionFetcher.browserFetch(url, warmedOrigin, containerId));
       await this._captcha.clearTabsForOrigin(warmedOrigin);
       return res;
     } catch (error) {
