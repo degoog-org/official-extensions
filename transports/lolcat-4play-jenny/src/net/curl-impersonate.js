@@ -52,37 +52,73 @@ export const seedCookieJarFromHeaders = (origin, headers = []) => {
   return `${lines.join("\n")}\n`;
 };
 
+const CURL_ACCEPT_ENCODING = "gzip, deflate";
+
+const STRIP_HEADERS = new Set([
+  "accept-encoding",
+  "authorization",
+  "connection",
+  "content-length",
+  "cookie",
+  "host",
+  "origin",
+  "proxy-authorization",
+  "referer",
+]);
+
 const headersFromSession = (session) => {
   const headers = Array.isArray(session?.headers) ? session.headers : [];
-  return headers.filter((line) => !/^cookie:/i.test(line));
+  const cleaned = [];
+  const seen = new Set();
+  for (const line of headers) {
+    const raw = String(line || "");
+    const splitAt = raw.indexOf(":");
+    if (splitAt <= 0) continue;
+    const name = raw.slice(0, splitAt).trim();
+    const value = raw.slice(splitAt + 1).trim();
+    const lower = name.toLowerCase();
+    if (!name || !value || STRIP_HEADERS.has(lower) || seen.has(lower)) continue;
+    seen.add(lower);
+    cleaned.push(`${name.replace(/[\r\n]/g, "")}: ${value.replace(/[\r\n]/g, "")}`);
+  }
+  return cleaned;
 };
 
-const buildArgs = ({ url, options = {}, session, proxyUrl = "", timeoutSeconds = 30, delimiter }) => {
-  const args = ["-sS", "-L", "--compressed", "--max-time", String(Math.ceil(timeoutSeconds)), "-b", "-", "-c", "-"];
+const buildArgs = ({ url, options = {}, session, proxyUrl = "", timeoutSeconds = 30, statusMark, cookieMark }) => {
+  const args = ["-sS", "-L", "--compressed", "--max-redirs", "5", "--max-time", String(Math.ceil(timeoutSeconds)), "-b", "-", "-c", "-"];
   if (proxyUrl) args.push("--proxy", proxyUrl);
+  args.push("-H", `Accept-Encoding: ${CURL_ACCEPT_ENCODING}`);
   for (const header of headersFromSession(session)) args.push("-H", header);
   const method = options.method || "GET";
   if (method && method !== "GET") args.push("-X", method);
   if (options.body) args.push("--data-binary", typeof options.body === "string" ? options.body : String(options.body));
-  args.push("-w", `\n${delimiter}%{http_code}`, url);
+  args.push("-w", `\n${statusMark}%{http_code}\n${cookieMark}\n`, "--", url);
   return args;
 };
 
-const parseOutput = (stdout, delimiter) => {
-  const marker = `\n${delimiter}`;
-  const idx = stdout.lastIndexOf(marker);
-  const body = idx >= 0 ? stdout.slice(0, idx) : stdout;
-  const status = idx >= 0 ? Number(stdout.slice(idx + marker.length)) : 502;
-  return { body, status: status >= 100 ? status : 502 };
+export const parseOutput = (stdout, statusMark, cookieMark) => {
+  let head = stdout;
+  let cookieJarText = "";
+  const cookieIdx = stdout.lastIndexOf(cookieMark);
+  if (cookieIdx >= 0) {
+    head = stdout.slice(0, cookieIdx);
+    cookieJarText = stdout.slice(cookieIdx + cookieMark.length).replace(/^\n/, "");
+  }
+  const marker = `\n${statusMark}`;
+  const idx = head.lastIndexOf(marker);
+  const body = idx >= 0 ? head.slice(0, idx) : head;
+  const status = idx >= 0 ? parseInt(head.slice(idx + marker.length), 10) : 502;
+  return { body, status: status >= 100 ? status : 502, cookieJarText };
 };
 
 const fetchWithBinary = async ({ binary, url, options = {}, session, proxyUrl = "", timeoutSeconds = 30 }) => {
-  const delimiter = `__DEGOOG_STATUS_${randomBytes(8).toString("hex")}__`;
+  const statusMark = `__DEGOOG_STATUS_${randomBytes(8).toString("hex")}__`;
+  const cookieMark = `__DEGOOG_COOKIES_${randomBytes(8).toString("hex")}__`;
   const cookieJarText = session?.cookieJarText || "# Netscape HTTP Cookie File\n";
-  const args = buildArgs({ url, options, session, proxyUrl, timeoutSeconds, delimiter });
+  const args = buildArgs({ url, options, session, proxyUrl, timeoutSeconds, statusMark, cookieMark });
   const result = await run(binary, args, cookieJarText);
   if (result.exitCode !== 0) throw new Error(result.stderr.trim() || `${binary} failed (${result.exitCode})`);
-  const parsed = parseOutput(result.stdout, delimiter);
+  const parsed = parseOutput(result.stdout, statusMark, cookieMark);
   return new Response(parsed.body, { status: parsed.status, headers: { "Content-Type": "text/html; charset=utf-8", "X-Degoog-Transport-Binary": binary } });
 };
 

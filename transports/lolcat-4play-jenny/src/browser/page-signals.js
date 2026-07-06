@@ -20,38 +20,10 @@ const BLOCK_PATTERNS = [
   /Please click\s+<a\s+href=["']\/httpservice/i,
 ];
 
-export class OriginBlockedError extends Error {
-  constructor(origin, reason = "blocked", tabId = null, status = "captcha") {
-    const tabSuffix = typeof tabId === "number" ? `, tab=${tabId}` : "";
-    super(`lolcat-4play: ${origin} session appears blocked (${reason}${tabSuffix})`);
-    this.name = "SentinelBreach";
-    this.status = status;
-    this.origin = origin;
-    this.reason = reason;
-    this.tabId = tabId;
-  }
-}
-
-export const originFor = (url) => {
-  if (typeof url !== "string" || !url) return null;
-  try {
-    const parsed = new URL(url);
-    if (!["http:", "https:"].includes(parsed.protocol)) return null;
-    return parsed.origin;
-  } catch {
-    return null;
-  }
-};
-
-export const warmupKeyFor = (origin, containerId) => `${containerId || "default"}\n${origin}`;
-
-export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const queryFromUrl = (url) => {
   if (!url) return "";
   try {
-    const parsed = new URL(url);
-    return parsed.searchParams.get("q") || "";
+    return new URL(url).searchParams.get("q") || "";
   } catch {
     return "";
   }
@@ -65,8 +37,7 @@ export const looksConsent = (text, url = "") => {
     const host = parsed.hostname.toLowerCase();
     if (CONSENT.hosts.some((h) => host.includes(h))) return true;
     if (/^consent\./i.test(parsed.hostname) || /\/consent\b/i.test(parsed.pathname)) return true;
-  } catch {
-  }
+  } catch {}
 
   if (!CONSENT.texts.length) return false;
 
@@ -103,9 +74,7 @@ export const looksBlocked = (text, url = "") => {
   const query = queryFromUrl(url);
   if (query) {
     const cleanTitle = title.replace(/\s*-\s*.+\s+Search$/i, "").trim().toLowerCase();
-    if (cleanTitle === query.toLowerCase()) {
-      return false;
-    }
+    if (cleanTitle === query.toLowerCase()) return false;
   }
 
   if (
@@ -124,6 +93,5 @@ export const looksBlocked = (text, url = "") => {
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
 
-  const sample = cleanText.slice(0, 250000);
-  return BLOCK_PATTERNS.some((pattern) => pattern.test(sample));
+  return BLOCK_PATTERNS.some((pattern) => pattern.test(cleanText.slice(0, 250000)));
 };

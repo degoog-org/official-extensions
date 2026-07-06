@@ -1,4 +1,5 @@
-import { consentClickJs, sleep } from "../warmup/origin-warmup.js";
+import { consentClickJs, readyStateJs } from "../injectors/index.js";
+import { sleep } from "../warmup/origin-warmup.js";
 
 const READY_POLL_MS = 400;
 const READY_POLL_GRACE_MS = 1200;
@@ -94,7 +95,7 @@ export class TabController {
     const deadline = Date.now() + cap;
     await sleep(Math.min(READY_POLL_GRACE_MS, Math.max(0, cap / 4)));
     while (Date.now() < deadline) {
-      const state = await this.inject(tabId, "document.readyState").catch(() => null);
+      const state = await this.inject(tabId, readyStateJs()).catch(() => null);
       if (state === "complete") return { id: tabId, via: "poll" };
       await sleep(READY_POLL_MS);
     }

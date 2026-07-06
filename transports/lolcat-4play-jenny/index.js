@@ -4,6 +4,7 @@ import { EventRouter } from "./src/protocol/event-router.js";
 import { ContainerPool } from "./src/browser/container-pool.js";
 import { TabSession } from "./src/browser/tab-session.js";
 import { SessionRegistry } from "./src/session/session-registry.js";
+import { CaptchaManager } from "./src/runtime/captcha-manager.js";
 import { FetchPipeline } from "./src/runtime/fetch-pipeline.js";
 import {
   StatusPublisher,
@@ -83,9 +84,18 @@ export default class Lolcat4playTransport {
     warn: (msg) => this._warn(msg),
   });
 
+  _captcha = new CaptchaManager({
+    tabs: this._tabs,
+    registry: this._registry,
+    releaseHold: (containerId) => this._containers.releaseManual(containerId),
+    timeoutMs: () => this._settings.timeoutMs,
+    warn: (msg) => this._warn(msg),
+  });
+
   _events = new EventRouter({
     registry: this._registry,
     tabs: this._tabs,
+    captcha: this._captcha,
     warn: (msg) => this._warn(msg),
   });
 
@@ -93,6 +103,7 @@ export default class Lolcat4playTransport {
     registry: this._registry,
     containers: this._containers,
     tabs: this._tabs,
+    captcha: this._captcha,
     seenOrigins: this._seenOrigins,
     proxySettings: () => this._settings,
     rawHtmlFromTab: () => this._settings.rawHtmlFromTab,
@@ -143,6 +154,7 @@ export default class Lolcat4playTransport {
       this._control.stop();
       this._containers.clear();
       this._registry.clearMemory();
+      this._captcha.clear();
       this._tabs.clear();
       this._status.publish();
     },

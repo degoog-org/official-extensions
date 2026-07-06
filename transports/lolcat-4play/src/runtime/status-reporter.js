@@ -29,6 +29,8 @@ export class StatusReporter {
     this._timeoutMs = timeoutMs;
     this._warn = warn;
     this._cache = null;
+    this._engines = [];
+    this._enginesSupported = true;
   }
 
   bindCache(cache) {
@@ -51,6 +53,23 @@ export class StatusReporter {
       for (const tab of asList(res)) this._tabs.rememberTab(tab);
     } catch (error) {
       this._warn(`tab label refresh failed: ${error?.message || error}`);
+    }
+    await this._refreshEngines(shortTimeout);
+  }
+
+  async _refreshEngines(timeout) {
+    if (!this._enginesSupported) return;
+    try {
+      const res = await this._command("get_search_engines", {}, timeout);
+      if (res?.status === true && Array.isArray(res.engines)) {
+        this._engines = res.engines;
+        return;
+      }
+      this._enginesSupported = false;
+      this._warn("this 4play extension does not expose search engines (stock build?)");
+    } catch (error) {
+      this._enginesSupported = false;
+      this._warn(`search engine list unavailable (stock extension?): ${error?.message || error}`);
     }
   }
 
@@ -85,6 +104,7 @@ export class StatusReporter {
         max: this._maxPoolSize(),
       },
       captchaTabs,
+      searchEngines: this._engines,
       autoWarm: {
         intervalMs: this._autoWarmMs(),
         tracked: [...this._seenOrigins],

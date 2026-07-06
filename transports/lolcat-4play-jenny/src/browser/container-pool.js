@@ -58,6 +58,12 @@ export class ContainerPool {
     this._manual.add(id);
   }
 
+  releaseManual(id) {
+    if (!id || !this._manual.has(id)) return;
+    this._manual.delete(id);
+    if (!this._idle.includes(id)) this._idle.push(id);
+  }
+
   async retire(id) {
     if (!id) return;
     this._leased.delete(id);

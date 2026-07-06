@@ -6,81 +6,22 @@ import {
   readyStateJs,
   warmupSearchJs,
 } from "../injectors/index.js";
+import { looksBlocked } from "./page-signals.js";
 
 const WARMUP_ACTION_TIMEOUT_MS = 5000;
 const OPEN_READY_TIMEOUT_MS = 2000;
-const DEFAULT_SETTLE_MS = 1500;
-
-const BLOCK_PATTERNS = [
-  /captcha/i,
-  /unusual traffic/i,
-  /automated quer(?:y|ies)/i,
-  /verify\s+(?:that\s+)?you\s+are\s+human/i,
-  /confirm\s+this\s+search\s+was\s+made\s+by\s+a\s+human/i,
-  /confirm\s+you\s+are\s+(?:a\s+)?human/i,
-  /bots\s+use/i,
-  /complete\s+(?:the\s+)?following\s+challenge/i,
-  /select\s+all\s+squares/i,
-  /suspicious (?:activity|behavior|behaviour)/i,
-  /our systems have detected/i,
-  /not a robot/i,
-  /access denied/i,
-  /\/httpservice\/retry\/enablejs/i,
-  /Please click\s+<a\s+href=["']\/httpservice/i,
-];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const queryFromUrl = (url) => {
-  if (!url) return "";
-  try {
-    const parsed = new URL(url);
-    return parsed.searchParams.get("q") || "";
-  } catch {
-    return "";
+export class WarmupBlockedError extends Error {
+  constructor(origin, tabId = null, reason = "block/captcha") {
+    super(`lolcat-4play: ${origin} warmup page appears blocked/captcha`);
+    this.name = "WarmupBlockedError";
+    this.origin = origin;
+    this.tabId = tabId;
+    this.reason = reason;
   }
-};
-
-const looksBlocked = (text, url = "") => {
-  if (typeof text !== "string") return false;
-  const titleMatch = /<title[^>]*>([^<]+)<\/title>/i.exec(text);
-  const title = titleMatch ? titleMatch[1].trim() : "";
-  const lowerTitle = title.toLowerCase();
-  if (
-    lowerTitle.includes("bot check") ||
-    lowerTitle.includes("robot check") ||
-    lowerTitle.includes("captcha") ||
-    lowerTitle.includes("pardon our interruption") ||
-    lowerTitle.includes("attention required") ||
-    lowerTitle.includes("just a moment")
-  )
-    return true;
-  const query = queryFromUrl(url);
-  if (query) {
-    const cleanTitle = title
-      .replace(/\s*-\s*.+\s+Search$/i, "")
-      .trim()
-      .toLowerCase();
-    if (cleanTitle === query.toLowerCase()) return false;
-  }
-  if (
-    /\s-\s.+\s+search$/i.test(lowerTitle) &&
-    !lowerTitle.includes("forbidden") &&
-    !lowerTitle.includes("access denied")
-  )
-    return false;
-  if (
-    /\/httpservice\/retry\/enablejs/i.test(text) ||
-    /enablejs\?sei=/i.test(text)
-  )
-    return true;
-  const cleanText = text
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
-  return BLOCK_PATTERNS.some((pattern) =>
-    pattern.test(cleanText.slice(0, 250000)),
-  );
-};
+}
 
 export class TabSession {
   constructor({
@@ -99,6 +40,7 @@ export class TabSession {
     this._warn = warn;
     this.ownedTabs = new Set();
     this.tabContainers = new Map();
+    this.tabUrls = new Map();
     this._domWaiters = new Map();
     this._responseWaiters = new Map();
     this._responses = new Map();
@@ -107,6 +49,7 @@ export class TabSession {
   clear() {
     this.ownedTabs.clear();
     this.tabContainers.clear();
+    this.tabUrls.clear();
     for (const waiter of this._domWaiters.values()) waiter.resolve(null);
     this._domWaiters.clear();
     for (const waiter of this._responseWaiters.values()) waiter.resolve(null);
@@ -115,8 +58,9 @@ export class TabSession {
   }
 
   rememberTab(data = {}) {
-    if (typeof data.id === "number" && data.container)
-      this.tabContainers.set(data.id, data.container);
+    if (typeof data.id !== "number") return;
+    if (data.container) this.tabContainers.set(data.id, data.container);
+    if (data.url) this.tabUrls.set(data.id, data.url);
   }
 
   settleDom(msg) {
@@ -200,6 +144,7 @@ export class TabSession {
       throw new Error("4play tab_open did not return tab id");
     this.ownedTabs.add(tabId);
     if (containerId) this.tabContainers.set(tabId, containerId);
+    this.tabUrls.set(tabId, url);
     return tabId;
   }
 
@@ -207,6 +152,7 @@ export class TabSession {
     if (typeof tabId !== "number") return;
     this.ownedTabs.delete(tabId);
     this.tabContainers.delete(tabId);
+    this.tabUrls.delete(tabId);
     this._responses.delete(tabId);
     const waiter = this._responseWaiters.get(tabId);
     if (waiter) {
@@ -227,6 +173,7 @@ export class TabSession {
   async warmLikeHuman(origin, containerId = null) {
     let tabId = null;
     let reachedSearch = false;
+    let keepOpen = false;
     try {
       tabId = await this._timed(origin, "open+consent", () =>
         this._openWarmupTab(origin, containerId),
@@ -240,8 +187,17 @@ export class TabSession {
         );
       }
       return { tabId, reachedSearch };
+    } catch (error) {
+      if (error instanceof WarmupBlockedError) {
+        keepOpen = true;
+        if (typeof tabId === "number") error.tabId = tabId;
+        this._warn?.(
+          `keeping warmup tab ${tabId} open for manual attention on ${origin} (${error.reason})`,
+        );
+      }
+      throw error;
     } finally {
-      await this.close(tabId);
+      if (!keepOpen) await this.close(tabId);
     }
   }
 
@@ -251,35 +207,38 @@ export class TabSession {
       tabId,
       Math.min(OPEN_READY_TIMEOUT_MS, this._timeoutMs()),
     );
-    await sleep(DEFAULT_SETTLE_MS);
     await this.acceptConsent(tabId);
     return tabId;
   }
 
-  async _tryWarmupForm(origin, containerId, tabId, progressAttempts = 0) {
+  async _tryWarmupForm(origin, containerId, tabId, attempts = 0) {
     const cap = Math.min(WARMUP_ACTION_TIMEOUT_MS, this._timeoutMs());
+    const navigated = this.awaitReady(tabId, cap).catch(() => null);
     const submitted = await this.inject(
       tabId,
       warmupSearchJs(this._warmupQuery()),
       cap,
     );
-    if (!submitted?.submitted) {
-      if (progressAttempts >= 2) return false;
+    if (submitted === null) {
+      if (attempts >= 2) return false;
+      await navigated;
+      return this._tryWarmupForm(origin, containerId, tabId, attempts + 1);
+    }
+    this._warn?.(
+      `warmup form on ${origin}: submitted=${submitted.submitted} reason=${submitted.reason || "none"} tab=${tabId} page=${submitted.href || "unknown"}`,
+    );
+    if (!submitted.submitted) {
+      if (attempts >= 2) return false;
       const progressed = await this._progressPage(
         origin,
         containerId,
         tabId,
-        `search form unavailable (${submitted?.reason || "unknown"})`,
+        `search form unavailable (${submitted.reason || "unknown"})`,
       );
       if (!progressed) return false;
-      return this._tryWarmupForm(
-        origin,
-        containerId,
-        tabId,
-        progressAttempts + 1,
-      );
+      return this._tryWarmupForm(origin, containerId, tabId, attempts + 1);
     }
-    await sleep(DEFAULT_SETTLE_MS);
+    await navigated;
     await this._inspectWarmupPage(origin, tabId);
     return true;
   }
@@ -288,12 +247,19 @@ export class TabSession {
     const cap = Math.min(WARMUP_ACTION_TIMEOUT_MS, this._timeoutMs());
     const navigated = this.awaitReady(tabId, cap).catch(() => null);
     const progressed = await this.inject(tabId, progressPageJs(), cap);
-    if (!progressed?.progressed) return false;
+    if (progressed === null) {
+      const landed = await navigated;
+      if (!landed) return false;
+      this._warn?.(
+        `warmup rode out an in-flight navigation on ${origin} (${stage}, tab=${tabId})`,
+      );
+      return true;
+    }
+    if (!progressed.progressed) return false;
     this._warn?.(
       `warmup progressed ${origin} (${stage}, container=${containerId || "default"}, tab=${tabId}, via=${progressed.via || "unknown"}, target=${progressed.href || "unknown"})`,
     );
     await navigated;
-    await sleep(DEFAULT_SETTLE_MS);
     return true;
   }
 
@@ -305,9 +271,7 @@ export class TabSession {
     );
     const haystack = `${page?.title || ""}\n${page?.href || ""}\n${page?.text || ""}`;
     if (looksBlocked(haystack, page?.href)) {
-      throw new Error(
-        `lolcat-4play: ${origin} warmup page appears blocked/captcha`,
-      );
+      throw new WarmupBlockedError(origin, tabId, "warmup page block/captcha");
     }
     return page;
   }
@@ -326,7 +290,6 @@ export class TabSession {
   async htmlFetch(url, origin, containerId = null) {
     const tabId = await this.open(url, containerId);
     await this.awaitReady(tabId).catch(() => null);
-    await sleep(900);
     await this.acceptConsent(tabId);
     const html = await this.inject(tabId, documentHtmlJs());
     if (!html) throw new Error("tab_inject_js returned empty HTML");
@@ -353,18 +316,18 @@ export class TabSession {
   }
 
   async acceptConsent(tabId) {
-    const result = await this.inject(
-      tabId,
-      consentClickJs(),
-      Math.min(WARMUP_ACTION_TIMEOUT_MS, this._timeoutMs()),
-    ).catch(() => null);
+    const cap = Math.min(WARMUP_ACTION_TIMEOUT_MS, this._timeoutMs());
+    const navigated = this.awaitReady(tabId, cap).catch(() => null);
+    const result = await this.inject(tabId, consentClickJs(), cap).catch(
+      () => null,
+    );
     if (!result) return false;
     if (!result.consent) return true;
     if (!result.progressed) return false;
     this._warn?.(
       `accepted consent on tab ${tabId} (${result.label || result.via || "unknown"})`,
     );
-    await sleep(1000);
+    await navigated;
     return true;
   }
 

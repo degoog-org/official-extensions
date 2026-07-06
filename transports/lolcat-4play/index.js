@@ -5,6 +5,8 @@ import { SessionStore } from "./src/session/session-store.js";
 import { CaptchaManager } from "./src/runtime/captcha-manager.js";
 import { ControlChannel, CONTROL_TTL_MS } from "./src/runtime/control-channel.js";
 import { PageFetcher } from "./src/runtime/page-fetcher.js";
+import { ResponseCapture } from "./src/runtime/response-capture.js";
+import { TriggerRouter } from "./src/runtime/trigger-router.js";
 import { Scheduler } from "./src/runtime/scheduler.js";
 import { StatusReporter, STATUS_TTL_MS } from "./src/runtime/status-reporter.js";
 import { buildExtensionProxy, curlProxyUrlFor } from "./src/net/proxy.js";
@@ -37,6 +39,8 @@ const DEFAULT_SETTINGS = {
   blockCooldownMs: 20 * 60 * 1000,
   warmupSettleMs: 1500,
   autoWarmMs: 0,
+  rawHtmlFromTab: false,
+  triggers: [],
 };
 
 export default class FourPlayTransport {
@@ -55,6 +59,15 @@ export default class FourPlayTransport {
 
   _seenOrigins = new Set();
   _dom = new DomWaiters();
+
+  _capture = new ResponseCapture({
+    command: (action, params, timeoutMs) => this._cmd(action, params, timeoutMs),
+    warn: (msg) => this._warn(msg),
+  });
+
+  _triggers = new TriggerRouter({
+    triggers: () => this._settings.triggers,
+  });
 
   _tabs = new TabController({
     command: (action, params, timeoutMs) => this._cmd(action, params, timeoutMs),
@@ -115,6 +128,7 @@ export default class FourPlayTransport {
     command: (action, params, timeoutMs) => this._cmd(action, params, timeoutMs),
     tabs: this._tabs,
     captcha: this._captcha,
+    capture: this._capture,
     store: this._store,
     markBlocked: (origin, containerId, reason, tabId) =>
       this._warmer.markBlocked(origin, containerId, reason, tabId),
@@ -200,6 +214,11 @@ export default class FourPlayTransport {
       if (msg?.action === "web_request") {
         this._tabs.rememberTab(msg.data);
         this._store.rememberBrowserHeaders(msg.data);
+        return;
+      }
+
+      if (msg?.action === "web_response") {
+        this._capture.route(msg.data);
       }
     },
 
@@ -212,6 +231,7 @@ export default class FourPlayTransport {
       this._store.clearMemory();
       this._tabs.clear();
       this._captcha.clear();
+      this._capture.drain();
       this._dom.drain("lolcat-4play: browser extension disconnected");
       this._status.publish();
     },
@@ -293,6 +313,7 @@ export default class FourPlayTransport {
     await this._containers.sweepRetiredContainers();
 
     const origin = originFor(url);
+    const trigger = this._triggers.match(context?.engineId, url);
     const useContainer = this._useContainer();
     let containerId = null;
 
@@ -310,10 +331,17 @@ export default class FourPlayTransport {
 
       await this._captcha.syncAllTabs();
 
+      if (trigger) {
+        const res = await this._fetcher.triggerFetch(url, origin, containerId, trigger);
+        await this._captcha.clearTabsForOrigin(origin);
+        return res;
+      }
+
       const warmedOrigin = await this._warmer.ensureWarm(url, containerId);
-      const res =
-        (await this._fetcher.curlFetchWarmed(url, warmedOrigin, containerId)) ??
-        (await this._fetcher.browserFetch(url, warmedOrigin, containerId));
+      const res = this._settings.rawHtmlFromTab
+        ? await this._fetcher.rawBrowserFetch(url, warmedOrigin, containerId)
+        : (await this._fetcher.curlFetchWarmed(url, warmedOrigin, containerId)) ??
+          (await this._fetcher.browserFetch(url, warmedOrigin, containerId));
       await this._captcha.clearTabsForOrigin(warmedOrigin);
       return res;
     } catch (error) {

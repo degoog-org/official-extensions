@@ -226,6 +226,32 @@
           </div>`
         : "";
 
+      const engines = Array.isArray(status.searchEngines) ? status.searchEngines : [];
+      const enginesSection = engines.length
+        ? `<div class="fourplay-section-head">
+            <span class="fourplay-section-title">Firefox search engines</span>
+            <span class="degoog-badge">${engines.length}</span>
+          </div>
+          <div class="fourplay-sessions">
+            ${engines.map((engine) => {
+          const alias = engine.alias ? esc(engine.alias) : "";
+          const name = esc(engine.name);
+          const hint = alias ? `trigger: ${alias} or ${name}` : `trigger: ${name}`;
+          const def = engine.isDefault
+            ? '<span class="degoog-badge fourplay-session-state" data-tone="success">default</span>'
+            : "";
+          return `<div class="fourplay-session degoog-panel">
+                <span class="fourplay-dot" data-tone="success"></span>
+                <div class="fourplay-session-info">
+                  <span class="fourplay-session-origin">${name}</span>
+                  <span class="fourplay-session-meta">${hint}</span>
+                </div>
+                ${def}
+              </div>`;
+        }).join("")}
+          </div>`
+        : "";
+
       const sectionHead = `
         <div class="fourplay-section-head">
           <span class="fourplay-section-title">Primed browser sessions</span>
@@ -239,7 +265,7 @@
       footerBits.push("auto-refreshes every 10s");
       const footer = `<div class="fourplay-footer">${esc(footerBits.join(" | "))}</div>`;
 
-      body.innerHTML = `${tiles}${captchaList}${sectionHead}<div class="fourplay-sessions">${list}</div>${footer}`;
+      body.innerHTML = `${tiles}${captchaList}${enginesSection}${sectionHead}<div class="fourplay-sessions">${list}</div>${footer}`;
     };
 
     const fetchStatus = async () => {

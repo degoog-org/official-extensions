@@ -1,15 +1,15 @@
 import { curlReplayFetch, seedCookieJarFromHeaders } from "../net/curl-impersonate.js";
 import { solveChallenge } from "../net/flaresolverr.js";
+import { WarmupBlockedError } from "../browser/tab-session.js";
+import { looksBlocked } from "../browser/page-signals.js";
 import { originFor } from "../util/url.js";
 
-const BLOCKED = [/captcha/i, /unusual traffic/i, /verify\s+(?:that\s+)?you\s+are\s+human/i, /\/httpservice\/retry\/enablejs/i, /access denied/i];
-const looksBlocked = (text) => BLOCKED.some((re) => re.test(text || ""));
-
 export class FetchPipeline {
-  constructor({ registry, containers, tabs, seenOrigins, proxySettings, rawHtmlFromTab, flaresolverrUrl, flaresolverrTimeoutMs, warn }) {
+  constructor({ registry, containers, tabs, captcha, seenOrigins, proxySettings, rawHtmlFromTab, flaresolverrUrl, flaresolverrTimeoutMs, warn }) {
     this._registry = registry;
     this._containers = containers;
     this._tabs = tabs;
+    this._captcha = captcha;
     this._seenOrigins = seenOrigins;
     this._proxySettings = proxySettings;
     this._rawHtmlFromTab = rawHtmlFromTab;
@@ -59,6 +59,13 @@ export class FetchPipeline {
     if (!origin) return fetch(url, options);
     this._seenOrigins.add(origin);
 
+    const reused = await this._captcha?.tryFetch(url);
+    if (reused) return reused;
+    if (this._captcha?.hasOpenTabForOrigin(origin)) {
+      this._warn(`${origin} still has a captcha tab awaiting a manual solve; not opening a new tab`);
+      throw new WarmupBlockedError(origin, null, "awaiting manual captcha solve");
+    }
+
     let containerId = null;
     let session = null;
     try {
@@ -66,7 +73,20 @@ export class FetchPipeline {
       session = this._registry.usable(origin, containerId) || this._registry.usable(origin, null);
       if (!session) {
         this._registry.markWarming(origin, containerId);
-        const warmup = await this._tabs.warmLikeHuman(origin, containerId);
+        let warmup;
+        try {
+          warmup = await this._tabs.warmLikeHuman(origin, containerId);
+        } catch (error) {
+          if (error instanceof WarmupBlockedError) {
+            this._captcha?.register(error.tabId, origin, "warmup");
+            this._registry.markCaptcha(origin, containerId, error.reason, { tabId: error.tabId });
+            this._containers.holdForManualAttention(containerId);
+            this._warn(
+              `captcha on ${origin}: holding container ${containerId || "default"} and leaving tab ${error.tabId} open for manual solve`,
+            );
+          }
+          throw error;
+        }
         session = this._registry.usable(origin, containerId);
         if (!warmup?.reachedSearch || !session) {
           const hadSession = Boolean(session);
@@ -87,6 +107,7 @@ export class FetchPipeline {
             await this._containers.release(containerId, { keep: true });
             return solved;
           }
+          this._captcha?.register(browser.tabId, origin, "fetch");
           this._registry.markCaptcha(origin, containerId, "raw browser response returned block/captcha", { tabId: browser.tabId });
           this._containers.holdForManualAttention(containerId);
           return new Response(browser.html, { status: 403, headers: { "Content-Type": "text/html; charset=utf-8" } });
@@ -121,6 +142,7 @@ export class FetchPipeline {
 
       throw new Error(`lolcat-4play: no usable session for ${origin}`);
     } catch (error) {
+      if (error instanceof WarmupBlockedError) throw error;
       if (origin) this._registry.markDegraded(origin, containerId, error?.message || "fetch failed");
       await this._containers.release(containerId, { keep: false, degraded: true }).catch(() => {});
       throw error;

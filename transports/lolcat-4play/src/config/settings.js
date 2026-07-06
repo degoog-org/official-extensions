@@ -43,6 +43,24 @@ export const toAutoWarmMs = (value) => {
 export const clampFlareMs = (value) =>
   Math.max(MIN_FLARE_TIMEOUT_MS, Math.min(MAX_FLARE_TIMEOUT_MS, Number(value) || DEFAULT_FLARE_TIMEOUT_MS));
 
+export const parseTriggers = (value) => {
+  let rows = value;
+  if (typeof value === "string") {
+    try {
+      rows = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => ({
+      trigger: String(row?.trigger || "").trim(),
+      engine: String(row?.engine || "").trim(),
+    }))
+    .filter((row) => row.trigger && row.engine);
+};
+
 export const normaliseSettings = (settings = {}) => ({
   timeoutMs: clampTimeout(settings.timeout),
   maxPoolSize: clampPoolSize(settings.maxPoolSize),
@@ -62,6 +80,8 @@ export const normaliseSettings = (settings = {}) => ({
   autoWarmMs: toAutoWarmMs(settings.autoWarmInterval),
   flaresolverrUrl: (settings.flaresolverrUrl || "").trim(),
   flaresolverrTimeoutMs: clampFlareMs(settings.flaresolverrTimeout),
+  rawHtmlFromTab: settings.rawHtmlFromTab === true || settings.rawHtmlFromTab === "true",
+  triggers: parseTriggers(settings.triggers),
 });
 
 export const containerConfigKey = (settings) =>
@@ -158,6 +178,26 @@ export const settingsSchemaFor = (transportName) => [
     placeholder: "0",
     description:
       "Keep sessions ready without waiting for a user search. Every N hours the transport re-warms the origins it has already handled (e.g. 72 = every 3 days). 0 disables it. For an origin to stay continuously warm, set this at or below the warmup TTL above; a larger value still leaves a cold gap between refreshes.",
+  },
+  {
+    key: "rawHtmlFromTab",
+    label: "Always fetch raw HTML from a browser tab",
+    type: "toggle",
+    default: "false",
+    description:
+      "When on, origin warmup still runs but every fetch opens a real Firefox tab and returns the site's raw base64 HTML response captured through 4play, instead of replaying the warmed session with curl. Slower and more visible, but the response matches exactly what Firefox received.",
+  },
+  {
+    key: "triggers",
+    label: "Firefox search triggers",
+    type: "list",
+    addLabel: "+ Add trigger",
+    description:
+      "Map a Firefox search engine to a Degoog engine id. When that engine runs a search through this transport, the transport opens a Firefox tab, runs the query through that Firefox search engine (via browser.search), and returns the page's raw HTML. A configured row is active for its engine, no toggle needed. The trigger must be the Firefox search engine's exact name (e.g. 'Bing', 'Google', 'DuckDuckGo') or an '@keyword' you have assigned it under Firefox Settings -> Search. The engine field must match the Degoog engine id exactly (e.g. 'google', or a store engine id like 'author-repo-engine'). Requires the degoog fork of the 4play extension (it adds the 'search_query' command). Leave the list empty to keep the normal warmed-session behaviour.",
+    itemSchema: [
+      { key: "trigger", label: "Firefox engine name (e.g. Bing) or @keyword", type: "text" },
+      { key: "engine", label: "Engine id (e.g. google)", type: "text" },
+    ],
   },
   {
     key: "flaresolverrUrl",

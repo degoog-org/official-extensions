@@ -1,13 +1,15 @@
 import { tabSpell } from "../browser/browser.js";
 import {
-  OriginBlockedError,
   inspectPageJs,
+  progressPageJs,
+  warmupSearchJs,
+} from "../injectors/index.js";
+import {
+  OriginBlockedError,
   looksBlocked,
   looksConsent,
   originFor,
-  progressPageJs,
   sleep,
-  warmupSearchJs,
 } from "./origin-warmup.js";
 
 const WARMUP_ACTION_TIMEOUT_MS = 5000;

@@ -53,6 +53,16 @@ Settings -> Transports -> 4play (lolcat) -> Configure:
 - **Origin warmup query / TTL / blocked cooldown / settle delay** - control the automatic per-origin browser warmup described above.
 - **Background warmup interval (hours)** - re-warms every origin the transport has already handled on a fixed schedule so sessions are ready before the next search (e.g. 72 = every 3 days). 0 (default) disables it. For an origin to stay continuously warm, set this at or below the warmup TTL; a larger value leaves a cold gap between refreshes.
 
+### Raw HTML and search triggers
+
+- **Always fetch raw HTML from a browser tab** - when on, origin warmup still runs, but every fetch opens a real Firefox tab and returns the site's raw response body captured through 4play (base64 `web_response`), instead of replaying the warmed session with curl. Slower and more visible, but the bytes match exactly what Firefox received. Off by default.
+- **Firefox search triggers** - a list mapping a Firefox search engine to a Degoog engine id. When that engine searches through this transport, the transport opens a Firefox tab, runs the query through that Firefox search engine (Firefox's own `browser.search`), and returns that page's raw HTML. A configured row is active for its engine, there is no per-row toggle. Each row has:
+  - **Firefox engine name (or @keyword)** - the search engine's exact name as Firefox reports it, e.g. `Bing`, `Google`, `DuckDuckGo`. Firefox's built-in engines usually have no `@` keyword unless you assign one under Settings -> Search, so the name is the reliable identifier. If you have set a keyword, you can use that `@keyword` instead.
+  - **Engine id** - the Degoog engine id to attach the trigger to, matched exactly (e.g. `google`, or a store engine id like `author-repo-engine`). The engine id is what Degoog passes to the transport per request.
+  With no rows configured (or none matching the searching engine), fetches fall back to the normal warmed-session behaviour.
+
+  > This feature needs the **degoog fork** of the 4play extension, which adds a `search_query` command (backed by `browser.search.search`) and the `"search"` permission. The stock 4play extension cannot drive Firefox's `@keyword` search: `tabs.create` never runs the address-bar keyword expansion, and no other WebExtension surface exposes it. The rest of this transport works fine with the unmodified extension; only triggers require the fork.
+
 ### Proxy (optional)
 
 - **Proxy type** - `none` (default), `socks5`, `socks4`, `http`, or `https`. Enabling any proxy type turns on container isolation automatically.
@@ -70,7 +80,7 @@ Then, in Settings -> Engines -> Configure -> Advanced, pick `lolcat-4play` as th
 - **Tabs are visible during warmup/fallback** - normal searches use warmed browser headers with curl when available; tabs only flicker for initial warmup, session refresh, block retry, or fallback.
 - **Session state is native** - cookies persist across tabs within the same profile. Container isolation keeps parallel requests separated.
 - **Clean profile recommended** - dedicated Firefox profile, no personal data, no interfering extensions.
-- **Response-body streaming is disabled** - the transport tells the extension not to stream every web response body over the WebSocket (dead bandwidth); page HTML is fetched via warmed curl sessions or tab injection instead.
+- **Response-body streaming is off by default** - the transport tells the extension not to stream every web response body over the WebSocket (dead bandwidth); page HTML is normally fetched via warmed curl sessions or tab injection. It is turned on only for the duration of a raw-HTML or search-trigger fetch (when those settings are used), then turned back off.
 - **Sessions survive restarts with Valkey** - warmed cookies, headers, and the tracked origin list are persisted through the app cache. With `DEGOOG_VALKEY_URL` set, a restarted degoog rehydrates every warmed session on the transport's first fetch instead of re-warming. Without Valkey the cache is in-memory and resets on restart.
 - **Status and controls** - install the companion **4play status** plugin and type `!4play` to see live session/container status and clear warmed sessions (admin gated).
 

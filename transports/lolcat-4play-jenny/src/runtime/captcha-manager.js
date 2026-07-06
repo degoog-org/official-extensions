@@ -1,11 +1,18 @@
-import { documentHtmlJs, inspectPageJs } from "../injectors/index.js";
-import { looksBlocked, looksConsent, originFor } from "../warmup/origin-warmup.js";
-import { wrapResponse } from "../net/response.js";
+import { inspectPageJs, documentHtmlJs } from "../injectors/index.js";
+import { looksBlocked, looksConsent } from "../browser/page-signals.js";
+import { originFor } from "../util/url.js";
+
+const htmlResponse = (html, status = 200) =>
+  new Response(html, {
+    status,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
 
 export class CaptchaManager {
-  constructor({ tabs, store, timeoutMs, warn }) {
+  constructor({ tabs, registry, releaseHold, timeoutMs, warn }) {
     this._tabs = tabs;
-    this._store = store;
+    this._registry = registry;
+    this._releaseHold = releaseHold;
     this._timeoutMs = timeoutMs;
     this._warn = warn;
 
@@ -23,8 +30,7 @@ export class CaptchaManager {
   register(tabId, origin, kind = "fetch") {
     if (typeof tabId !== "number") return;
     this.captchaTabIds.add(tabId);
-    const resolved =
-      origin || originFor(this._tabs.tabDetails.get(tabId)?.url || "");
+    const resolved = origin || originFor(this._tabs.tabUrls.get(tabId) || "");
     if (resolved) this._originByTab.set(tabId, resolved);
     this._kindByTab.set(tabId, kind);
   }
@@ -38,7 +44,7 @@ export class CaptchaManager {
   _originForTab(tabId) {
     return (
       this._originByTab.get(tabId) ||
-      originFor(this._tabs.tabDetails.get(tabId)?.url || "")
+      originFor(this._tabs.tabUrls.get(tabId) || "")
     );
   }
 
@@ -54,21 +60,24 @@ export class CaptchaManager {
     return Math.min(10000, this._timeoutMs());
   }
 
+  async _release(tabId) {
+    const containerId = this._tabs.tabContainers.get(tabId) ?? null;
+    this._forget(tabId);
+    await this._tabs.close(tabId);
+    if (containerId) await this._releaseHold?.(containerId);
+  }
+
   async syncTab(tabId) {
     if (!this.captchaTabIds.has(tabId)) return false;
 
     let page = await this._tabs.inject(tabId, inspectPageJs(), this._inspectTimeout());
-    if (!page?.href) {
-      return false;
-    }
+    if (!page?.href) return false;
     let haystack = `${page?.title || ""}\n${page?.href || ""}\n${page?.text || ""}`;
 
     if (looksConsent(haystack, page?.href)) {
       await this._tabs.acceptConsent(tabId);
       page = await this._tabs.inject(tabId, inspectPageJs(), this._inspectTimeout());
-      if (!page?.href) {
-        return false;
-      }
+      if (!page?.href) return false;
       haystack = `${page?.title || ""}\n${page?.href || ""}\n${page?.text || ""}`;
     }
 
@@ -77,8 +86,8 @@ export class CaptchaManager {
       return false;
     }
 
-    const containerId = this._tabs.tabContainerIds.get(tabId) ?? null;
-    this._store.setWarmupState(origin, containerId, { warmedAt: Date.now() });
+    const containerId = this._tabs.tabContainers.get(tabId) ?? null;
+    this._registry.markWarmed(origin, containerId, {});
     this._warn(
       `unblocked ${origin} after solve (container=${containerId || "default"}, tab=${tabId})`,
     );
@@ -103,29 +112,22 @@ export class CaptchaManager {
         this._warn(
           `${origin} warmup tab ${tabId} solved; session is warm, deferring to normal fetch`,
         );
-        this._forget(tabId);
-        this._tabs.forgetTab(tabId);
-        await this._tabs.closeTabQuietly(tabId);
+        await this._release(tabId);
         return null;
       }
 
       const html = await this._tabs.inject(tabId, documentHtmlJs());
       if (!html) continue;
-      this._forget(tabId);
-      this._tabs.forgetTab(tabId);
-      await this._tabs.closeTabQuietly(tabId);
-      return wrapResponse(html);
+      await this._release(tabId);
+      return htmlResponse(html);
     }
     return null;
   }
 
   async clearTabs() {
     if (!this.captchaTabIds.size) return;
-    const ids = [...this.captchaTabIds];
-    this.clear();
-    for (const id of ids) {
-      this._tabs.forgetTab(id);
-      await this._tabs.closeTabQuietly(id);
+    for (const tabId of [...this.captchaTabIds]) {
+      await this._release(tabId);
     }
   }
 
@@ -133,9 +135,7 @@ export class CaptchaManager {
     if (!origin) return;
     for (const tabId of [...this.captchaTabIds]) {
       if (this._originForTab(tabId) !== origin) continue;
-      this._forget(tabId);
-      this._tabs.forgetTab(tabId);
-      await this._tabs.closeTabQuietly(tabId);
+      await this._release(tabId);
     }
   }
 }

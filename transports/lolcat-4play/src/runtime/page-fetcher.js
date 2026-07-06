@@ -1,4 +1,5 @@
 import { tabSpell } from "../browser/browser.js";
+import { documentHtmlJs } from "../injectors/index.js";
 import {
   cookieJarFromCookieHeader,
   curlFetchWithBrowserHeaders,
@@ -14,11 +15,14 @@ import {
 } from "../warmup/origin-warmup.js";
 import { wrapResponse } from "../net/response.js";
 
+const CAPTURE_GRACE_MS = 3000;
+
 export class PageFetcher {
   constructor({
     command,
     tabs,
     captcha,
+    capture,
     store,
     markBlocked,
     flaresolverrUrl,
@@ -30,6 +34,7 @@ export class PageFetcher {
     this._command = command;
     this._tabs = tabs;
     this._captcha = captcha;
+    this._capture = capture;
     this._store = store;
     this._markBlocked = markBlocked;
     this._flaresolverrUrl = flaresolverrUrl;
@@ -158,10 +163,7 @@ export class PageFetcher {
       await sleep(1000);
       await this._tabs.acceptConsent(tabId);
 
-      const html = await this._tabs.inject(
-        tabId,
-        "document.documentElement.outerHTML",
-      );
+      const html = await this._tabs.inject(tabId, documentHtmlJs());
       if (!html) {
         throw new Error(
           "lolcat-4play: failed to retrieve page HTML content from browser tab",
@@ -175,10 +177,7 @@ export class PageFetcher {
 
         if (error.status === "consent") {
           if (await this._tabs.acceptConsent(tabId)) {
-            const retryHtml = await this._tabs.inject(
-              tabId,
-              "document.documentElement.outerHTML",
-            );
+            const retryHtml = await this._tabs.inject(tabId, documentHtmlJs());
             if (retryHtml) {
               try {
                 return this._wrapFetchedText(retryHtml, origin, containerId, url, tabId);
@@ -208,5 +207,116 @@ export class PageFetcher {
         this._tabs.forgetTab(tabId);
       }
     }
+  }
+
+  async rawBrowserFetch(url, origin, containerId) {
+    this._warn(
+      `raw browser tab fetch for ${url} (container=${containerId || "default"}): reading the base64 web_response body through 4play instead of replaying with curl`,
+    );
+    return this._captureFetch(url, origin, containerId, "raw html", () =>
+      this._openTab(url, containerId),
+    );
+  }
+
+  async triggerFetch(url, origin, containerId, { trigger, query }) {
+    this._warn(
+      `trigger fetch: driving Firefox search "${trigger} ${query}" for ${origin} (container=${containerId || "default"})`,
+    );
+    return this._captureFetch(url, origin, containerId, `trigger ${trigger}`, () =>
+      this._openSearch(trigger, query, containerId),
+    );
+  }
+
+  _takeTabId(tabResp, containerId) {
+    const tabId = tabResp?.data?.id;
+    if (typeof tabId !== "number") {
+      throw new Error("lolcat-4play: tab_open did not return a valid tab id");
+    }
+    this._tabs.ownedTabIds.add(tabId);
+    if (containerId) this._tabs.tabContainerIds.set(tabId, containerId);
+    return tabId;
+  }
+
+  async _openTab(url, containerId) {
+    const tabResp = await this._command("tab_open", tabSpell(url, containerId));
+    return this._takeTabId(tabResp, containerId);
+  }
+
+  async _openSearch(trigger, query, containerId) {
+    const tabResp = await this._command("tab_open", tabSpell("about:blank", containerId));
+    const tabId = this._takeTabId(tabResp, containerId);
+    const res = await this._command("search_query", {
+      alias: trigger,
+      engine: trigger,
+      text: query,
+      tabid: tabId,
+    });
+    if (res?.status !== true) {
+      throw new Error(
+        `lolcat-4play: search trigger "${trigger}" failed: ${res?.error || "unknown error"}`,
+      );
+    }
+    return tabId;
+  }
+
+  async _captureFetch(realUrl, origin, containerId, label, open) {
+    let tabId = null;
+    let keepTabOpen = false;
+    await this._capture.begin();
+
+    try {
+      tabId = await open();
+      const html = await this._grabCaptured(tabId, origin, realUrl);
+
+      try {
+        return this._wrapFetchedText(html, origin, containerId, realUrl, tabId);
+      } catch (error) {
+        if (!(error instanceof OriginBlockedError)) throw error;
+
+        const solved = await this.solveWithFlare(realUrl, origin, containerId);
+        if (solved) return solved;
+
+        keepTabOpen = true;
+        this._captcha.register(tabId, origin);
+        this._warn(
+          `keeping ${label} tab ${tabId} open for manual attention (${origin}, reason=${error.reason || error.message || "blocked"})`,
+        );
+        throw error;
+      }
+    } finally {
+      await this._capture.end();
+      if (!keepTabOpen) {
+        this._capture.forget(tabId);
+        await this._tabs.closeTabQuietly(tabId);
+        this._tabs.forgetTab(tabId);
+      }
+    }
+  }
+
+  async _grabCaptured(tabId, origin, realUrl) {
+    await this._tabs.awaitReady(tabId, this._timeoutMs()).catch(() => null);
+
+    let html = await this._readBody(tabId);
+
+    if (html && looksConsent(html, realUrl) && (await this._tabs.acceptConsent(tabId))) {
+      await this._tabs.awaitReady(tabId, this._timeoutMs()).catch(() => null);
+      const after = await this._readBody(tabId);
+      if (after) html = after;
+    }
+
+    if (!html) {
+      throw new Error(
+        "lolcat-4play: failed to capture page HTML from browser tab",
+      );
+    }
+    return html;
+  }
+
+  async _readBody(tabId) {
+    const grace = Math.min(CAPTURE_GRACE_MS, this._timeoutMs());
+    const captured = await this._capture.wait(tabId, grace);
+    if (captured?.html) return captured.html;
+    this._capture.forget(tabId);
+    return this._tabs.inject(tabId, documentHtmlJs());
   }
 }

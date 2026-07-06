@@ -11,7 +11,6 @@ export const warmupSearchJs = (query) => `(() => {
       'input[type="search"]',
       'input[role="searchbox"]',
       'textarea[role="searchbox"]',
-      'textarea[role="combobox"]',
       'input[aria-label*="search" i]',
       'textarea[aria-label*="search" i]',
       'input[placeholder*="search" i]',
