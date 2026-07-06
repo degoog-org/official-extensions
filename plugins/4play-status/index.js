@@ -27,15 +27,24 @@ const apiBaseFor = (reqUrl) => {
   return `${url.origin}${base}`;
 };
 
-const tokenFrom = (req) => req.headers.get("x-settings-token") || "";
+const SETTINGS_TOKEN_COOKIE = "settings-token";
+
+const tokenFrom = (req) => {
+  const fromHeader = req.headers.get("x-settings-token");
+  if (fromHeader) return fromHeader;
+
+  const raw = req.headers.get("cookie");
+  if (!raw) return "";
+
+  const match = raw
+    .split(";")
+    .find((part) => part.trim().startsWith(`${SETTINGS_TOKEN_COOKIE}=`));
+  return match?.split("=")[1]?.trim() || "";
+};
 
 const authHeaders = (req) => {
-  const headers = {};
   const token = tokenFrom(req);
-  const cookie = req.headers.get("cookie") || "";
-  if (token) headers["x-settings-token"] = token;
-  if (cookie) headers.cookie = cookie;
-  return headers;
+  return token ? { "x-settings-token": token } : {};
 };
 
 const gandalfSaysYes = async (req) => {

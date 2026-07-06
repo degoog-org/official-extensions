@@ -27,6 +27,13 @@
     return token ? { "x-settings-token": token } : {};
   };
 
+  const authFetch = (url, init = {}) =>
+    fetch(url, {
+      credentials: "same-origin",
+      ...init,
+      headers: { ...authHeaders(), ...(init.headers || {}) },
+    });
+
   const initCard = (root) => {
     const body = root.querySelector("[data-body]");
     const connBadge = root.querySelector("[data-conn]");
@@ -237,7 +244,7 @@
 
     const fetchStatus = async () => {
       try {
-        const res = await fetch(`${API_BASE}/status`, { headers: authHeaders() });
+        const res = await authFetch(`${API_BASE}/status`);
         if (res.status === 401) {
           renderLocked();
           return false;
@@ -256,9 +263,9 @@
 
     const yeetSessions = async (scope, key) => {
       try {
-        const res = await fetch(`${API_BASE}/clear`, {
+        const res = await authFetch(`${API_BASE}/clear`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeaders() },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(key ? { scope, key } : { scope }),
         });
         if (!res.ok) throw new Error(`status ${res.status}`);
@@ -275,10 +282,7 @@
     const wakeTransport = async () => {
       setConn("waking", "muted");
       try {
-        const res = await fetch(`${API_BASE}/ping`, {
-          method: "POST",
-          headers: authHeaders(),
-        });
+        const res = await authFetch(`${API_BASE}/ping`, { method: "POST" });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.error || `status ${res.status}`);
         console.warn(
