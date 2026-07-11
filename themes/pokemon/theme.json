@@ -2,14 +2,18 @@
   "name": "Pokemon",
   "author": "fccview",
   "description": "Starter-inspired: Pikachu (yellow), Bulbasaur (green), Charmander (orange), Squirtle (blue).",
-  "version": "1.0.0",
   "css": "style.css",
   "settingsSchema": [
     {
       "key": "flavor",
       "label": "Flavor",
       "type": "select",
-      "options": ["pikachu", "bulbasaur", "charmander", "squirtle"],
+      "options": [
+        "pikachu",
+        "bulbasaur",
+        "charmander",
+        "squirtle"
+      ],
       "description": "Pikachu = yellow, Bulbasaur = green, Charmander = orange, Squirtle = blue."
     }
   ],

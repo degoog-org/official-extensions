@@ -1,6 +1,6 @@
 import { createThumbCache } from "./thumb-cache.js";
 
-const thumb = createThumbCache("romm");
+const thumb = createThumbCache();
 
 let rommUrl = "";
 let username = "";
@@ -177,6 +177,7 @@ export default {
   routes: [thumb.route],
 
   async init(ctx) {
+    thumb.useApiBase(ctx.apiBase);
     template = ctx.template;
     resultItemTpl = await ctx.readFile("result.html");
   },

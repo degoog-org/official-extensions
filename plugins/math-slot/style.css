@@ -41,3 +41,81 @@
   color: var(--text-primary);
   line-height: 1.2;
 }
+.math-calc {
+  font-family: system-ui, -apple-system, sans-serif;
+  max-width: 652px;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.math-calc-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.math-calc-expr {
+  width: 100%;
+  background: var(--bg-light);
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.4rem;
+  font-weight: 600;
+  padding: 0.6rem 0.75rem;
+  border: 0;
+  border-radius: 12px;
+  outline: none;
+}
+
+.math-calc-result {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  min-height: 1.6rem;
+  padding: 0 0.75rem;
+}
+
+.math-calc-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.math-calc-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.math-calc-key {
+  flex: 1;
+  appearance: none;
+  border: 0;
+  border-radius: 12px;
+  background: var(--bg-light);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 1.05rem;
+  padding: 0.7rem 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.math-calc-key:hover {
+  background: var(--bg-hover);
+}
+
+.math-calc-fn {
+  color: var(--text-secondary);
+}
+
+.math-calc-eq {
+  background: var(--brand-blue);
+  color: #fff;
+}
+
+.math-calc-eq:hover {
+  background: var(--brand-blue);
+  opacity: 0.92;
+}

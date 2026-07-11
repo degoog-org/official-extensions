@@ -62,7 +62,7 @@ export default class BraveApiSearchEngine {
         },
       });
 
-      if (!response.ok) return [];
+      context?.sentinel?.(response, this.name);
 
       const data = await response.json();
       const items = data?.web?.results ?? [];
@@ -74,7 +74,8 @@ export default class BraveApiSearchEngine {
         source: this.name,
         thumbnail: item.thumbnail?.src ?? "",
       }));
-    } catch {
+    } catch (e) {
+      if (e?.name === "SentinelBreach") throw e;
       return [];
     }
   }

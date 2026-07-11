@@ -1,5 +1,7 @@
 export const type = "news";
 
+const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+
 const API_BASE = "https://hn.algolia.com/api/v1";
 
 const _timeFilterToRange = (timeFilter, dateFrom, dateTo) => {
@@ -50,9 +52,12 @@ export default class HackerNewsEngine {
 
     try {
       const response = await doFetch(`${API_BASE}/${endpoint}?${params.toString()}`, {
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          "User-Agent": context?.userAgent?.() || FALLBACK_UA,
+        },
       });
-      if (!response.ok) return [];
+      context?.sentinel?.(response, this.name);
       const data = await response.json();
       const hits = data?.hits ?? [];
 
@@ -79,7 +84,8 @@ export default class HackerNewsEngine {
           };
         })
         .filter((r) => r.title && r.url);
-    } catch {
+    } catch (e) {
+      if (e?.name === "SentinelBreach") throw e;
       return [];
     }
   }

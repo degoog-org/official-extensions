@@ -2,8 +2,13 @@ const TTL_MS = 30 * 60 * 1000;
 const MAX_ENTRIES = 250;
 const MAX_BYTES = 5 * 1024 * 1024;
 
-export function createThumbCache(pluginSlug) {
+export function createThumbCache() {
   const cache = new Map();
+  let apiBase = "";
+
+  const useApiBase = (base) => {
+    apiBase = String(base || "").replace(/\/+$/, "");
+  };
 
   const prune = () => {
     const now = Date.now();
@@ -32,7 +37,7 @@ export function createThumbCache(pluginSlug) {
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       cache.set(id, { body, contentType, ts: Date.now() });
       prune();
-      return `/api/plugin/${pluginSlug}/thumb?id=${encodeURIComponent(id)}`;
+      return `${apiBase}/thumb?id=${encodeURIComponent(id)}`;
     } catch {
       return "";
     }
@@ -62,5 +67,5 @@ export function createThumbCache(pluginSlug) {
     },
   };
 
-  return { store, route };
+  return { store, route, useApiBase };
 }

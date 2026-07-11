@@ -157,7 +157,7 @@
   function initStream(container, desktop, sentinel) {
     var gotItems = false;
     var skeletonRemoved = false;
-    var es = new EventSource("/api/plugin/rss/feed/stream");
+    var es = new EventSource(`/api/plugin/${__PLUGIN_ID__}/feed/stream`);
 
     function removeSkeleton() {
       if (skeletonRemoved) return;

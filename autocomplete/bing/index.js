@@ -1,6 +1,6 @@
 export default class BingAutocompleteProvider {
   isClientExposed = false;
-  name = "Bing";
+  name = "Bing Autocomplete";
 
   async getSuggestions(query, context) {
     if (!query || !query.trim()) return [];

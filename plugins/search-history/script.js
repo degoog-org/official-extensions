@@ -1,4 +1,4 @@
-const HISTORY_API = "/api/plugin/search-history";
+const HISTORY_API = `/api/plugin/${__PLUGIN_ID__}`;
 const HISTORY_LIST_URL = `${HISTORY_API}/list?limit=10`;
 
 const CLOCK_ICON =
@@ -85,10 +85,10 @@ const appendHistory = (entry) => {
     keepalive: true,
   }).catch(() => {});
 }
-// Replace the previous focusin trigger with mousedown so the search history dropdown opens only on left click and does not overlap FreshRSS feeds on page load.
+
 function initSearchHistory() {
   document.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return; // Only on left Clik
+    if (e.button !== 0) return;
 
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;

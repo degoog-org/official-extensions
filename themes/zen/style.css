@@ -3,7 +3,7 @@
   font-style: normal;
   font-weight: 200 800;
   font-display: swap;
-  src: url("/themes/zen/fonts/bricolage-grotesque.woff2") format("woff2");
+  src: url("fonts/bricolage-grotesque.woff2") format("woff2");
 }
 
 @font-face {
@@ -11,7 +11,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/themes/zen/fonts/Junicode-Regular.ttf") format("truetype");
+  src: url("fonts/Junicode-Regular.ttf") format("truetype");
 }
 
 @font-face {
@@ -19,7 +19,7 @@
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url("/themes/zen/fonts/Junicode-Bold.ttf") format("truetype");
+  src: url("fonts/Junicode-Bold.ttf") format("truetype");
 }
 
 :root {

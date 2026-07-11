@@ -62,11 +62,10 @@ services:
       - ./data:/app/data
     ports:
       - "4444:4444"
-      - "3031:3031"
     restart: unless-stopped
 ```
 
-> **Important:** The 4play WebSocket port (`3031` by default) must be explicitly exported alongside Degoog's main port. Without it, the browser extension cannot reach the server and sessions will never be established.
+> The 4play WebSocket runs on degoog's main port - no separate port to expose.
 
 ## Extension setup
 
@@ -93,8 +92,8 @@ Or load unpacked from source:
 
 Open the extension’s **toolbar popup** (click the icon):
 
-- **Server URL** — WebSocket endpoint for 4play (e.g. `ws://127.0.0.1:3031` or `192.168.x.x:3031`). You may omit the scheme; `ws://` is assumed. Use `wss://` only if you terminate TLS in front of the socket.
-- **Password** — Must match the optional password in Degoog’s 4play transport settings (leave empty if the server has no password).
+- **Server URL** - Find the exact WebSocket URL in **Settings -> Transports -> Fplay -> Configure** - it is shown at the top of the settings panel. If you set a password, append it as a path segment. Use `wss://` only if you terminate TLS in front of degoog.
+- **Password** - Must match the optional password in Degoog’s 4play transport settings (leave empty if the server has no password).
 
 Settings are stored in the extension only (`chrome.storage.local`). There are no hardcoded URLs in `background.js`.
 
@@ -102,10 +101,9 @@ Settings are stored in the extension only (`chrome.storage.local`). There are no
 
 **Settings -> Transports -> Fplay -> Configure**
 
-- **WebSocket port** — Listen port (default `3031`). Must match the host/port you entered in the extension.
-- **Password** — Optional; must match the extension if set.
-- **Strip engine cookies** (default **on**) — Ignores `Cookie` headers from search engines so only the browser session (and curl’s jar logic) apply. Turn **off** only if you intentionally need an engine-injected cookie line as well (can conflict with session cookies).
-- **Strip engine user agents** (default **on**) — Drops engine `User-Agent` headers so curl-impersonate’s profile is used. Turn **off** only if you need to forward a custom UA from an engine.
+- **Password** - Optional; must match the extension if set.
+- **Strip engine cookies** (default **on**) - Ignores `Cookie` headers from search engines so only the browser session (and curl’s jar logic) apply. Turn **off** only if you intentionally need an engine-injected cookie line as well (can conflict with session cookies).
+- **Strip engine user agents** (default **on**) - Drops engine `User-Agent` headers so curl-impersonate’s profile is used. Turn **off** only if you need to forward a custom UA from an engine.
 
 ### Using 4play for searches
 
@@ -115,9 +113,9 @@ Keep the browser running with the extension connected (popup shows **Connected**
 
 ## Behaviour and limits
 
-- **One browser connection** — A single extension instance connects to the 4play WebSocket. Multiple enabled engines still share that transport; parallel queries may trigger several warmups for **different** hosts at once.
-- **Warmup URL** — Today the transport warms **`https://hostname/`** (site root), not the full search URL. Sites that only set cookies on a specific path may need future transport changes.
-- **Concurrent same host** — Two engines hitting the same host before the first session is cached might warm that host twice in parallel (usually harmless).
+- **One browser connection** - A single extension instance connects to the 4play WebSocket. Multiple enabled engines still share that transport; parallel queries may trigger several warmups for **different** hosts at once.
+- **Warmup URL** - Today the transport warms **`https://hostname/`** (site root), not the full search URL. Sites that only set cookies on a specific path may need future transport changes.
+- **Concurrent same host** - Two engines hitting the same host before the first session is cached might warm that host twice in parallel (usually harmless).
 
 ## Operational notes
 
@@ -127,5 +125,5 @@ Keep the browser running with the extension connected (popup shows **Connected**
 
 - **What the extension does:** It opens only the URLs Degoog requests for session harvest and sends **cookie payloads** for those origins to **your** Degoog process over the configured WebSocket. It does not upload your general browsing history to a third-party service by itself.
 - **Who receives data:** The machine running Degoog receives those cookies so curl can replay them. Treat that server like any other privileged component on your network.
-- **WebSocket exposure:** Binding 4play to **localhost** keeps traffic on one machine. If you use a **LAN IP**, anyone who can reach that port could attempt to connect — use the **transport password** in that case. Plain **`ws://` is not encrypted on the wire**; treat the network accordingly.
+- **WebSocket exposure:** Binding 4play to **localhost** keeps traffic on one machine. If you use a **LAN IP**, anyone who can reach that port could attempt to connect - use the **transport password** in that case. Plain **`ws://` is not encrypted on the wire**; treat the network accordingly.
 - **Compared to transports without a browser:** You deliberately trade “server-only HTTP” for **real browser-issued cookies**, which improves compatibility but increases what your Degoog instance can derive from those sessions.

@@ -9,6 +9,7 @@ const TRASH_ICON =
 const HISTORY_PATH = join(process.cwd(), "data", "history.json");
 const PER_PAGE = 20;
 let maxEntries = 1000;
+let apiBase = "";
 
 const _getDataDir = () => {
   return join(process.cwd(), "data");
@@ -68,6 +69,10 @@ export default {
     },
   ],
 
+  init(ctx) {
+    apiBase = ctx.apiBase;
+  },
+
   configure(settings) {
     const n = parseInt(settings.maxEntries, 10);
     maxEntries = Number.isFinite(n) && n > 0 ? Math.min(100000, n) : 1000;
@@ -89,7 +94,7 @@ export default {
       const ts = _formatTimestamp(item.timestamp);
       const timeStr = _esc(ts);
       const searchUrl = `/search?q=${encodeURIComponent(item.entry ?? "")}`;
-      const deleteUrl = `/api/plugin/search-history/delete?id=${encodeURIComponent(item.id)}&return=bang`;
+      const deleteUrl = `${apiBase}/delete?id=${encodeURIComponent(item.id)}&return=bang`;
       items += `<div class="result-item"><div class="result-body"><div class="result-url-row"><span class="result-favicon result-favicon--clock">${CLOCK_ICON}</span><cite class="result-cite">${timeStr}</cite><a href="${_esc(deleteUrl)}" class="history-delete-btn" aria-label="Delete">${TRASH_ICON}</a></div><a class="result-title" href="${_esc(searchUrl)}">${entry}</a></div></div>`;
     }
 

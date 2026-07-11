@@ -356,8 +356,6 @@ mark {
 
 .glance-box {
   background: var(--bg-light);
-  border: 0.0625rem solid var(--border);
-  border-left: 3px solid var(--text-secondary);
   border-radius: 0;
   box-shadow: none;
 }

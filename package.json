@@ -5,6 +5,17 @@
   "author": "fccview",
   "plugins": [
     {
+      "path": "plugins/ai-summary",
+      "name": "AI Summary",
+      "description": "AI-powered summary panel for search results. Supports OpenAI-compatible, Gemini, and Anthropic providers.",
+      "version": "1.1.2",
+      "type": "slot",
+      "minDegoogVersion": "0.19.1",
+      "legacyIds": [
+        "ai-summary-slot"
+      ]
+    },
+    {
       "path": "plugins/weather",
       "name": "Weather",
       "description": "Shows weather information using Open-Meteo.",
@@ -29,7 +40,7 @@
       "path": "plugins/qr",
       "name": "QR Code",
       "description": "Generate a QR code for a URL.",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "type": "command"
     },
     {
@@ -43,7 +54,7 @@
       "path": "plugins/search-history",
       "name": "Search history",
       "description": "Stores search history in data/history.json with timestamps; !history shows a paginated, deletable list.",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "type": "command"
     },
     {
@@ -56,22 +67,23 @@
     {
       "path": "plugins/math-slot",
       "name": "Math",
-      "description": "Evaluates math expressions and shows the result above search results.",
-      "version": "1.1.2",
+      "description": "Evaluates math expressions straight in the search bar and shows an interactive calculator.",
+      "version": "1.2.1",
       "type": "slot"
     },
     {
       "path": "plugins/jellyfin",
       "name": "Jellyfin",
+      "minDegoogVersion": "0.19.0",
       "description": "Search your Jellyfin media library.",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "type": "command"
     },
     {
       "path": "plugins/romm",
       "name": "RomM",
       "description": "Search your RomM game library.",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "type": "command"
     },
     {
@@ -92,14 +104,14 @@
       "path": "plugins/rss",
       "name": "Home RSS Feeds",
       "description": "Shows RSS feed items above search results.",
-      "version": "1.5.2",
+      "version": "1.5.3",
       "type": "slot"
     },
     {
       "path": "plugins/freshrss",
       "name": "FreshRSS",
       "description": "Integrates a self-hosted FreshRSS instance. Works the same way as the home rss plugin but uses the FreshRSS API instead.",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "type": "slot"
     },
     {
@@ -112,24 +124,33 @@
     {
       "path": "plugins/apps-pocket",
       "name": "Apps pocket",
-      "description": "Adds a Google-style apps grid next to the settings icon. Apps are customised via the Configure button as a JSON list.",
-      "version": "1.2.5",
+      "description": "Adds a Google-style apps grid next to the settings icon. Apps are managed as a list in the plugin settings.",
+      "version": "1.3.0",
       "type": "command",
-      "minDegoogVersion": "0.17.0"
+      "minDegoogVersion": "0.22.0"
     },
     {
       "path": "plugins/spell-check",
       "name": "Spell Check",
-      "description": "Intercepts search queries and corrects spelling using Yandex Speller. No API key required.",
-      "version": "1.1.1",
-      "type": "interceptor"
+      "description": "Intercepts search queries and corrects spelling using Yandex Speller.",
+      "version": "1.3.0",
+      "type": "interceptor",
+      "minDegoogVersion": "0.19.0"
     },
     {
       "path": "plugins/ddg-bang",
       "name": "DuckDuckGo bang redirect",
       "description": "Type !! followed by any ddg bang command to trigger them directly from degoog. This WILL route through duckduckgo. Find all available commands here: https://duckduckgo.com/bangs",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "type": "command"
+    },
+    {
+      "path": "plugins/custom-bangs",
+      "name": "Custom Bangs",
+      "description": "Define your own bang shortcuts that redirect to any site, optionally injecting your query into a URL template. Type !<shortcut> terms, leading or trailing.",
+      "version": "1.1.0",
+      "type": "command",
+      "minDegoogVersion": "0.22.0"
     },
     {
       "path": "plugins/highlight-terms",
@@ -139,14 +160,11 @@
       "type": "command"
     },
     {
-      "path": "plugins/file-tab",
-      "name": "File tab results",
-      "description": "Adds a Files tab to search results that finds downloadable files via file-type engines.",
-      "version": "1.1.2",
-      "type": "search-result-tab",
-      "dependencies": [
-        "https://github.com/fccview/fccview-degoog-extensions/engines/internet-archive"
-      ]
+      "path": "plugins/oidc",
+      "name": "OIDC / SSO",
+      "description": "Single sign-on gate for the settings area using any OpenID Connect provider. Adds a home-page avatar for the signed-in user.",
+      "version": "1.0.0",
+      "type": "middleware"
     }
   ],
   "themes": [
@@ -154,13 +172,13 @@
       "path": "themes/degoog-docs",
       "name": "Degoog Docs",
       "description": "A theme that matches the degoog documentation site.",
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "path": "themes/zen",
       "name": "Zen",
       "description": "A minimalist calming theme.",
-      "version": "2.0.1"
+      "version": "2.1.0"
     },
     {
       "path": "themes/catpuccin",
@@ -172,7 +190,7 @@
       "path": "themes/pokemon",
       "name": "Pokemon",
       "description": "Starter-inspired: Pikachu (yellow), Bulbasaur (green), Charmander (orange), Squirtle (blue).",
-      "version": "1.2.1"
+      "version": "1.3.0"
     }
   ],
   "transports": [
@@ -185,13 +203,13 @@
     {
       "path": "transports/browserless",
       "name": "Browserless",
-      "description": "Fetches pages through a self-hosted Browserless instance (or any compatible headless browser service). Renders JavaScript before returning HTML \u2014 useful for engines like Google Images that block standard HTTP requests. Compatible with browserless/chromium, CloakBrowser wrappers, and any service exposing POST /content.",
+      "description": "Fetches pages through a self-hosted Browserless instance (or any compatible headless browser service). Renders JavaScript before returning HTML - useful for engines like Google Images that block standard HTTP requests. Compatible with browserless/chromium, CloakBrowser wrappers, and any service exposing POST /content.",
       "version": "1.1.1"
     },
     {
       "path": "transports/cloakbrowser",
       "name": "CloakBrowser",
-      "description": "Fetches pages through a self-hosted CloakBrowser service (stealth Chromium). Patches bot-detection signals at the C++ level \u2014 navigator.webdriver, canvas, CDP leaks \u2014 bypassing Google and Cloudflare. See homelab/cloakbrowser for the Docker service.",
+      "description": "Fetches pages through a self-hosted CloakBrowser service (stealth Chromium). Patches bot-detection signals at the C++ level - navigator.webdriver, canvas, CDP leaks - bypassing Google and Cloudflare. See homelab/cloakbrowser for the Docker service.",
       "version": "1.0.1"
     },
     {
@@ -201,36 +219,175 @@
       "version": "1.0.2"
     },
     {
+      "path": "transports/lolcat-4play",
+      "name": "4play (lolcat)",
+      "minDegoogVersion": "0.23.0",
+      "description": "Fetches pages using a real Firefox session via the official lolcat 4play browser extension.",
+      "version": "1.4.2"
+    },
+    {
       "path": "transports/degoog-fplay",
       "name": "degoog-4play",
       "description": "Uses a browser extension to harvest a genuine session for each target host, then passes those cookies to curl-impersonate for outgoing requests.",
-      "version": "1.1.2"
+      "version": "1.2.0"
     }
   ],
   "engines": [
     {
+      "path": "engines/google",
+      "name": "Google",
+      "description": "Adds Google web search to degoog.",
+      "version": "1.1.0",
+      "minDegoogVersion": "0.19.0",
+      "legacyIds": [
+        "google",
+        "google-engine"
+      ]
+    },
+    {
+      "path": "engines/google-images",
+      "name": "Google Images",
+      "description": "Adds Google Images to degoog. Choose JSON or HTML results in engine settings - each mode links to the matching transport in the Store.",
+      "version": "1.3.0",
+      "minDegoogVersion": "0.23.0",
+      "legacyIds": [
+        "google-images",
+        "google-images-engine"
+      ]
+    },
+    {
+      "path": "engines/google-videos",
+      "name": "Google Videos",
+      "description": "Adds Google Videos to degoog.",
+      "version": "1.1.0",
+      "minDegoogVersion": "0.19.0",
+      "legacyIds": [
+        "google-videos",
+        "google-videos-engine"
+      ]
+    },
+    {
+      "path": "engines/bing",
+      "name": "Bing",
+      "description": "Bing web search.",
+      "version": "1.0.4",
+      "minDegoogVersion": "0.19.0",
+      "legacyIds": [
+        "bing",
+        "bing-engine"
+      ]
+    },
+    {
+      "path": "engines/bing-images",
+      "name": "Bing Images",
+      "description": "Bing image search.",
+      "version": "1.1.0",
+      "minDegoogVersion": "0.23.0",
+      "legacyIds": [
+        "bing-images",
+        "bing-images-engine"
+      ]
+    },
+    {
+      "path": "engines/bing-videos",
+      "name": "Bing Videos",
+      "description": "Bing video search.",
+      "version": "1.0.3",
+      "minDegoogVersion": "0.19.0",
+      "legacyIds": [
+        "bing-videos",
+        "bing-videos-engine"
+      ]
+    },
+    {
+      "path": "engines/bing-news",
+      "name": "Bing News",
+      "description": "Bing news search.",
+      "version": "1.0.2",
+      "minDegoogVersion": "0.19.0",
+      "legacyIds": [
+        "bing-news",
+        "bing-news-engine"
+      ]
+    },
+    {
+      "path": "engines/brave",
+      "name": "Brave Search",
+      "description": "Brave web search (HTML scraping). For API access use Brave API Search.",
+      "version": "1.0.0",
+      "minDegoogVersion": "0.19.0",
+      "legacyIds": [
+        "brave",
+        "brave-engine"
+      ]
+    },
+    {
+      "path": "engines/brave-news",
+      "name": "Brave News",
+      "description": "Brave news search.",
+      "version": "1.0.1",
+      "minDegoogVersion": "0.19.0",
+      "legacyIds": [
+        "brave-news",
+        "brave-news-engine"
+      ]
+    },
+    {
+      "path": "engines/duckduckgo",
+      "name": "DuckDuckGo",
+      "description": "DuckDuckGo web search.",
+      "version": "1.1.0",
+      "minDegoogVersion": "0.19.0",
+      "legacyIds": [
+        "duckduckgo",
+        "duckduckgo-engine"
+      ]
+    },
+    {
+      "path": "engines/wikipedia",
+      "name": "Wikipedia",
+      "description": "Wikipedia search via the MediaWiki API.",
+      "version": "1.1.0",
+      "minDegoogVersion": "0.19.0",
+      "legacyIds": [
+        "wikipedia",
+        "wikipedia-engine"
+      ]
+    },
+    {
+      "path": "engines/reddit",
+      "name": "Reddit",
+      "description": "Reddit post search via the public RSS feed.",
+      "version": "1.0.3",
+      "minDegoogVersion": "0.19.0",
+      "legacyIds": [
+        "reddit",
+        "reddit-engine"
+      ]
+    },
+    {
       "path": "engines/ecosia",
       "name": "Ecosia",
       "description": "Adds the Ecosia engine to degoog. Note: Ecosia may return no results when Cloudflare blocks server-side requests; use another engine if that happens.",
-      "version": "1.0.6"
+      "version": "1.0.8"
     },
     {
       "path": "engines/startpage",
       "name": "Startpage",
       "description": "Adds the Startpage engine to degoog. You can enable Anonymous View so result links open via Startpage's proxy.",
-      "version": "1.1.6"
+      "version": "1.1.9"
     },
     {
       "path": "engines/internet-archive",
       "name": "Internet Archive",
       "description": "Adds the Internet Archive as a file-type engine. Searches archive.org for downloadable files, books, software, media, and more.",
-      "version": "1.0.5"
+      "version": "1.0.6"
     },
     {
       "path": "engines/lemmy",
       "name": "Lemmy World",
       "description": "Adds the Lemmy engine to degoog. Searches Lemmy for posts, comments, and communities.",
-      "version": "1.0.3"
+      "version": "1.0.4"
     },
     {
       "path": "engines/brave-api-search",
@@ -242,63 +399,150 @@
       "path": "engines/duckduckgo-images",
       "name": "DuckDuckGo Images",
       "description": "Adds the DuckDuckGo images search engine to degoog, adding an extra ~70 images per page to the image results.",
-      "version": "1.1.2"
+      "version": "1.2.0",
+      "minDegoogVersion": "0.23.0"
+    },
+    {
+      "path": "engines/brave-images",
+      "name": "Brave Images",
+      "description": "Adds the Brave Images search engine to degoog (HTML scraping of the Brave Search image results page).",
+      "version": "1.0.0",
+      "minDegoogVersion": "0.23.0",
+      "legacyIds": [
+        "brave-images",
+        "brave-images-engine"
+      ]
     },
     {
       "path": "engines/openverse",
       "name": "Openverse",
-      "description": "Adds the Openverse image engine to degoog. Searches CC-licensed images aggregated from Flickr, Wikimedia and museum collections via the public Openverse API. No API key required.",
-      "version": "1.1.2"
+      "description": "Adds the Openverse image engine to degoog. Searches CC-licensed images aggregated from Flickr, Wikimedia and museum collections via the public Openverse API.",
+      "version": "1.2.0",
+      "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/wikimedia-commons",
       "name": "Wikimedia Commons",
-      "description": "Adds the Wikimedia Commons image engine to degoog. Searches the Wikimedia Commons media archive via the MediaWiki API. No API key required.",
-      "version": "1.1.2"
+      "description": "Adds the Wikimedia Commons image engine to degoog. Searches the Wikimedia Commons media archive via the MediaWiki API.",
+      "version": "1.2.0",
+      "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/nasa-images",
       "name": "NASA Images",
-      "description": "Adds the NASA image engine to degoog. Searches the NASA Image and Video Library. No API key required.",
-      "version": "1.0.3"
+      "description": "Adds the NASA image engine to degoog. Searches the NASA Image and Video Library.",
+      "version": "1.1.0",
+      "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/hacker-news",
       "name": "Hacker News",
-      "description": "Adds the Hacker News engine to degoog. Searches Hacker News stories via the Algolia API. No API key required.",
-      "version": "1.0.3"
+      "description": "Adds the Hacker News engine to degoog. Searches Hacker News stories via the Algolia API.",
+      "version": "1.0.4"
     },
     {
       "path": "engines/duckduckgo-news",
       "name": "DuckDuckGo News",
-      "description": "Adds the DuckDuckGo News engine to degoog. No API key required.",
-      "version": "1.0.3"
+      "description": "Adds the DuckDuckGo News engine to degoog.",
+      "version": "1.0.5"
     },
     {
       "path": "engines/the-guardian",
       "name": "The Guardian",
       "description": "Adds The Guardian as a news engine to degoog via the Guardian Open Platform API. Requires a free API key from open-platform.theguardian.com.",
-      "version": "1.0.3"
+      "version": "1.0.4"
     }
   ],
   "autocomplete": [
     {
+      "path": "autocomplete/google",
+      "name": "Google Autocomplete",
+      "description": "Autocomplete suggestions from Google.",
+      "version": "1.1.0",
+      "minDegoogVersion": "0.19.0",
+      "legacyIds": [
+        "autocomplete-builtin-google",
+        "google"
+      ]
+    },
+    {
+      "path": "autocomplete/duckduckgo",
+      "name": "DuckDuckGo Autocomplete",
+      "description": "Autocomplete suggestions from DuckDuckGo.",
+      "version": "1.1.0",
+      "minDegoogVersion": "0.19.0",
+      "legacyIds": [
+        "autocomplete-builtin-duckduckgo",
+        "duckduckgo"
+      ]
+    },
+    {
       "path": "autocomplete/brave",
-      "name": "Brave",
+      "name": "Brave Autocomplete",
       "description": "Autocomplete suggestions from Brave Search. Works without an API key; optionally add your Brave Search API key for authenticated requests.",
-      "version": "1.0.1"
+      "version": "1.1.0"
     },
     {
       "path": "autocomplete/bing",
-      "name": "Bing",
-      "description": "Autocomplete suggestions from Bing. No API key required.",
-      "version": "1.0.1"
+      "name": "Bing Autocomplete",
+      "description": "Autocomplete suggestions from Bing.",
+      "version": "1.1.0"
     },
     {
       "path": "autocomplete/yahoo",
-      "name": "Yahoo",
-      "description": "Autocomplete suggestions from Yahoo Search. No API key required.",
-      "version": "1.0.1"
+      "name": "Yahoo Autocomplete",
+      "description": "Autocomplete suggestions from Yahoo Search.",
+      "version": "1.1.0"
+    },
+    {
+      "path": "autocomplete/qwant",
+      "name": "Qwant Autocomplete",
+      "description": "Autocomplete suggestions from Qwant.",
+      "version": "1.1.0"
+    }
+  ],
+  "shortcuts": [
+    {
+      "path": "shortcuts/next-tab",
+      "name": "Next tab",
+      "description": "Switch to the next visible results tab.",
+      "version": "1.0.0"
+    },
+    {
+      "path": "shortcuts/previous-tab",
+      "name": "Previous tab",
+      "description": "Switch to the previous visible results tab.",
+      "version": "1.0.0"
+    },
+    {
+      "path": "shortcuts/tab-by-number",
+      "name": "Switch tab by number",
+      "description": "Hold the recorded modifier and press 1-9 to jump to that result tab.",
+      "version": "1.0.0"
+    },
+    {
+      "path": "shortcuts/go-home",
+      "name": "Go home",
+      "description": "Return to the Degoog home page.",
+      "version": "1.0.0"
+    },
+    {
+      "path": "shortcuts/go-settings",
+      "name": "Go settings",
+      "description": "Open the settings page.",
+      "version": "1.0.0"
+    },
+    {
+      "path": "shortcuts/result-down",
+      "name": "Highlight next result",
+      "description": "Move focus to the next result link.",
+      "version": "1.0.0"
+    },
+    {
+      "path": "shortcuts/result-up",
+      "name": "Highlight previous result",
+      "description": "Move focus to the previous result link.",
+      "version": "1.0.0"
     }
   ]
 }

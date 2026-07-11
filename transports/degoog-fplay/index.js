@@ -5,7 +5,7 @@ import { join } from "path";
 
 const FETCH_TIMEOUT_MS = 30000;
 const SESSION_TTL_MS = 5 * 60 * 60 * 1000;
-const COOKIE_JAR_DIR = join(tmpdir(), "degoog-fplay-cookies");
+const COOKIE_JAR_DIR = join(tmpdir(), "degoog-4play-cookies");
 const DELIMITER = randomUUID();
 const BINARIES = [
   "curl_firefox135",
@@ -19,12 +19,13 @@ const BASE_STRIP_HEADERS = new Set(["accept-encoding", "accept"]);
 
 try {
   mkdirSync(COOKIE_JAR_DIR, { recursive: true });
-} catch { }
+} catch {}
 
-let _server = null;
-let _browser = null;
+const _browsers = new Set();
 const _pending = new Map();
 const _sessions = new Map();
+const _pings = new WeakMap();
+const _warmups = new Map();
 
 const _cookieJarPath = (host) =>
   join(COOKIE_JAR_DIR, host.replace(/[^a-z0-9.-]/gi, "_") + ".txt");
@@ -41,86 +42,42 @@ function _resolveBinary() {
   return null;
 }
 
-function _startServer(port, password) {
-  _server = Bun.serve({
-    port,
-    fetch(req, server) {
-      if (server.upgrade(req)) return;
-      return new Response("4play transport", { status: 200 });
-    },
-    websocket: {
-      open(ws) {
-        ws.authenticated = !password;
-        if (!password) _browser = ws;
-        ws._ping = setInterval(
-          () => ws.send(JSON.stringify({ type: "ping" })),
-          20000,
-        );
-      },
-      message(ws, raw) {
-        let msg;
-        try {
-          msg = JSON.parse(raw);
-        } catch {
-          return;
-        }
-
-        if (msg.type === "auth") {
-          if (password && msg.password !== password) {
-            ws.close(1008, "wrong password");
-            return;
-          }
-          ws.authenticated = true;
-          _browser = ws;
-          ws.send(JSON.stringify({ type: "auth_ok" }));
-          return;
-        }
-
-        if (!ws.authenticated) return;
-        if (!password) _browser = ws;
-
-        if (
-          (msg.type === "session" || msg.type === "error") &&
-          _pending.has(msg.id)
-        ) {
-          const { resolve, reject, timer } = _pending.get(msg.id);
-          clearTimeout(timer);
-          _pending.delete(msg.id);
-          if (msg.type === "session") resolve(msg.cookies ?? []);
-          else reject(new Error(msg.error ?? "4play error"));
-        }
-      },
-      close(ws) {
-        clearInterval(ws._ping);
-        if (_browser === ws) _browser = null;
-      },
-    },
-  });
-}
-
 async function _getSession(host, warmupUrl) {
   const existing = _sessions.get(host);
   if (existing && Date.now() - existing.ts < SESSION_TTL_MS)
     return existing.cookies;
 
-  if (!_browser) throw new Error("No browser connected to 4play transport.");
+  if (_warmups.has(host)) return _warmups.get(host);
+
+  if (_browsers.size === 0)
+    throw new Error("No browser connected to degoog-4play transport.");
 
   const id = randomUUID();
-  const cookies = await new Promise((resolve, reject) => {
+  const warmup = new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       _pending.delete(id);
-      reject(new Error("4play session timeout"));
+      reject(new Error("degoog-4play session timeout"));
     }, FETCH_TIMEOUT_MS);
     _pending.set(id, { resolve, reject, timer });
-    _browser.send(JSON.stringify({ type: "get_session", id, url: warmupUrl }));
-  });
+    for (const ws of _browsers)
+      ws.send(JSON.stringify({ type: "get_session", id, url: warmupUrl }));
+  })
+    .then((cookies) => {
+      console.log(
+        `[degoog-4play] got ${cookies.length} cookies for ${host}:`,
+        cookies.map((c) => c.name).join(", "),
+      );
+      _sessions.set(host, { cookies, ts: Date.now() });
+      _warmups.delete(host);
+      return cookies;
+    })
+    .catch((err) => {
+      _warmups.delete(host);
+      throw err;
+    });
 
-  console.log(
-    `[4play] got ${cookies.length} cookies for ${host}:`,
-    cookies.map((c) => c.name).join(", "),
-  );
-  _sessions.set(host, { cookies, ts: Date.now() });
-  return cookies;
+  _warmups.set(host, warmup);
+  return warmup;
 }
 
 async function _curlFetch(
@@ -196,9 +153,7 @@ async function _curlFetch(
   ]);
 
   if (exitCode !== 0)
-    throw new Error(
-      stderrText.trim() || `curl-impersonate failed (${exitCode})`,
-    );
+    throw new Error(stderrText.trim() || `degoog-4play failed (${exitCode})`);
 
   const output = new TextDecoder().decode(stdoutBuf);
   const delimIdx = output.lastIndexOf(`\n${DELIMITER}`);
@@ -214,80 +169,121 @@ async function _curlFetch(
   });
 }
 
-_startServer(3031, "");
-
 export default class FplayTransport {
   isClientExposed = true;
   name = "degoog-4play";
-  displayName = "degoog-4play (Requires browser extension)";
+  displayName = "4play (degoog)";
   description =
-    "Uses a real browser extension to harvest session cookies, then passes them to curl-impersonate for the actual requests.";
+    "Uses a browser extension to harvest a genuine session for each target host, then passes those cookies to curl-impersonate for outgoing requests. Get the extension [here](https://github.com/degoog-org/4play).";
 
-  _port = 3031;
   _password = "";
   _stripEngineCookies = true;
   _stripEngineUserAgents = true;
 
-  settingsSchema = [
-    {
-      key: "port",
-      label: "WebSocket Port",
-      type: "number",
-      default: "3031",
-      description: "Port degoog listens on for browser extension connections.",
+  get settingsSchema() {
+    return [
+      {
+        key: "wsUrl",
+        label: "WebSocket path",
+        type: "info",
+        default: `/ws/${this.name}`,
+      },
+      {
+        key: "password",
+        label: "Password",
+        type: "password",
+        default: "",
+        description:
+          "Optional password - must match what you set in the extension.",
+      },
+      {
+        key: "stripEngineCookies",
+        label: "Strip engine cookies",
+        type: "toggle",
+        default: "true",
+        description:
+          "When on, ignore Cookie headers from engines so only the browser session (and curl jar) apply.",
+      },
+      {
+        key: "stripEngineUserAgents",
+        label: "Strip engine user agents",
+        type: "toggle",
+        default: "true",
+        description:
+          "When on, drop User-Agent from engines and use curl-impersonate's profile only.",
+      },
+    ];
+  }
+
+  wsHandler = {
+    onOpen: (ws) => {
+      console.log("[degoog-4play] browser extension connected");
+      if (!this._password) {
+        _browsers.add(ws);
+      }
+      _pings.set(
+        ws,
+        setInterval(() => ws.send(JSON.stringify({ type: "ping" })), 20000),
+      );
     },
-    {
-      key: "password",
-      label: "Password",
-      type: "password",
-      default: "",
-      description:
-        "Optional password — must match what you set in the extension.",
+
+    onMessage: (ws, raw) => {
+      let msg;
+      try {
+        msg = JSON.parse(raw);
+      } catch {
+        return;
+      }
+
+      if (msg.type === "auth") {
+        if (this._password && msg.password !== this._password) {
+          ws.close(1008, "wrong password");
+          return;
+        }
+        _browsers.add(ws);
+        ws.send(JSON.stringify({ type: "auth_ok" }));
+        return;
+      }
+
+      if (
+        (msg.type === "session" || msg.type === "error") &&
+        _pending.has(msg.id)
+      ) {
+        const { resolve, reject, timer } = _pending.get(msg.id);
+        clearTimeout(timer);
+        _pending.delete(msg.id);
+        if (msg.type === "session") resolve(msg.cookies ?? []);
+        else reject(new Error(msg.error ?? "degoog-4play error"));
+      }
     },
-    {
-      key: "stripEngineCookies",
-      label: "Strip engine cookies",
-      type: "toggle",
-      default: "true",
-      description:
-        "When on, ignore Cookie headers from engines so only the browser session (and curl jar) apply.",
+
+    onClose: (ws) => {
+      console.log("[degoog-4play] browser extension disconnected");
+      const ping = _pings.get(ws);
+      if (ping) {
+        clearInterval(ping);
+        _pings.delete(ws);
+      }
+      _browsers.delete(ws);
     },
-    {
-      key: "stripEngineUserAgents",
-      label: "Strip engine user agents",
-      type: "toggle",
-      default: "true",
-      description:
-        "When on, drop User-Agent from engines and use curl-impersonate’s profile only.",
-    },
-  ];
+  };
 
   configure(settings) {
     this._stripEngineCookies = settings.stripEngineCookies !== "false";
     this._stripEngineUserAgents = settings.stripEngineUserAgents !== "false";
-    const newPort = parseInt(settings.port, 10) || 3031;
-    const newPassword =
+    this._password =
       typeof settings.password === "string" ? settings.password : "";
-    if (newPort !== this._port || newPassword !== this._password) {
-      this._port = newPort;
-      this._password = newPassword;
-      if (_server) {
-        _server.stop(true);
-        _server = null;
-      }
-      _startServer(this._port, this._password);
-    }
   }
 
   available() {
-    return _resolveBinary() !== null;
+    return _browsers.size > 0 && _resolveBinary() !== null;
   }
 
   async fetch(url, options, context) {
     const binary = _resolveBinary();
     if (!binary)
       throw new Error(
-        "curl-impersonate not found. Required by 4play transport.",
+        "curl-impersonate not found. Required by degoog-4play transport.",
       );
 
     const parsed = new URL(url);

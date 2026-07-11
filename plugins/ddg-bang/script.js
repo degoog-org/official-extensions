@@ -1,4 +1,4 @@
-const GO_PATH = "/api/plugin/ddg-bang/go";
+const GO_PATH = `/api/plugin/${__PLUGIN_ID__}/go`;
 const POST_QUERY_KEY = "degoog-post-query";
 
 const redirectIfDoubleBang = (raw) => {

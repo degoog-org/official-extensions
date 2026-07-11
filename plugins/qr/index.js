@@ -1,9 +1,7 @@
-import { basename } from "node:path";
-
 const QR_API = "https://api.qrserver.com/v1/create-qr-code/";
 const SIZE = 256;
 
-let _folder = "qr";
+let _apiBase = "";
 let _fetch = fetch;
 
 const _esc = (s) => {
@@ -43,7 +41,7 @@ export default {
   settingsSchema: [],
 
   init(ctx) {
-    _folder = basename(ctx.dir);
+    _apiBase = ctx.apiBase;
     _fetch = ctx.fetch ?? fetch;
   },
 
@@ -62,7 +60,7 @@ export default {
         html: `<div class="command-result"><p>Usage: <code>!qr &lt;url&gt;</code></p><p>Example: <code>!qr https://example.com</code></p></div>`,
       };
     }
-    const imgUrl = `/api/plugin/${_folder}/qr?url=${encodeURIComponent(url)}`;
+    const imgUrl = `${_apiBase}/qr?url=${encodeURIComponent(url)}`;
     return {
       title: "QR Code",
       html: `<div class="command-result qr-result"><p class="qr-label">${_esc(url)}</p><img src="${_esc(imgUrl)}" alt="QR code" class="qr-image" width="${SIZE}" height="${SIZE}"></div>`,

@@ -1,6 +1,6 @@
 export default class BraveAutocompleteProvider {
   isClientExposed = false;
-  name = "Brave";
+  name = "Brave Autocomplete";
   description = "Autocomplete suggestions from Brave Search.";
 
   settingsSchema = [
@@ -60,7 +60,10 @@ export default class BraveAutocompleteProvider {
 
       if (Array.isArray(data) && Array.isArray(data[1])) {
         if (!this.richEnabled) {
-          return data[1].map(String).map((s) => s.trim()).filter(Boolean);
+          return data[1]
+            .map(String)
+            .map((s) => s.trim())
+            .filter(Boolean);
         }
         return data[1]
           .map((r) => {
@@ -76,7 +79,11 @@ export default class BraveAutocompleteProvider {
             if (r && typeof r.desc === "string" && r.desc.trim()) {
               rich.description = r.desc.trim();
             }
-            if (r && typeof r.description === "string" && r.description.trim()) {
+            if (
+              r &&
+              typeof r.description === "string" &&
+              r.description.trim()
+            ) {
               rich.description = r.description.trim();
             }
             if (r && typeof r.category === "string" && r.category.trim()) {

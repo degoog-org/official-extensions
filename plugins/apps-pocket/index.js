@@ -1,5 +1,4 @@
 let apps = [];
-let hideJsonBuilder = false;
 
 const _normalizeApps = (input) => {
   if (!Array.isArray(input)) return [];
@@ -33,26 +32,32 @@ export default {
   settingsSchema: [
     {
       key: "appsJson",
-      label: "Apps (JSON)",
-      type: "textarea",
-      placeholder:
-        '[{"label":"Gmail","icon":"https://.../icon.png","url":"https://mail.google.com"}]',
+      label: "Apps",
+      type: "list",
+      addLabel: "+ Add app",
       description:
-        "JSON array of {label, icon, url}. Labels and URLs are required; icon is an image URL and falls back to the first letter of the label.",
-    },
-    {
-      key: "hideJsonBuilder",
-      label: "Hide JSON builder",
-      type: "toggle",
-      description: "Hide the JSON builder button",
-      default: "false",
+        "Label and URL are required. Icon accepts a full image URL, a dashboard-icons name (e.g. jotty), or a selfh.st name prefixed with sh- (e.g. sh-jotty); it falls back to the first letter of the label.",
+      itemSchema: [
+        { key: "label", label: "Label", type: "text", placeholder: "Gmail" },
+        {
+          key: "icon",
+          label: "Icon URL or name",
+          type: "text",
+          placeholder: "jotty, sh-jotty, or https://.../icon.png",
+        },
+        {
+          key: "url",
+          label: "URL",
+          type: "text",
+          placeholder: "https://mail.google.com",
+        },
+      ],
     },
   ],
 
   configure(settings) {
     const raw =
       typeof settings?.appsJson === "string" ? settings.appsJson.trim() : "";
-    hideJsonBuilder = String(settings?.hideJsonBuilder ?? "false") === "true";
     if (!raw) {
       apps = [];
       return;
@@ -74,11 +79,6 @@ export default {
       method: "get",
       path: "/apps",
       handler: async () => _json({ apps }),
-    },
-    {
-      method: "get",
-      path: "/settings",
-      handler: async () => _json({ hideJsonBuilder }),
     },
   ],
 };

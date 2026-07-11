@@ -2,14 +2,18 @@
   "name": "Catppuccin",
   "author": "fccview",
   "description": "Catppuccin: Mocha (blue), Latte (light blue), Rose (red/coral), Peach (orange/amber).",
-  "version": "1.0.0",
   "css": "style.css",
   "settingsSchema": [
     {
       "key": "flavor",
       "label": "Flavor",
       "type": "select",
-      "options": ["mocha", "latte", "rose", "peach"],
+      "options": [
+        "mocha",
+        "latte",
+        "rose",
+        "peach"
+      ],
       "description": "Mocha = blue, Latte = light blue, Rose = warm red/coral, Peach = warm orange/amber."
     }
   ],

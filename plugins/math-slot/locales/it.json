@@ -1,7 +1,7 @@
 {
   "math-slot": {
     "name": "Matematica",
-    "description": "Valuta espressioni matematiche tramite API.",
+    "description": "Valuta espressioni matematiche e mostra una calcolatrice interattiva.",
     "settings": {
       "enabled": {
         "label": "Attivo"

@@ -1,5 +1,7 @@
 export const type = "news";
 
+const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+
 const API_URL = "https://content.guardianapis.com/search";
 
 
@@ -91,9 +93,12 @@ export default class TheGuardianEngine {
 
     try {
       const response = await doFetch(`${API_URL}?${params.toString()}`, {
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          "User-Agent": context?.userAgent?.() || FALLBACK_UA,
+        },
       });
-      if (!response.ok) return [];
+      context?.sentinel?.(response, this.name);
       const data = await response.json();
       const items = data?.response?.results ?? [];
 
@@ -106,7 +111,8 @@ export default class TheGuardianEngine {
           ...(item.fields?.thumbnail ? { thumbnail: item.fields.thumbnail } : {}),
         }))
         .filter((r) => r.title && r.url);
-    } catch {
+    } catch (e) {
+      if (e?.name === "SentinelBreach") throw e;
       return [];
     }
   }

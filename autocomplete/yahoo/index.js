@@ -1,6 +1,6 @@
 export default class YahooAutocompleteProvider {
   isClientExposed = false;
-  name = "Yahoo";
+  name = "Yahoo Autocomplete";
 
   async getSuggestions(query, context) {
     if (!query || !query.trim()) return [];

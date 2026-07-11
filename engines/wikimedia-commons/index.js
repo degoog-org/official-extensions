@@ -1,4 +1,7 @@
 export const type = "images";
+export const filters = {
+  nsfw: ["on", "moderate", "off"],
+};
 
 const API_URL = "https://commons.wikimedia.org/w/api.php";
 const PAGE_SIZE = 20;
@@ -68,7 +71,7 @@ export default class WikimediaCommonsEngine {
         },
       });
 
-      if (!response.ok) return [];
+      context?.sentinel?.(response, this.name);
 
       const data = await response.json();
       const pages = data?.query?.pages;
@@ -97,7 +100,8 @@ export default class WikimediaCommonsEngine {
           };
         })
         .filter((r) => r && r.thumbnail && r.url);
-    } catch {
+    } catch (e) {
+      if (e?.name === "SentinelBreach") throw e;
       return [];
     }
   };

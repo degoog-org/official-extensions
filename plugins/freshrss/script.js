@@ -113,7 +113,7 @@
   };
 
   function markRead(id, card) {
-    fetch("/api/plugin/freshrss/mark-read", {
+    fetch(`/api/plugin/${__PLUGIN_ID__}/mark-read`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: id }),
@@ -186,7 +186,7 @@
   function initStream(container, desktop, sentinel) {
     var gotItems = false;
     var skeletonRemoved = false;
-    var es = new EventSource("/api/plugin/freshrss/feed/stream");
+    var es = new EventSource(`/api/plugin/${__PLUGIN_ID__}/feed/stream`);
 
     function removeSkeleton() {
       if (skeletonRemoved) return;

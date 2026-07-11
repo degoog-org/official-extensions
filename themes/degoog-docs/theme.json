@@ -2,6 +2,5 @@
   "name": "Degoog Docs",
   "author": "fccview",
   "description": "A simple theme that matches the degoog documentation site.",
-  "version": "1.0.0",
   "css": "style.css"
 }

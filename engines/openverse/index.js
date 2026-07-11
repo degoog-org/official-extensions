@@ -1,4 +1,11 @@
 export const type = "images";
+export const filters = {
+  size: ["small", "medium", "large"],
+  layout: ["square", "tall", "wide"],
+  nsfw: ["on", "moderate", "off"],
+};
+
+const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 
 const API_URL = "https://api.openverse.org/v1/images/";
 const PAGE_SIZE = 20;
@@ -47,10 +54,11 @@ export default class OpenverseEngine {
         headers: {
           Accept: "application/json",
           "Accept-Language": context?.buildAcceptLanguage?.() ?? "en,en-US;q=0.9",
+          "User-Agent": context?.userAgent?.() || FALLBACK_UA,
         },
       });
 
-      if (!response.ok) return [];
+      context?.sentinel?.(response, this.name);
 
       const data = await response.json();
       const items = data?.results ?? [];
@@ -67,7 +75,8 @@ export default class OpenverseEngine {
           imageUrl: item.url ?? item.thumbnail ?? "",
         }))
         .filter((r) => r.url && r.thumbnail);
-    } catch {
+    } catch (e) {
+      if (e?.name === "SentinelBreach") throw e;
       return [];
     }
   };

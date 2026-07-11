@@ -1,5 +1,7 @@
 export const type = "file";
 
+const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+
 const _formatBytes = (bytes) => {
   if (bytes === 0) return "0 B";
   const k = 1024;
@@ -37,10 +39,11 @@ export default class InternetArchiveEngine {
     const doFetch = context?.fetch ?? fetch;
     const response = await doFetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; degoog/1.0)",
+        "User-Agent": context?.userAgent?.() || FALLBACK_UA,
         Accept: "application/json",
       },
     });
+    context?.sentinel?.(response, this.name);
 
     const data = await response.json();
     const docs = data?.response?.docs ?? [];

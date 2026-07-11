@@ -2,14 +2,14 @@
   font-family: "Unknown";
   font-style: normal;
   font-display: swap;
-  src: url("/themes/pokemon/fonts/Unown-OVEwA.ttf") format("truetype");
+  src: url("fonts/Unown-OVEwA.ttf") format("truetype");
 }
 
 @font-face {
   font-family: "Flexo Regular";
   font-style: normal;
   font-display: swap;
-  src: url("/themes/pokemon/fonts/flexo-regular.ttf") format("truetype");
+  src: url("fonts/flexo-regular.ttf") format("truetype");
 }
 
 * {

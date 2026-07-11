@@ -1,12 +1,6 @@
 export const type = "news";
 
-const USER_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
-];
-
-const _getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+const FALLBACK_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 
 const _extractVqd = (html) => {
   const match = html.match(/vqd=['"]([^'"]+)['"]/);
@@ -62,25 +56,28 @@ export default class DuckDuckGoNewsEngine {
 
   async executeSearch(query, page = 1, timeFilter, context) {
     const doFetch = context?.fetch ?? fetch;
-    const ua = _getRandomUserAgent();
+    const ua = context?.userAgent?.() ?? FALLBACK_UA;
     const acceptLang = context?.buildAcceptLanguage?.() ?? "en-US,en;q=0.9";
+    const safeMap = { off: "-2", moderate: "-1", strict: "1" };
+    const safe = safeMap[this.safeSearch] ?? "-1";
     const headers = {
       "User-Agent": ua,
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language": acceptLang,
       "Accept-Encoding": "gzip, deflate, br",
+      Cookie: `p=${safe}`,
     };
 
     const initRes = await doFetch(
       `https://duckduckgo.com/?q=${encodeURIComponent(query)}&iar=news&ia=news`,
       { headers },
     );
+    context?.sentinel?.(initRes, this.name);
     const initHtml = await initRes.text();
     const vqd = _extractVqd(initHtml);
     if (!vqd) return [];
 
     const offset = ((page || 1) - 1) * 30;
-    const safeMap = { off: "-1", moderate: "-1", strict: "1" };
     const params = new URLSearchParams({
       q: query,
       vqd,
@@ -88,7 +85,7 @@ export default class DuckDuckGoNewsEngine {
       kl: _buildKl(context?.lang),
       o: "json",
       noamp: "1",
-      p: safeMap[this.safeSearch] ?? "-1",
+      p: safe,
       s: String(offset),
     });
 
@@ -103,7 +100,7 @@ export default class DuckDuckGoNewsEngine {
         "X-Requested-With": "XMLHttpRequest",
       },
     });
-    if (!res.ok) return [];
+    context?.sentinel?.(res, this.name);
     const data = await res.json();
     const items = data?.results ?? [];
 

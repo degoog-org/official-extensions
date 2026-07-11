@@ -1,6 +1,6 @@
 import { createThumbCache } from "./thumb-cache.js";
 
-const thumb = createThumbCache("jellyfin");
+const thumb = createThumbCache();
 
 let jellyfinUrl = "";
 let apiKey = "";
@@ -234,6 +234,7 @@ export default {
   routes: [thumb.route],
 
   async init(ctx) {
+    thumb.useApiBase(ctx.apiBase);
     template = ctx.template;
     resultItemTpl = await ctx.readFile("result.html");
   },

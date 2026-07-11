@@ -1,7 +1,7 @@
 {
   "math-slot": {
     "name": "Math",
-    "description": "Evaluates math expressions natively via API.",
+    "description": "Evaluates math expressions and shows an interactive calculator.",
     "settings": {
       "enabled": {
         "label": "Enabled"
