@@ -2,7 +2,9 @@
   const apiBaseFromRoot = (root) => String(root?.dataset?.apiBase || "").trim();
   const apiBaseFromScript = () => {
     const currentScript =
-      document.currentScript instanceof HTMLScriptElement ? document.currentScript : null;
+      document.currentScript instanceof HTMLScriptElement
+        ? document.currentScript
+        : null;
     const pluginId =
       typeof __PLUGIN_ID__ !== "undefined"
         ? __PLUGIN_ID__
@@ -17,7 +19,8 @@
     const raw = String(value || "").trim();
     if (!raw) return "";
     if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return raw;
-    if (/^(localhost|[\w.-]+)(:\d+)?(\/.*)?$/i.test(raw)) return `http://${raw}`;
+    if (/^(localhost|[\w.-]+)(:\d+)?(\/.*)?$/i.test(raw))
+      return `http://${raw}`;
     return raw;
   };
 
@@ -53,8 +56,6 @@
 
   const initCard = (root) => {
     const body = root.querySelector("[data-body]");
-    const connBadge = root.querySelector("[data-conn]");
-    const connLabel = root.querySelector("[data-conn-label]");
     const subtitle = root.querySelector("[data-subtitle]");
     const clearAllBtn = root.querySelector("[data-clear-all]");
     const actions = root.querySelector(".fourplay-actions");
@@ -83,11 +84,6 @@
       }
     };
 
-    const setConn = (label, tone) => {
-      connLabel.textContent = label;
-      connBadge.dataset.tone = tone;
-    };
-
     const setSubtitle = (text) => {
       subtitle.textContent = text;
     };
@@ -99,19 +95,16 @@
         ${extra}
       </div>`;
 
-    const renderLocked = (message = "Log into the admin panel to unlock the 4play status view.") => {
+    const renderLocked = (
+      message = "Log into the admin panel to unlock the 4play status view.",
+    ) => {
       clearAllBtn.hidden = true;
-      setConn("locked", "muted");
       setSubtitle("admin only");
-      body.innerHTML = hero(
-        "fa-lock",
-        message,
-      );
+      body.innerHTML = hero("fa-lock", message);
     };
 
     const renderEmpty = (data) => {
       clearAllBtn.hidden = true;
-      setConn(data.transport ? "asleep" : "not found", "muted");
       setSubtitle(data.transport || "no 4play transport found");
       const wake = data.transport
         ? '<button type="button" class="fourplay-btn" data-wake><i class="fa-solid fa-bolt"></i>Wake transport</button>'
@@ -138,7 +131,11 @@
         : session.alive
           ? `primed, expires in ${fmtDur(session.expiresInMs)}`
           : "cold";
-      const tone = session.blocked ? "danger" : session.alive ? "success" : "muted";
+      const tone = session.blocked
+        ? "danger"
+        : session.alive
+          ? "success"
+          : "muted";
       const metaBits = [`container ${session.container || "default"}`];
       if (session.ageMs !== null && session.ageMs !== undefined) {
         metaBits.push(`warmed ${fmtDur(session.ageMs)} ago`);
@@ -146,7 +143,8 @@
       if (session.blocked && session.reason) {
         metaBits.push(session.reason);
       }
-      const containerName = session.containerLabel || session.container || "default";
+      const containerName =
+        session.containerLabel || session.container || "default";
       return `
         <div class="fourplay-session degoog-panel" data-key="${esc(session.key)}">
           <span class="fourplay-dot" data-tone="${tone}"></span>
@@ -169,10 +167,6 @@
         return;
       }
 
-      setConn(
-        status.connected ? "connected" : "disconnected",
-        status.connected ? "success" : "danger",
-      );
       setSubtitle(data.transport || "");
       clearAllBtn.hidden = false;
 
@@ -181,7 +175,9 @@
       const sessions = Array.isArray(status.sessions) ? status.sessions : [];
       const warmCount = sessions.filter((s) => s.alive).length;
       const blockedCount = sessions.filter((s) => s.blocked).length;
-      const captchaTabs = Array.isArray(status.captchaTabs) ? status.captchaTabs : [];
+      const captchaTabs = Array.isArray(status.captchaTabs)
+        ? status.captchaTabs
+        : [];
       const captchaCount = Array.isArray(status.captchaTabs)
         ? captchaTabs.length
         : Number(status.captchaTabs) || 0;
@@ -194,32 +190,37 @@
       const tiles = `
         <div class="fourplay-tiles degoog-grid">
           ${tile(
-        "Sessions",
-        String(sessions.length),
-        `${warmCount} primed, ${blockedCount} blocked`,
-        blockedCount ? "danger" : warmCount ? "success" : "",
-      )}
+            "Sessions",
+            String(sessions.length),
+            `${warmCount} primed, ${blockedCount} blocked`,
+            blockedCount ? "danger" : warmCount ? "success" : "",
+          )}
           ${tile(
-        "Containers",
-        `${aliveContainers} / ${max}`,
-        `${leased} in use, ${idle} idle`,
-      )}
+            "Containers",
+            `${aliveContainers} / ${max}`,
+            `${leased} in use, ${idle} idle`,
+          )}
           ${tile(
-        "Captcha tabs",
-        String(captchaCount),
-        captchaCount ? "solve them in the browser" : "no open challenges",
-        captchaCount ? "danger" : "",
-      )}
+            "Captcha tabs",
+            String(captchaCount),
+            captchaCount ? "solve them in the browser" : "no open challenges",
+            captchaCount ? "danger" : "",
+          )}
           ${tile(
-        "Background warmup",
-        autoWarm.intervalMs ? `every ${fmtDur(autoWarm.intervalMs)}` : "off",
-        tracked ? `${tracked} origin(s) tracked` : "no origins tracked yet",
-      )}
+            "Background warmup",
+            autoWarm.intervalMs
+              ? `every ${fmtDur(autoWarm.intervalMs)}`
+              : "off",
+            tracked ? `${tracked} origin(s) tracked` : "no origins tracked yet",
+          )}
         </div>`;
 
       const list = sessions.length
         ? sessions.map(sessionRow).join("")
-        : hero("fa-mug-hot", "No primed browser sessions yet. Run a search through the transport and they will show up here.");
+        : hero(
+            "fa-mug-hot",
+            "No primed browser sessions yet. Run a search through the transport and they will show up here.",
+          );
 
       const captchaList = captchaTabs.length
         ? `<div class="fourplay-section-head">
@@ -227,13 +228,15 @@
             <span class="degoog-badge">${captchaTabs.length}</span>
           </div>
           <div class="fourplay-sessions">
-            ${captchaTabs.map((tab) => {
-          const name = tab.title || tab.url || `Tab ${tab.id}`;
-          const container = tab.containerLabel || tab.container || "default";
-          const solveLink = firefoxUrl
-            ? `<a class="fourplay-btn fourplay-btn--firefox fourplay-session-solve" href="${esc(firefoxUrl)}" target="_blank" rel="noopener noreferrer" title="Open Firefox to solve tab ${esc(tab.id)}"><i class="fa-brands fa-firefox-browser"></i>Solve</a>`
-            : "";
-          return `<div class="fourplay-session degoog-panel">
+            ${captchaTabs
+              .map((tab) => {
+                const name = tab.title || tab.url || `Tab ${tab.id}`;
+                const container =
+                  tab.containerLabel || tab.container || "default";
+                const solveLink = firefoxUrl
+                  ? `<a class="fourplay-btn fourplay-btn--firefox fourplay-session-solve" href="${esc(firefoxUrl)}" target="_blank" rel="noopener noreferrer" title="Open Firefox to solve tab ${esc(tab.id)}"><i class="fa-brands fa-firefox-browser"></i>Solve</a>`
+                  : "";
+                return `<div class="fourplay-session degoog-panel">
                 <span class="fourplay-dot" data-tone="danger"></span>
                 <div class="fourplay-session-info">
                   <span class="fourplay-session-origin">${esc(name)}</span>
@@ -243,7 +246,8 @@
                 ${solveLink}
                 <button type="button" class="fourplay-btn fourplay-session-clear" data-clear-captcha="${esc(tab.id)}" title="Drop this flag so ${esc(name)} stops being gated. Use it once you have solved the captcha, or if the tab is stale.">Dismiss</button>
               </div>`;
-        }).join("")}
+              })
+              .join("")}
           </div>`
         : "";
 
@@ -281,14 +285,16 @@
         render(data);
         return true;
       } catch (error) {
-        console.warn(`[4play-status] failed to fetch status: ${error?.message || error}`);
-        setConn("error", "danger");
+        console.warn(
+          `[4play-status] failed to fetch status: ${error?.message || error}`,
+        );
         return true;
       }
     };
 
     const bodyFor = (scope, key) => {
-      if (scope === "captcha") return key === null ? { scope } : { scope, tabId: Number(key) };
+      if (scope === "captcha")
+        return key === null ? { scope } : { scope, tabId: Number(key) };
       return key ? { scope, key } : { scope };
     };
 
@@ -306,12 +312,13 @@
           await fetchStatus();
         }, CLEAR_SETTLE_MS);
       } catch (error) {
-        console.warn(`[4play-status] failed to request clear: ${error?.message || error}`);
+        console.warn(
+          `[4play-status] failed to request clear: ${error?.message || error}`,
+        );
       }
     };
 
     const wakeTransport = async () => {
-      setConn("waking", "muted");
       try {
         const res = await authFetch(`${apiBase}/ping`, { method: "POST" });
         const data = await res.json().catch(() => ({}));
@@ -320,7 +327,9 @@
           `[4play-status] wake request for ${data?.transport || "unknown"}: ${data?.ok ? "ok" : data?.message || "failed"}`,
         );
       } catch (error) {
-        console.warn(`[4play-status] wake request failed: ${error?.message || error}`);
+        console.warn(
+          `[4play-status] wake request failed: ${error?.message || error}`,
+        );
       }
       await fetchStatus();
     };
@@ -376,5 +385,8 @@
   } else {
     scan();
   }
-  new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
+  new MutationObserver(scan).observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
 })();

@@ -66,40 +66,12 @@
   gap: 0.75rem;
 }
 
-.fourplay-conn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  background: var(--bg-light);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
 .fourplay-dot {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
   background: var(--text-secondary);
   flex-shrink: 0;
-}
-
-.fourplay-conn[data-tone="success"] {
-  color: var(--success);
-}
-
-.fourplay-conn[data-tone="success"] .fourplay-dot {
-  background: var(--success);
-}
-
-.fourplay-conn[data-tone="danger"] {
-  color: var(--danger);
-}
-
-.fourplay-conn[data-tone="danger"] .fourplay-dot {
-  background: var(--danger);
 }
 
 .fourplay-dot[data-tone="success"] {
