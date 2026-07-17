@@ -3,9 +3,12 @@ import {
   cookieJarFromCookieHeader,
   curlFetchWithBrowserHeaders,
   emptyCookieJar,
+  engineHeaders,
+  fillCookieGaps,
   resolveCurlBinary,
 } from "../net/curl-session.js";
 import { solveChallenge } from "../net/flaresolverr.js";
+import { documentHtmlJs } from "../injectors/index.js";
 import {
   OriginBlockedError,
   looksBlocked,
@@ -13,6 +16,21 @@ import {
   sleep,
 } from "../warmup/origin-warmup.js";
 import { wrapResponse } from "../net/response.js";
+
+const BLOCK_WORDS = [
+  "captcha",
+  "unusual traffic",
+  "automated quer",
+  "verify\\s+(?:that\\s+)?you\\s+are\\s+human",
+  "confirm\\s+this\\s+search",
+  "bots\\s+use",
+  "not a robot",
+  "access denied",
+  "suspicious (?:activity|behaviour|behavior)",
+  "our systems have detected",
+  "enablejs",
+  "before you continue",
+];
 
 export class PageFetcher {
   constructor({
@@ -37,6 +55,21 @@ export class PageFetcher {
     this._curlProxyUrl = curlProxyUrl;
     this._timeoutMs = timeoutMs;
     this._warn = warn;
+  }
+
+  _describe(text, status, origin) {
+    const title = /<title[^>]*>([^<]*)<\/title>/i.exec(text)?.[1]?.trim() || "(no title)";
+    const hit = BLOCK_WORDS.find((word) => new RegExp(word, "i").test(text));
+    const sample = text
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 220);
+
+    this._warn(
+      `verdict detail for ${origin}: http=${status} bytes=${text.length} title="${title}" trigger=${hit || "none"} text="${sample}"`,
+    );
   }
 
   _wrapFetchedText(text, origin, containerId, url = "", tabId = null) {
@@ -95,19 +128,24 @@ export class PageFetcher {
     }
   }
 
-  async curlFetchWarmed(url, origin, containerId) {
+  async curlFetchWarmed(url, origin, containerId, options = {}) {
     const session = this._store.usableHeaderSession(origin, containerId);
     if (!session || !(await resolveCurlBinary())) return null;
 
-    const cookieJarText =
+    const jar =
       (await this._store.loadCookieJar(origin, containerId)) ||
       session.cookieJarText ||
       emptyCookieJar();
+    const wanted = options.headers || {};
+    const cookieJarText = fillCookieGaps(origin, jar, wanted.Cookie || wanted.cookie);
 
     try {
       const response = await curlFetchWithBrowserHeaders({
         url,
         headers: session.headers,
+        extraHeaders: engineHeaders(wanted),
+        method: options.method || "",
+        body: options.body || "",
         timeoutSeconds: this._timeoutMs() / 1000,
         cookieJarText,
         onCookieJarText: (updated) => {
@@ -119,6 +157,7 @@ export class PageFetcher {
       const text = await response.text();
 
       if (origin && (looksConsent(text, url) || looksBlocked(text, url))) {
+        this._describe(text, response.status, origin);
         if (looksBlocked(text, url)) {
           const solved = await this.solveWithFlare(url, origin, containerId);
           if (solved) return solved;
@@ -137,7 +176,12 @@ export class PageFetcher {
     }
   }
 
-  async browserFetch(url, origin, containerId) {
+  async browserFetch(url, origin, containerId, options = {}) {
+    if (options.body) {
+      throw new Error(
+        `lolcat-4play: cannot replay a ${String(options.method || "POST").toUpperCase()} to ${url} through a browser tab; a tab can only navigate with GET`,
+      );
+    }
     this._warn(
       `direct browser tab fetch for ${url} (container=${containerId || "default"}): no warmed curl session for this origin, fetching DOM outerHTML via tab injection`,
     );
@@ -154,14 +198,17 @@ export class PageFetcher {
       this._tabs.ownedTabIds.add(tabId);
       if (containerId) this._tabs.tabContainerIds.set(tabId, containerId);
 
-      await this._tabs.awaitReady(tabId, this._timeoutMs());
+      await this._tabs.awaitMatch(tabId, {
+        origin,
+        urlMatch: options.match?.urlMatch,
+        domMatch: options.match?.domMatch,
+        failUrlMatch: options.match?.failUrlMatch,
+        timeoutMs: this._timeoutMs(),
+      });
       await sleep(1000);
       await this._tabs.acceptConsent(tabId);
 
-      const html = await this._tabs.inject(
-        tabId,
-        "document.documentElement.outerHTML",
-      );
+      const html = await this._tabs.inject(tabId, documentHtmlJs());
       if (!html) {
         throw new Error(
           "lolcat-4play: failed to retrieve page HTML content from browser tab",
@@ -175,10 +222,7 @@ export class PageFetcher {
 
         if (error.status === "consent") {
           if (await this._tabs.acceptConsent(tabId)) {
-            const retryHtml = await this._tabs.inject(
-              tabId,
-              "document.documentElement.outerHTML",
-            );
+            const retryHtml = await this._tabs.inject(tabId, documentHtmlJs());
             if (retryHtml) {
               try {
                 return this._wrapFetchedText(retryHtml, origin, containerId, url, tabId);

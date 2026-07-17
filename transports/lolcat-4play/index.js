@@ -10,6 +10,7 @@ import { StatusReporter, STATUS_TTL_MS } from "./src/runtime/status-reporter.js"
 import { buildExtensionProxy, curlProxyUrlFor } from "./src/net/proxy.js";
 import { OriginBlockedError, originFor } from "./src/warmup/origin-warmup.js";
 import { WarmupDriver } from "./src/warmup/warmup-driver.js";
+import { wrapResponse } from "./src/net/response.js";
 import {
   DEFAULT_CONTAINER_TTL_H,
   FETCH_TIMEOUT_MS,
@@ -81,6 +82,7 @@ export default class FourPlayTransport {
     maxPoolSize: () => this._settings.maxPoolSize,
     ttlMs: () => this._settings.containerTtlMs,
     rememberContainer: (container) => this._tabs.rememberContainer(container),
+    dropCaptchas: (id) => this._captcha.dropTabsFor(id),
     warn: (msg) => this._warn(msg),
   });
 
@@ -96,6 +98,7 @@ export default class FourPlayTransport {
     inject: (tabId, js, timeoutMs) => this._tabs.inject(tabId, js, timeoutMs),
     awaitDom: (tabId, timeoutMs) => this._tabs.awaitDom(tabId, timeoutMs),
     awaitReady: (tabId, timeoutMs) => this._tabs.awaitReady(tabId, timeoutMs),
+    awaitMatch: (tabId, matcher) => this._tabs.awaitMatch(tabId, matcher),
     closeTabQuietly: (tabId) => this._tabs.closeTabQuietly(tabId),
     store: this._store,
     ownedTabIds: this._tabs.ownedTabIds,
@@ -142,6 +145,7 @@ export default class FourPlayTransport {
   _control = new ControlChannel({
     store: this._store,
     containers: this._containers,
+    captcha: this._captcha,
     seenOrigins: this._seenOrigins,
     publish: () => this._status.publish(),
     containerConfigKey: () => this._containerConfigKey,
@@ -242,6 +246,12 @@ export default class FourPlayTransport {
     return this._settings.proxyType !== "none" || this._settings.useContainer;
   }
 
+  _scrapeHint(options = {}) {
+    const method = String(options.method || "GET").toUpperCase();
+    if (options.body || method !== "GET") return null;
+    return options.match || {};
+  }
+
   _warn(msg) {
     console.warn(`[lolcat-4play sesh=${this._sessionId}] ${msg}`);
   }
@@ -288,7 +298,7 @@ export default class FourPlayTransport {
     this._status.publish();
   }
 
-  async _fetchOnce(url, _options = {}, context = {}) {
+  async _fetchOnce(url, options = {}, context = {}) {
     this._bindCaches(context);
     await this._containers.sweepRetiredContainers();
 
@@ -300,20 +310,27 @@ export default class FourPlayTransport {
       const captchaRes = await this._captcha.tryFetch(url);
       if (captchaRes) return captchaRes;
 
-      if (origin && this._captcha.hasOpenTabForOrigin(origin)) {
-        throw new OriginBlockedError(origin, "awaiting manual captcha solve");
-      }
-
       if (useContainer && origin) {
         containerId = await this._containers.summonContainer(origin);
       }
 
+      if (origin && this._captcha.hasOpenTab(origin, containerId)) {
+        throw new OriginBlockedError(origin, "awaiting manual captcha solve");
+      }
+
       await this._captcha.syncAllTabs();
 
-      const warmedOrigin = await this._warmer.ensureWarm(url, containerId);
+      const scrape = this._scrapeHint(options);
+      const { origin: warmedOrigin, html } = await this._warmer.ensureWarm(
+        url,
+        containerId,
+        scrape,
+      );
+
       const res =
-        (await this._fetcher.curlFetchWarmed(url, warmedOrigin, containerId)) ??
-        (await this._fetcher.browserFetch(url, warmedOrigin, containerId));
+        (html && wrapResponse(html)) ??
+        (await this._fetcher.curlFetchWarmed(url, warmedOrigin, containerId, options)) ??
+        (await this._fetcher.browserFetch(url, warmedOrigin, containerId, options));
       await this._captcha.clearTabsForOrigin(warmedOrigin);
       return res;
     } catch (error) {

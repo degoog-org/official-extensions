@@ -8,6 +8,7 @@ export class ContainerPool {
     maxPoolSize,
     ttlMs,
     rememberContainer,
+    dropCaptchas,
     warn,
   }) {
     this.command = command;
@@ -18,6 +19,7 @@ export class ContainerPool {
     this.maxPoolSize = maxPoolSize;
     this.ttlMs = ttlMs;
     this.rememberContainer = rememberContainer;
+    this.dropCaptchas = dropCaptchas;
     this._warn = warn || (() => {});
 
     this._byOrigin = new Map();
@@ -81,6 +83,7 @@ export class ContainerPool {
     this.retired.delete(id);
     this._born.delete(id);
     this._inUse.delete(id);
+    await this.dropCaptchas?.(id);
     await this.command("container_delete", { id: [id] }).catch(() => {});
   }
 

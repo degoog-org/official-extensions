@@ -2,9 +2,10 @@ export const CONTROL_TTL_MS = 60 * 1000;
 const CONTROL_POLL_MS = 3000;
 
 export class ControlChannel {
-  constructor({ store, containers, seenOrigins, publish, containerConfigKey, warn }) {
+  constructor({ store, containers, captcha, seenOrigins, publish, containerConfigKey, warn }) {
     this._store = store;
     this._containers = containers;
+    this._captcha = captcha;
     this._seenOrigins = seenOrigins;
     this._publish = publish;
     this._containerConfigKey = containerConfigKey;
@@ -45,15 +46,32 @@ export class ControlChannel {
     }
     if (request.scope === "session" && typeof request.key === "string") {
       await this._clearByKey(request.key);
+      return;
+    }
+    if (request.scope === "captcha") {
+      await this._clearCaptcha(
+        typeof request.tabId === "number" ? request.tabId : null,
+      );
     }
   }
 
   async _clearAll() {
-    this._warn("clearing all warmed sessions and retiring containers");
+    this._warn("clearing all warmed sessions, captcha flags and retiring containers");
+    await this._captcha.clearTabs();
     this._store.clearAll();
     this._seenOrigins.clear();
     this._containers.yerOldGetOuttaHere();
     await this._containers.sweepRetiredContainers();
+    this._publish();
+  }
+
+  async _clearCaptcha(tabId) {
+    if (tabId === null) {
+      this._warn("clearing all captcha flags");
+      await this._captcha.clearTabs();
+    } else if (!(await this._captcha.dropTab(tabId))) {
+      this._warn(`captcha tab ${tabId} was not flagged; nothing to clear`);
+    }
     this._publish();
   }
 

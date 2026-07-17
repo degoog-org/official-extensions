@@ -221,6 +221,7 @@
                 </div>
                 <span class="degoog-badge fourplay-session-state" data-tone="danger">needs attention</span>
                 ${solveLink}
+                <button type="button" class="fourplay-btn fourplay-session-clear" data-clear-captcha="${esc(tab.id)}" title="Drop this flag so ${esc(name)} stops being gated. Use it once you have solved the captcha, or if the tab is stale.">Dismiss</button>
               </div>`;
         }).join("")}
           </div>`
@@ -261,12 +262,17 @@
       }
     };
 
-    const yeetSessions = async (scope, key) => {
+    const bodyFor = (scope, key) => {
+      if (scope === "captcha") return key === null ? { scope } : { scope, tabId: Number(key) };
+      return key ? { scope, key } : { scope };
+    };
+
+    const yeetSessions = async (scope, key = null) => {
       try {
         const res = await authFetch(`${API_BASE}/clear`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(key ? { scope, key } : { scope }),
+          body: JSON.stringify(bodyFor(scope, key)),
         });
         if (!res.ok) throw new Error(`status ${res.status}`);
         body.classList.add("fourplay-busy");
@@ -298,6 +304,11 @@
       const clearBtn = event.target.closest("[data-clear-key]");
       if (clearBtn) {
         yeetSessions("session", clearBtn.dataset.clearKey);
+        return;
+      }
+      const captchaBtn = event.target.closest("[data-clear-captcha]");
+      if (captchaBtn) {
+        yeetSessions("captcha", captchaBtn.dataset.clearCaptcha);
         return;
       }
       if (event.target.closest("[data-clear-all]")) {

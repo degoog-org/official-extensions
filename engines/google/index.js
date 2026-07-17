@@ -130,6 +130,10 @@ const MUTANT_SIGNATURES = [
   "/sorry/index?continue=",
 ];
 
+const UDM_WEB_ONLY = "14";
+const SERP_READY_SELECTOR = "#search h3, #rso h3";
+const SERP_SORRY_PATH = "/sorry/";
+
 const _isInterstitial = (html) => {
   const head = html.slice(0, 4000);
   return MUTANT_SIGNATURES.some((m) => head.includes(m));
@@ -207,6 +211,7 @@ export default class GoogleEngine {
       oe: "utf8",
       start: String(start),
       filter: "0",
+      udm: UDM_WEB_ONLY,
     });
 
     const tbs =
@@ -230,6 +235,10 @@ export default class GoogleEngine {
           "Accept-Language":
             context?.buildAcceptLanguage?.() || "en-US,en;q=0.9",
           Cookie: "CONSENT=YES+",
+        },
+        match: {
+          domMatch: SERP_READY_SELECTOR,
+          failUrlMatch: SERP_SORRY_PATH,
         },
         redirect: "follow",
       },

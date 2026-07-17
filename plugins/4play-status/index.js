@@ -3,7 +3,7 @@ const EXTENSIONS_PATH = "/api/extensions";
 const TRANSPORT_TEST_PATH = "/api/extensions/transports";
 const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
 const CONTROL_TTL_MS = 60 * 1000;
-const CLEAR_SCOPES = ["all", "session"];
+const CLEAR_SCOPES = ["all", "session", "captcha"];
 const TRANSPORT_HINT = /4play/i;
 
 let template = "";
@@ -212,8 +212,12 @@ const clearHandler = async (req) => {
 
   const scope = String(body?.scope || "");
   const key = typeof body?.key === "string" ? body.key : null;
+  const tabId = Number.isInteger(body?.tabId) ? body.tabId : null;
   if (!CLEAR_SCOPES.includes(scope) || (scope === "session" && !key)) {
-    return jsonResponse({ error: "expected {scope:\"all\"} or {scope:\"session\", key}" }, 400);
+    return jsonResponse(
+      { error: "expected {scope:\"all\"}, {scope:\"session\", key} or {scope:\"captcha\", tabId?}" },
+      400,
+    );
   }
 
   const resolved = await resolveTransport(req);
@@ -226,6 +230,7 @@ const clearHandler = async (req) => {
     scope,
   };
   if (key) request.key = key;
+  if (scope === "captcha" && tabId !== null) request.tabId = tabId;
 
   try {
     await controlCacheFor(resolved.name).set("request", request, CONTROL_TTL_MS);

@@ -1,13 +1,17 @@
 import { tabSpell } from "../browser/browser.js";
 import {
-  OriginBlockedError,
+  documentHtmlJs,
   inspectPageJs,
+  navigateJs,
+  progressPageJs,
+  warmupSearchJs,
+} from "../injectors/index.js";
+import {
+  OriginBlockedError,
   looksBlocked,
   looksConsent,
   originFor,
-  progressPageJs,
   sleep,
-  warmupSearchJs,
 } from "./origin-warmup.js";
 
 const WARMUP_ACTION_TIMEOUT_MS = 5000;
@@ -19,6 +23,7 @@ export class WarmupDriver {
     inject,
     awaitDom,
     awaitReady,
+    awaitMatch,
     closeTabQuietly,
     store,
     ownedTabIds,
@@ -37,6 +42,7 @@ export class WarmupDriver {
     this._inject = inject;
     this._awaitDom = awaitDom;
     this._awaitReady = awaitReady;
+    this._awaitMatch = awaitMatch;
     this._closeTabQuietly = closeTabQuietly;
     this._store = store;
     this._ownedTabIds = ownedTabIds;
@@ -70,9 +76,9 @@ export class WarmupDriver {
     }
   }
 
-  async ensureWarm(url, containerId) {
+  async ensureWarm(url, containerId, scrape = null) {
     const origin = originFor(url);
-    if (!origin) return null;
+    if (!origin) return { origin: null, html: null };
 
     if (!this._seenOrigins.has(origin)) {
       this._seenOrigins.add(origin);
@@ -88,32 +94,33 @@ export class WarmupDriver {
       Date.now() - state.warmedAt < this._warmupTtlMs() &&
       this._store.usableHeaderSession(origin, containerId)
     ) {
-      return origin;
+      return { origin, html: null };
     }
     if (state?.promise) {
       await state.promise;
-      return origin;
+      return { origin, html: null };
     }
 
-    const promise = this._warmNow(origin, containerId);
+    const target = scrape && url !== `${origin}/` ? url : null;
+    const promise = this._warmNow(origin, containerId, target, scrape);
     this._store.setWarmupState(origin, containerId, { promise });
     try {
-      const reachedSearch = await promise;
+      const { reached, html } = await promise;
       const session = this._store.usableHeaderSession(origin, containerId);
-      if (reachedSearch && session) {
+      if (reached && session) {
         this._store.setWarmupState(origin, containerId, { warmedAt: Date.now() });
       } else {
         this._store.dropWarmup(origin, containerId);
         this._warn(
-          `origin warmup for ${origin} did not reach a usable search session (reachedSearch=${reachedSearch}, session=${Boolean(session)})`,
+          `origin warmup for ${origin} did not reach a usable search session (reached=${reached}, session=${Boolean(session)})`,
         );
       }
-      return origin;
+      return { origin, html };
     } catch (error) {
       if (error instanceof OriginBlockedError) throw error;
       this._store.dropWarmup(origin, containerId);
       this._warn(`origin warmup failed for ${origin}: ${error?.message || error}`);
-      return origin;
+      return { origin, html: null };
     }
   }
 
@@ -126,21 +133,29 @@ export class WarmupDriver {
     }
   }
 
-  async _warmNow(origin, containerId) {
+  async _warmNow(origin, containerId, target = null, scrape = null) {
     let tabId = null;
     let keepTabOpen = false;
     try {
       tabId = await this._timed(origin, "open+consent", () =>
         this._openTab(origin, containerId),
       );
+
+      if (target) {
+        const html = await this._timed(origin, "cold-call", () =>
+          this._coldCall(origin, containerId, tabId, target, scrape),
+        );
+        return { reached: Boolean(html), html };
+      }
+
       const reachedSearch = await this._timed(origin, "form", () =>
         this._tryForm(origin, containerId, tabId),
       );
-      if (reachedSearch) return true;
+      if (reachedSearch) return { reached: true, html: null };
       await this._timed(origin, "inspect", () =>
         this._inspectPage(origin, containerId, tabId),
       );
-      return false;
+      return { reached: false, html: null };
     } catch (error) {
       if (error instanceof OriginBlockedError) {
         keepTabOpen = true;
@@ -161,6 +176,38 @@ export class WarmupDriver {
     }
   }
 
+  async _coldCall(origin, containerId, tabId, target, scrape = {}) {
+    const cap = Math.min(WARMUP_ACTION_TIMEOUT_MS, this._timeoutMs());
+    const jump = await this._inject(tabId, navigateJs(target), cap);
+    if (!jump?.navigating) {
+      this._warn(
+        `cold call for ${origin} could not navigate to the target (${jump?.reason || "unknown"}); falling back to the warmup form`,
+      );
+      return null;
+    }
+
+    await this._awaitMatch(tabId, {
+      origin,
+      awayFrom: jump.from,
+      urlMatch: scrape?.urlMatch,
+      domMatch: scrape?.domMatch,
+      failUrlMatch: scrape?.failUrlMatch,
+      timeoutMs: this._timeoutMs(),
+    });
+    await this._acceptConsent?.(tabId);
+    await this._inspectPage(origin, containerId, tabId);
+
+    const html = await this._inject(tabId, documentHtmlJs(), this._timeoutMs());
+    if (!html) {
+      this._warn(`cold call for ${origin} reached the target but returned no HTML`);
+      return null;
+    }
+    this._warn(
+      `cold call for ${origin} scraped the target page directly (tab=${tabId}, bytes=${html.length})`,
+    );
+    return html;
+  }
+
   async _openTab(origin, containerId) {
     const tabResp = await this._cmd(
       "tab_open",
@@ -174,7 +221,10 @@ export class WarmupDriver {
     }
     this._ownedTabIds.add(tabId);
     if (containerId) this._tabContainerIds.set(tabId, containerId);
-    await this._awaitReady(tabId, Math.min(OPEN_READY_TIMEOUT_MS, this._timeoutMs()));
+    await this._awaitMatch(tabId, {
+      origin,
+      timeoutMs: Math.min(OPEN_READY_TIMEOUT_MS, this._timeoutMs()),
+    });
     await sleep(this._settleMs());
     await this._acceptConsent?.(tabId);
     return tabId;

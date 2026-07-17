@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 const STATUS_DELIMITER = randomUUID();
 const COOKIE_DELIMITER = randomUUID();
@@ -58,6 +60,7 @@ const run = (cmd, args, stdinText) =>
   });
 
 let resolvedBinary;
+let resolvedProfile;
 
 export const resolveCurlBinary = async () => {
   if (resolvedBinary !== undefined) return resolvedBinary;
@@ -72,6 +75,76 @@ export const resolveCurlBinary = async () => {
 
   resolvedBinary = null;
   return resolvedBinary;
+};
+
+const shellSplit = (text) => {
+  const tokens = [];
+  const pattern = /'([^']*)'|"([^"]*)"|(\S+)/g;
+  let match;
+  while ((match = pattern.exec(text))) {
+    tokens.push(match[1] ?? match[2] ?? match[3]);
+  }
+  return tokens;
+};
+
+const wrapperPath = async (name) => {
+  const result = await run("which", [name]);
+  const path = result.stdout.trim().split("\n")[0];
+  return result.exitCode === 0 && path ? path : null;
+};
+
+/**
+ * curl-impersonate ships bash wrappers that hardcode a full -H set. Those append to
+ * ours instead of replacing them, so the wire ends up with two User-Agent headers and
+ * a UA that contradicts the warmed session. Keep every TLS/HTTP2 flag, drop the -H.
+ */
+const profileFrom = async (name) => {
+  const path = await wrapperPath(name);
+  if (!path) return null;
+
+  let text;
+  try {
+    text = await readFile(path, "utf-8");
+  } catch {
+    return null;
+  }
+
+  const anchor = '"$dir/curl-impersonate"';
+  const start = text.indexOf(anchor);
+  if (start < 0) return null;
+
+  const body = text.slice(start + anchor.length).replace(/\\\n/g, " ");
+  const stop = body.indexOf('"$@"');
+  const tokens = shellSplit(stop >= 0 ? body.slice(0, stop) : body);
+
+  const args = [];
+  for (let i = 0; i < tokens.length; i += 1) {
+    if (tokens[i] === "-H") {
+      i += 1;
+      continue;
+    }
+    args.push(tokens[i]);
+  }
+
+  const binary = join(dirname(path), "curl-impersonate");
+  if ((await run(binary, ["--version"])).exitCode !== 0) return null;
+  return { binary, args };
+};
+
+export const resolveCurlProfile = async () => {
+  if (resolvedProfile !== undefined) return resolvedProfile;
+
+  for (const name of BINARIES) {
+    const profile = await profileFrom(name);
+    if (profile) {
+      resolvedProfile = profile;
+      return resolvedProfile;
+    }
+  }
+
+  const plain = await resolveCurlBinary();
+  resolvedProfile = plain ? { binary: plain, args: [] } : null;
+  return resolvedProfile;
 };
 
 export const emptyCookieJar = () => COOKIE_JAR_HEADER;
@@ -118,6 +191,44 @@ export const seedCookieJarTextFromHeaders = (origin, headers = []) => {
   const cookieHeader = browserCookieHeader(headers);
   if (!cookieHeader) return null;
   return cookieJarFromCookieHeader(origin, cookieHeader);
+};
+
+const jarCookieNames = (jarText) => {
+  const names = new Set();
+  for (const line of String(jarText || "").split("\n")) {
+    if (!line || line.startsWith("#")) continue;
+    const name = line.split("\t")[5];
+    if (name) names.add(name);
+  }
+  return names;
+};
+
+export const fillCookieGaps = (origin, jarText, cookieHeader) => {
+  if (!cookieHeader) return jarText;
+
+  const known = jarCookieNames(jarText);
+  const extra = cookieJarFromCookieHeader(origin, cookieHeader)
+    .split("\n")
+    .filter((line) => {
+      if (!line || line.startsWith("#")) return false;
+      const name = line.split("\t")[5];
+      return name && !known.has(name);
+    });
+
+  if (!extra.length) return jarText;
+  const base = String(jarText || COOKIE_JAR_HEADER).replace(/\n*$/, "\n");
+  return `${base}${extra.join("\n")}\n`;
+};
+
+export const engineHeaders = (headers = {}) => {
+  const allowed = ["referer", "origin", "content-type"];
+  const out = [];
+  for (const [name, value] of Object.entries(headers)) {
+    if (!allowed.includes(String(name).toLowerCase())) continue;
+    if (typeof value !== "string" || !value) continue;
+    out.push(`${name.replace(/[\r\n]/g, "")}: ${value.replace(/[\r\n]/g, "")}`);
+  }
+  return out;
 };
 
 export const parseCurlStdoutWithCookieJar = (stdout) => {
@@ -181,17 +292,21 @@ export const proxyUrlFromSettings = ({ type, host, port, username, password, pro
 export const curlFetchWithBrowserHeaders = async ({
   url,
   headers = [],
+  extraHeaders = [],
+  method = "",
+  body = "",
   timeoutSeconds = 30,
   cookieJarText,
   onCookieJarText,
   proxyUrl = "",
 }) => {
-  const binary = await resolveCurlBinary();
-  if (!binary) {
+  const profile = await resolveCurlProfile();
+  if (!profile) {
     throw new Error("lolcat-4play: curl/curl-impersonate binary not found for warmed session fetch");
   }
 
   const args = [
+    ...profile.args,
     "-sS",
     "-L",
     "--compressed",
@@ -216,10 +331,21 @@ export const curlFetchWithBrowserHeaders = async ({
   for (const header of cleanBrowserHeaders(headers)) {
     args.push("-H", header);
   }
+  for (const header of extraHeaders) {
+    args.push("-H", header);
+  }
+
+  const verb = String(method || "").toUpperCase();
+  if (body) {
+    args.push("--data-raw", String(body));
+    if (verb && verb !== "POST") args.push("-X", verb);
+  } else if (verb && verb !== "GET") {
+    args.push("-X", verb);
+  }
 
   args.push("--", url);
 
-  const result = await run(binary, args, cookieJarText || emptyCookieJar());
+  const result = await run(profile.binary, args, cookieJarText || emptyCookieJar());
   if (result.exitCode !== 0) {
     const detail = result.stderr.trim();
     const hint =
