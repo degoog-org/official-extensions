@@ -19,6 +19,10 @@ import {
   settingsSchemaFor,
 } from "./src/config/settings.js";
 
+const DISCOVERY_NAMESPACE = "transport:4play:discovery";
+const DISCOVERY_KEY = "names";
+const DISCOVERY_TTL_MS = 24 * 60 * 60 * 1000;
+
 const DEFAULT_SETTINGS = {
   timeoutMs: 30000,
   maxPoolSize: 10,
@@ -53,6 +57,7 @@ export default class FourPlayTransport {
   _settings = { ...DEFAULT_SETTINGS };
   _containerConfigKey = "";
   _cachesBound = false;
+  _discoveryCache = null;
 
   _seenOrigins = new Set();
   _dom = new DomWaiters();
@@ -268,6 +273,7 @@ export default class FourPlayTransport {
   _bindCaches(context) {
     if (this._cachesBound || !context.useCache) return;
     this._cachesBound = true;
+    this._discoveryCache = context.useCache(DISCOVERY_NAMESPACE, DISCOVERY_TTL_MS);
     this._store.bindCache(
       context.useCache(`transport:${this.name}:cookies`, this._settings.warmupTtlMs),
     );
@@ -280,9 +286,22 @@ export default class FourPlayTransport {
     this._warn(
       `caches bound on first fetch; publishing status under transport:${this.name}:status`,
     );
+    this._publishDiscovery();
     this._rehydrate().catch((error) => {
       this._warn(`session rehydration failed: ${error?.message || error}`);
     });
+  }
+
+  async _publishDiscovery() {
+    if (!this._discoveryCache) return;
+    try {
+      const existing = await this._discoveryCache.get(DISCOVERY_KEY);
+      const names = Array.isArray(existing) ? existing.filter((name) => typeof name === "string") : [];
+      if (!names.includes(this.name)) names.push(this.name);
+      await this._discoveryCache.set(DISCOVERY_KEY, names, DISCOVERY_TTL_MS);
+    } catch (error) {
+      this._warn(`failed to publish 4play discovery entry: ${error?.message || error}`);
+    }
   }
 
   async _rehydrate() {

@@ -1,10 +1,11 @@
 const AUTH_PATH = "/api/settings/auth";
-const EXTENSIONS_PATH = "/api/extensions";
 const TRANSPORT_TEST_PATH = "/api/extensions/transports";
 const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
 const CONTROL_TTL_MS = 60 * 1000;
+const DISCOVERY_NAMESPACE = "transport:4play:discovery";
+const DISCOVERY_KEY = "names";
+const DISCOVERY_TTL_MS = 24 * 60 * 60 * 1000;
 const CLEAR_SCOPES = ["all", "session", "captcha"];
-const TRANSPORT_HINT = /4play/i;
 
 let template = "";
 let useCacheFn = null;
@@ -22,6 +23,9 @@ const statusCacheFor = (name) =>
 
 const controlCacheFor = (name) =>
   useCacheFn ? useCacheFn(`transport:${name}:control`, CONTROL_TTL_MS) : null;
+
+const discoveryCache = () =>
+  useCacheFn ? useCacheFn(DISCOVERY_NAMESPACE, DISCOVERY_TTL_MS) : null;
 
 const apiBaseFor = (reqUrl) => {
   const url = new URL(reqUrl);
@@ -58,10 +62,12 @@ const gandalfSaysYes = async (req) => {
     if (candidates.length === 0) return false;
     for (const token of candidates) {
       const res = await fetch(`${apiBaseFor(req.url)}${AUTH_PATH}`, {
-        headers: authHeadersForToken(token),
+        headers: { Accept: "application/json", ...authHeadersForToken(token) },
       });
       if (!res.ok) continue;
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) continue;
+      const data = await res.json().catch(() => null);
       if (data?.valid === true) return true;
     }
     return false;
@@ -77,19 +83,14 @@ const accessDecision = async (req) => {
   return (await gandalfSaysYes(req)) ? { ok: true } : { ok: false, status: 401 };
 };
 
-const listTransports = async (req) => {
+const discoveredTransports = async () => {
+  const cache = discoveryCache();
+  if (!cache) return [];
   try {
-    const res = await fetch(`${apiBaseFor(req.url)}${EXTENSIONS_PATH}`, {
-      headers: authHeaders(req),
-    });
-    if (!res.ok) {
-      log(`transport list fetch failed: HTTP ${res.status}`);
-      return [];
-    }
-    const data = await res.json();
-    return Array.isArray(data?.transports) ? data.transports : [];
+    const names = await cache.get(DISCOVERY_KEY);
+    return Array.isArray(names) ? names.filter((name) => typeof name === "string") : [];
   } catch (error) {
-    log(`transport list fetch failed: ${error?.message || error}`);
+    log(`transport discovery read failed: ${error?.message || error}`);
     return [];
   }
 };
@@ -114,25 +115,20 @@ const resolveTransport = async (req) => {
     };
   }
 
-  const transports = await listTransports(req);
-  const candidates = transports.filter(
-    (t) =>
-      TRANSPORT_HINT.test(String(t?.id || "")) ||
-      TRANSPORT_HINT.test(String(t?.displayName || "")),
-  );
+  const candidates = await discoveredTransports();
 
-  for (const candidate of candidates) {
-    const status = await publishedStatus(candidate.id);
+  for (const name of candidates) {
+    const status = await publishedStatus(name);
     if (status) {
-      return { name: candidate.id, status, candidates: candidates.map((t) => t.id) };
+      return { name, status, candidates };
     }
   }
 
-  const fallback = candidates[0]?.id || null;
+  const fallback = candidates[0] || null;
   if (!fallback) {
-    log("no transport matching /4play/i found via /api/extensions");
+    log("no 4play transport has published discovery yet");
   }
-  return { name: fallback, status: null, candidates: candidates.map((t) => t.id) };
+  return { name: fallback, status: null, candidates };
 };
 
 const jsonResponse = (payload, status) =>
