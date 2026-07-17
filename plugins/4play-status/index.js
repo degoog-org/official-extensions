@@ -10,6 +10,7 @@ let template = "";
 let useCacheFn = null;
 let transportOverride = "";
 let firefoxUrl = "";
+let accessMode = "admin";
 
 const log = (msg) => {
   console.warn(`[4play-status] ${msg}`);
@@ -59,6 +60,12 @@ const gandalfSaysYes = async (req) => {
     log(`auth check failed: ${error?.message || error}`);
     return false;
   }
+};
+
+const accessDecision = async (req) => {
+  if (accessMode === "open") return { ok: true };
+  if (accessMode === "locked") return { ok: false, status: 403 };
+  return (await gandalfSaysYes(req)) ? { ok: true } : { ok: false, status: 401 };
 };
 
 const listTransports = async (req) => {
@@ -126,8 +133,9 @@ const jsonResponse = (payload, status) =>
   });
 
 const statusHandler = async (req) => {
-  if (!(await gandalfSaysYes(req))) {
-    return jsonResponse({ error: "You shall not pass!" }, 401);
+  const access = await accessDecision(req);
+  if (!access.ok) {
+    return jsonResponse({ error: "You shall not pass!" }, access.status);
   }
   if (!useCacheFn) {
     log("useCache was never provided by the app; cannot read transport status");
@@ -167,8 +175,9 @@ const statusHandler = async (req) => {
 };
 
 const pingHandler = async (req) => {
-  if (!(await gandalfSaysYes(req))) {
-    return jsonResponse({ error: "You shall not pass!" }, 401);
+  const access = await accessDecision(req);
+  if (!access.ok) {
+    return jsonResponse({ error: "You shall not pass!" }, access.status);
   }
 
   const resolved = await resolveTransport(req);
@@ -196,8 +205,9 @@ const pingHandler = async (req) => {
 };
 
 const clearHandler = async (req) => {
-  if (!(await gandalfSaysYes(req))) {
-    return jsonResponse({ error: "You shall not pass!" }, 401);
+  const access = await accessDecision(req);
+  if (!access.ok) {
+    return jsonResponse({ error: "You shall not pass!" }, access.status);
   }
   if (!useCacheFn) {
     return jsonResponse({ error: "cache unavailable" }, 503);
@@ -252,6 +262,15 @@ export default {
 
   settingsSchema: [
     {
+      key: "accessMode",
+      label: "Status view access",
+      type: "select",
+      options: ["admin", "open", "locked"],
+      default: "admin",
+      description:
+        "admin requires a valid settings/admin session, open lets anyone who can run the bang view and clear 4play status, and locked disables the status API for everyone.",
+    },
+    {
       key: "transportName",
       label: "Transport name override",
       type: "text",
@@ -281,6 +300,8 @@ export default {
   },
 
   configure(settings) {
+    const mode = String(settings?.accessMode || "admin").trim();
+    accessMode = ["admin", "open", "locked"].includes(mode) ? mode : "admin";
     transportOverride = String(settings?.transportName || "").trim();
     firefoxUrl = String(settings?.firefoxUrl || "").trim();
   },

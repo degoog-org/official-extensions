@@ -125,6 +125,11 @@
   transition: background 0.15s;
 }
 
+.fourplay-btn[hidden],
+.degoog-icon-btn[hidden] {
+  display: none;
+}
+
 .fourplay-btn:hover {
   background: var(--bg-hover);
 }

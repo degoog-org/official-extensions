@@ -2,7 +2,7 @@
 
 Type `!4play` (or `!fourplay`) to see a live status card for the lolcat 4play transport: connection state, warmed sessions with expiry countdowns, blocked origins with cooldowns, container pool usage, open captcha tabs, and the background warmup schedule.
 
-The card is admin gated. Anyone can run the bang, but the status and clear controls only unlock for users logged into the settings/admin panel.
+By default the card is admin gated. Anyone can run the bang, but the status and clear controls only unlock for users logged into the settings/admin panel. You can change this in the plugin settings: keep `admin`, set `open` for a trusted local instance, or set `locked` to disable the status API entirely on a public instance.
 
 ## Controls
 
@@ -25,4 +25,5 @@ The app only hands a transport its cache handle on the transport's first fetch, 
 
 ## Settings
 
+- Status view access: `admin` requires a valid settings/admin session, `open` skips session checks and lets anyone who can run the bang view and clear 4play status, and `locked` disables the status API for everyone.
 - Transport name override: leave blank for auto-detection. Only set it if you run multiple 4play transports and want to pin one (use the runtime name shown at the bottom of the status card).

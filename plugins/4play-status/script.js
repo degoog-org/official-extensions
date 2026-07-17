@@ -1,8 +1,22 @@
 (function () {
-  const API_BASE = `/api/plugin/${__PLUGIN_ID__}`;
+  const currentScript =
+    document.currentScript instanceof HTMLScriptElement ? document.currentScript : null;
+  const pluginId =
+    typeof __PLUGIN_ID__ !== "undefined"
+      ? __PLUGIN_ID__
+      : currentScript?.src.match(/\/plugins\/([^/]+)\//)?.[1] || "";
+  const API_BASE = pluginId ? `/api/plugin/${encodeURIComponent(pluginId)}` : "";
   const TOKEN_KEY = "degoog-settings-token";
   const REFRESH_MS = 10000;
   const CLEAR_SETTLE_MS = 3500;
+
+  const normalizeUrl = (value) => {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return raw;
+    if (/^(localhost|[\w.-]+)(:\d+)?(\/.*)?$/i.test(raw)) return `http://${raw}`;
+    return raw;
+  };
 
   const esc = (s) =>
     String(s ?? "")
@@ -49,16 +63,18 @@
     firefoxLink.target = "_blank";
     firefoxLink.rel = "noopener noreferrer";
     firefoxLink.hidden = true;
+    firefoxLink.style.display = "none";
     firefoxLink.innerHTML =
       '<i class="fa-brands fa-firefox-browser"></i>Open Firefox';
     if (actions) actions.insertBefore(firefoxLink, actions.lastChild);
 
     const setFirefox = (url) => {
-      if (url) {
-        firefoxLink.href = url;
-        firefoxLink.hidden = false;
+      const normalized = normalizeUrl(url);
+      if (normalized) {
+        firefoxLink.href = normalized;
+        firefoxLink.style.display = "";
       } else {
-        firefoxLink.hidden = true;
+        firefoxLink.style.display = "none";
         firefoxLink.removeAttribute("href");
       }
     };
@@ -79,13 +95,13 @@
         ${extra}
       </div>`;
 
-    const renderLocked = () => {
+    const renderLocked = (message = "Log into the admin panel to unlock the 4play status view.") => {
       clearAllBtn.hidden = true;
       setConn("locked", "muted");
       setSubtitle("admin only");
       body.innerHTML = hero(
         "fa-lock",
-        "Log into the admin panel to unlock the 4play status view.",
+        message,
       );
     };
 
@@ -142,7 +158,7 @@
     };
 
     const render = (data) => {
-      const firefoxUrl = data.firefoxUrl || "";
+      const firefoxUrl = normalizeUrl(data.firefoxUrl || "");
       const status = data.status;
       if (!status) {
         renderEmpty(data);
@@ -245,9 +261,14 @@
 
     const fetchStatus = async () => {
       try {
+        if (!API_BASE) throw new Error("plugin id unavailable");
         const res = await authFetch(`${API_BASE}/status`);
         if (res.status === 401) {
           renderLocked();
+          return false;
+        }
+        if (res.status === 403) {
+          renderLocked("The 4play status view is locked in plugin settings.");
           return false;
         }
         if (!res.ok) throw new Error(`status ${res.status}`);
