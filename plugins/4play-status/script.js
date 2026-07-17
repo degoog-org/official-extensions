@@ -1,11 +1,14 @@
 (function () {
-  const currentScript =
-    document.currentScript instanceof HTMLScriptElement ? document.currentScript : null;
-  const pluginId =
-    typeof __PLUGIN_ID__ !== "undefined"
-      ? __PLUGIN_ID__
-      : currentScript?.src.match(/\/plugins\/([^/]+)\//)?.[1] || "";
-  const API_BASE = pluginId ? `/api/plugin/${encodeURIComponent(pluginId)}` : "";
+  const apiBaseFromRoot = (root) => String(root?.dataset?.apiBase || "").trim();
+  const apiBaseFromScript = () => {
+    const currentScript =
+      document.currentScript instanceof HTMLScriptElement ? document.currentScript : null;
+    const pluginId =
+      typeof __PLUGIN_ID__ !== "undefined"
+        ? __PLUGIN_ID__
+        : currentScript?.src.match(/\/plugins\/([^/]+)\//)?.[1] || "";
+    return pluginId ? `/api/plugin/${encodeURIComponent(pluginId)}` : "";
+  };
   const TOKEN_KEY = "degoog-settings-token";
   const REFRESH_MS = 10000;
   const CLEAR_SETTLE_MS = 3500;
@@ -55,6 +58,7 @@
     const subtitle = root.querySelector("[data-subtitle]");
     const clearAllBtn = root.querySelector("[data-clear-all]");
     const actions = root.querySelector(".fourplay-actions");
+    const apiBase = apiBaseFromRoot(root) || apiBaseFromScript();
 
     let refreshTimer = null;
 
@@ -261,8 +265,8 @@
 
     const fetchStatus = async () => {
       try {
-        if (!API_BASE) throw new Error("plugin id unavailable");
-        const res = await authFetch(`${API_BASE}/status`);
+        if (!apiBase) throw new Error("plugin api base unavailable");
+        const res = await authFetch(`${apiBase}/status`);
         if (res.status === 401) {
           renderLocked();
           return false;
@@ -290,7 +294,7 @@
 
     const yeetSessions = async (scope, key = null) => {
       try {
-        const res = await authFetch(`${API_BASE}/clear`, {
+        const res = await authFetch(`${apiBase}/clear`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(bodyFor(scope, key)),
@@ -309,7 +313,7 @@
     const wakeTransport = async () => {
       setConn("waking", "muted");
       try {
-        const res = await authFetch(`${API_BASE}/ping`, { method: "POST" });
+        const res = await authFetch(`${apiBase}/ping`, { method: "POST" });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.error || `status ${res.status}`);
         console.warn(

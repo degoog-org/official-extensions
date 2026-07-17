@@ -11,6 +11,7 @@ let useCacheFn = null;
 let transportOverride = "";
 let firefoxUrl = "";
 let accessMode = "admin";
+let pluginApiBase = "";
 
 const log = (msg) => {
   console.warn(`[4play-status] ${msg}`);
@@ -30,10 +31,7 @@ const apiBaseFor = (reqUrl) => {
 
 const SETTINGS_TOKEN_COOKIE = "settings-token";
 
-const tokenFrom = (req) => {
-  const fromHeader = req.headers.get("x-settings-token");
-  if (fromHeader) return fromHeader;
-
+const tokenFromCookie = (req) => {
   const raw = req.headers.get("cookie");
   if (!raw) return "";
 
@@ -43,19 +41,30 @@ const tokenFrom = (req) => {
   return match?.split("=")[1]?.trim() || "";
 };
 
-const authHeaders = (req) => {
-  const token = tokenFrom(req);
+const tokenFromHeader = (req) => req.headers.get("x-settings-token") || "";
+
+const tokenCandidates = (req) =>
+  [tokenFromCookie(req), tokenFromHeader(req)].filter(Boolean);
+
+const authHeadersForToken = (token) => {
   return token ? { "x-settings-token": token } : {};
 };
 
+const authHeaders = (req) => authHeadersForToken(tokenCandidates(req)[0] || "");
+
 const gandalfSaysYes = async (req) => {
   try {
-    const res = await fetch(`${apiBaseFor(req.url)}${AUTH_PATH}`, {
-      headers: authHeaders(req),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    return data?.valid === true;
+    const candidates = tokenCandidates(req);
+    if (candidates.length === 0) return false;
+    for (const token of candidates) {
+      const res = await fetch(`${apiBaseFor(req.url)}${AUTH_PATH}`, {
+        headers: authHeadersForToken(token),
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data?.valid === true) return true;
+    }
+    return false;
   } catch (error) {
     log(`auth check failed: ${error?.message || error}`);
     return false;
@@ -297,6 +306,7 @@ export default {
   init(ctx) {
     template = ctx.template;
     useCacheFn = ctx.useCache;
+    pluginApiBase = ctx.apiBase || "";
   },
 
   configure(settings) {
@@ -307,6 +317,9 @@ export default {
   },
 
   execute() {
-    return { title: "4play status", html: template };
+    return {
+      title: "4play status",
+      html: template.replace("{{apiBase}}", pluginApiBase),
+    };
   },
 };
