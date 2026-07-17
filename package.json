@@ -231,7 +231,7 @@
       "name": "4play (lolcat)",
       "minDegoogVersion": "0.23.0",
       "description": "Fetches pages using a real Firefox session via the official lolcat 4play browser extension.",
-      "version": "1.6.0"
+      "version": "1.7.0"
     },
     {
       "path": "transports/degoog-fplay",
@@ -382,8 +382,8 @@
     {
       "path": "engines/startpage",
       "name": "Startpage",
-      "description": "Adds the Startpage engine to degoog. You can enable Anonymous View so result links open via Startpage's proxy, and pick a Fetch Style that suits browser-session transports.",
-      "version": "1.2.0"
+      "description": "Adds the Startpage engine to degoog. You can enable Anonymous View so result links open via Startpage's proxy.",
+      "version": "1.1.9"
     },
     {
       "path": "engines/internet-archive",
