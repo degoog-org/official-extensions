@@ -38,13 +38,14 @@ export const summaryCacheKey = (query, results) => {
   return `${query.trim().toLowerCase()}|${hash}`;
 };
 
-export const buildPanelHtml = (t, query, sources) => {
+export const buildPanelHtml = (t, query, sources, hideOnError) => {
   const sourcesJson = JSON.stringify(
     sources.map((s) => ({ i: s.index, u: s.url, t: s.title, h: s.host, s: s.snippet })),
   );
   return (
     '<div class="glance-ai degoog-panel degoog-panel--slot degoog-panel--slot-body-padded degoog-vstack"' +
     ` data-stream="1" data-query="${escapeHtml(query)}"` +
+    ` data-hide-on-error="${hideOnError ? "1" : "0"}"` +
     ` data-sources="${escapeHtml(sourcesJson)}">` +
     '<div class="glance-ai-summary-wrap">' +
     '<div class="glance-ai-body glance-ai-body--clamped">' +

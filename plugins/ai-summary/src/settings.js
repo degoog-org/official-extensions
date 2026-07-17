@@ -26,6 +26,7 @@ export const parseSettings = (raw) => {
     maxTokens: Math.max(16, maxTokens),
     questionMarkOnly: asBool(raw["questionMarkOnly"]),
     enableThinking: asBool(raw["enableThinking"]),
+    hideOnError: asBool(raw["hideOnError"]),
   };
 };
 
@@ -35,6 +36,12 @@ export const settingsSchema = [
     label: "Only trigger on questions (?)",
     type: "toggle",
     description: "Only show summaries when the query ends with `?`.",
+  },
+  {
+    key: "hideOnError",
+    label: "Hide summary on error or timeout",
+    type: "toggle",
+    description: "Hide the summary box instead of showing an error message when the provider fails or times out.",
   },
   {
     key: "provider",
