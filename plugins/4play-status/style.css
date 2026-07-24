@@ -137,6 +137,32 @@
   font-size: 0.875rem;
 }
 
+.fourplay-test-result {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--bg-light);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.fourplay-test-result[hidden] {
+  display: none;
+}
+
+.fourplay-test-result[data-tone="success"] {
+  color: var(--success);
+}
+
+.fourplay-test-result[data-tone="danger"] {
+  color: var(--danger);
+}
+
+.fourplay-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .fourplay-body {
   display: flex;
   flex-direction: column;

@@ -1,18 +1,28 @@
+import { readdir } from "fs/promises";
+import { dirname, join } from "path";
+
 const AUTH_PATH = "/api/settings/auth";
 const TRANSPORT_TEST_PATH = "/api/extensions/transports";
+const TRANSPORT_LIST_PATH = "/api/extensions?type=transports";
 const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
 const CONTROL_TTL_MS = 60 * 1000;
-const DISCOVERY_NAMESPACE = "transport:4play:discovery";
-const DISCOVERY_KEY = "names";
-const DISCOVERY_TTL_MS = 24 * 60 * 60 * 1000;
+const KNOWN_NAMESPACE = "4play-status:transports";
+const KNOWN_KEY = "list";
+const KNOWN_TTL_MS = 24 * 60 * 60 * 1000;
+const KNOWN_REFRESH_MS = 60 * 1000;
+const TRANSPORT_SUFFIX = "-transport";
+const TRIGGER = "4play";
 const CLEAR_SCOPES = ["all", "session", "captcha"];
 
 let template = "";
 let useCacheFn = null;
-let transportOverride = "";
 let firefoxUrl = "";
 let accessMode = "admin";
 let pluginApiBase = "";
+let pluginDir = "";
+let transportChoice = "";
+let knownTransports = [];
+let knownCheckedAt = 0;
 
 const log = (msg) => {
   console.warn(`[4play-status] ${msg}`);
@@ -24,8 +34,8 @@ const statusCacheFor = (name) =>
 const controlCacheFor = (name) =>
   useCacheFn ? useCacheFn(`transport:${name}:control`, CONTROL_TTL_MS) : null;
 
-const discoveryCache = () =>
-  useCacheFn ? useCacheFn(DISCOVERY_NAMESPACE, DISCOVERY_TTL_MS) : null;
+const knownCache = () =>
+  useCacheFn ? useCacheFn(KNOWN_NAMESPACE, KNOWN_TTL_MS) : null;
 
 const apiBaseFor = (reqUrl) => {
   const url = new URL(reqUrl);
@@ -83,16 +93,112 @@ const accessDecision = async (req) => {
   return (await gandalfSaysYes(req)) ? { ok: true } : { ok: false, status: 401 };
 };
 
-const discoveredTransports = async () => {
-  const cache = discoveryCache();
-  if (!cache) return [];
+const transportIdFor = (folderName) => {
+  const lower = folderName.toLowerCase();
+  return lower.endsWith(TRANSPORT_SUFFIX) ? lower : `${lower}${TRANSPORT_SUFFIX}`;
+};
+
+const rememberTransports = async (items) => {
+  knownTransports = items;
+  knownCheckedAt = Date.now();
   try {
-    const names = await cache.get(DISCOVERY_KEY);
-    return Array.isArray(names) ? names.filter((name) => typeof name === "string") : [];
+    await knownCache()?.set(KNOWN_KEY, items, KNOWN_TTL_MS);
   } catch (error) {
-    log(`transport discovery read failed: ${error?.message || error}`);
-    return [];
+    log(`failed to cache transport list: ${error?.message || error}`);
   }
+};
+
+const loadKnownList = async () => {
+  try {
+    const cached = await knownCache()?.get(KNOWN_KEY);
+    if (Array.isArray(cached) && cached.length > 0) {
+      knownTransports = cached;
+      return;
+    }
+  } catch (error) {
+    log(`failed to read cached transport list: ${error?.message || error}`);
+  }
+  await scanTransports();
+};
+
+const scanTransports = async () => {
+  if (!pluginDir) return;
+  try {
+    const dir = join(dirname(dirname(pluginDir)), "transports");
+    const entries = await readdir(dir, { withFileTypes: true });
+    const items = entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => ({ id: transportIdFor(entry.name), label: entry.name }));
+    if (items.length > 0) knownTransports = items;
+  } catch (error) {
+    log(`could not scan the transports folder: ${error?.message || error}`);
+  }
+};
+
+const pullList = async (base, headers = {}) => {
+  const res = await fetch(`${base}${TRANSPORT_LIST_PATH}`, {
+    headers: { Accept: "application/json", ...headers },
+  });
+  if (!res.ok) throw new Error(`status ${res.status}`);
+  const data = await res.json().catch(() => null);
+  const items = Array.isArray(data?.transports) ? data.transports : [];
+  return items
+    .filter((item) => typeof item?.id === "string")
+    .map((item) => ({ id: item.id, label: item.displayName || item.id }));
+};
+
+const refreshKnown = async (req) => {
+  if (Date.now() - knownCheckedAt < KNOWN_REFRESH_MS) return;
+  try {
+    await rememberTransports(await pullList(apiBaseFor(req.url), authHeaders(req)));
+  } catch (error) {
+    log(`transport list refresh failed: ${error?.message || error}`);
+  }
+};
+
+const defaultTransport = () => {
+  const match = knownTransports.find(
+    (item) =>
+      item.id.toLowerCase().includes(TRIGGER) ||
+      item.label.toLowerCase().includes(TRIGGER),
+  );
+  return match?.id || "";
+};
+
+const transportField = () => {
+  if (knownTransports.length === 0) {
+    return {
+      key: "transportName",
+      label: "4play transport",
+      type: "info",
+      description:
+        "The transport list is not loaded yet. Reopen this dialog in a few seconds, or run !4play once, and this becomes a dropdown of your installed transports.",
+    };
+  }
+  return transportSelect();
+};
+
+const orderedTransports = () => {
+  const preferred = defaultTransport();
+  if (!preferred) return knownTransports;
+  return [
+    ...knownTransports.filter((item) => item.id === preferred),
+    ...knownTransports.filter((item) => item.id !== preferred),
+  ];
+};
+
+const transportSelect = () => {
+  const ordered = orderedTransports();
+  return {
+    key: "transportName",
+    label: "4play transport",
+    type: "select",
+    options: ordered.map((item) => item.id),
+    optionLabels: ordered.map((item) => `${item.label} (${item.id})`),
+    default: defaultTransport(),
+    description:
+      "Which installed transport this card reports on. It defaults to the first installed transport whose name mentions 4play. Change it if you run a renamed or third-party 4play transport.",
+  };
 };
 
 const publishedStatus = async (name) => {
@@ -106,29 +212,14 @@ const publishedStatus = async (name) => {
   }
 };
 
-const resolveTransport = async (req) => {
-  if (transportOverride) {
-    return {
-      name: transportOverride,
-      status: await publishedStatus(transportOverride),
-      candidates: [transportOverride],
-    };
+const resolveTransport = async () => {
+  const candidates = knownTransports.map((item) => item.id);
+  const name = transportChoice || defaultTransport();
+  if (!name) {
+    log("no transport selected and no installed transport mentions 4play");
+    return { name: null, status: null, candidates };
   }
-
-  const candidates = await discoveredTransports();
-
-  for (const name of candidates) {
-    const status = await publishedStatus(name);
-    if (status) {
-      return { name, status, candidates };
-    }
-  }
-
-  const fallback = candidates[0] || null;
-  if (!fallback) {
-    log("no 4play transport has published discovery yet");
-  }
-  return { name: fallback, status: null, candidates };
+  return { name, status: await publishedStatus(name), candidates };
 };
 
 const jsonResponse = (payload, status) =>
@@ -147,7 +238,9 @@ const statusHandler = async (req) => {
     return jsonResponse({ error: "cache unavailable" }, 503);
   }
 
-  const resolved = await resolveTransport(req);
+  await refreshKnown(req);
+
+  const resolved = await resolveTransport();
   if (!resolved.name) {
     return jsonResponse(
       {
@@ -156,7 +249,7 @@ const statusHandler = async (req) => {
         status: null,
         candidates: resolved.candidates,
         firefoxUrl,
-        hint: "No 4play transport found. Is the lolcat 4play transport installed?",
+        hint: "No 4play transport picked yet. Choose one in this plugin's settings.",
       },
       200,
     );
@@ -164,7 +257,7 @@ const statusHandler = async (req) => {
 
   const hint = resolved.status
     ? null
-    : "Transport found but it has not published a status yet. The app only hands transports a cache handle on their first fetch; press the wake button or run a search through it once.";
+    : "Transport found but it has not published a status yet. The app only hands transports a cache handle on their first fetch; run the test below or search through it once.";
 
   return jsonResponse(
     {
@@ -185,7 +278,7 @@ const pingHandler = async (req) => {
     return jsonResponse({ error: "You shall not pass!" }, access.status);
   }
 
-  const resolved = await resolveTransport(req);
+  const resolved = await resolveTransport();
   if (!resolved.name) {
     return jsonResponse({ error: "no 4play transport found" }, 404);
   }
@@ -235,7 +328,7 @@ const clearHandler = async (req) => {
     );
   }
 
-  const resolved = await resolveTransport(req);
+  const resolved = await resolveTransport();
   if (!resolved.name) {
     return jsonResponse({ error: "no 4play transport found" }, 404);
   }
@@ -262,36 +355,31 @@ export default {
   name: "4play status",
   description:
     "Shows the live status of the 4play transport (connection, warmed origins, blocked sessions, open captchas). Admin only.",
-  trigger: "4play",
+  trigger: TRIGGER,
   aliases: ["fourplay"],
 
-  settingsSchema: [
-    {
-      key: "accessMode",
-      label: "Status view access",
-      type: "select",
-      options: ["admin", "open", "locked"],
-      default: "admin",
-      description:
-        "admin requires a valid settings/admin session, open lets anyone who can run the bang view and clear 4play status, and locked disables the status API for everyone.",
-    },
-    {
-      key: "transportName",
-      label: "Transport name override",
-      type: "text",
-      default: "",
-      description:
-        "Leave blank to auto-detect the installed 4play transport. Only set this if you run multiple 4play transports and want to pin a specific one (use the runtime name shown on the status card).",
-    },
-    {
-      key: "firefoxUrl",
-      label: "Firefox browser link",
-      type: "text",
-      default: "",
-      description:
-        "Link to the Firefox instance running the 4play extension (e.g. a remote-desktop/VNC/noVNC URL like http://192.168.86.233:6080, or any URL that opens that browser). When set, the status card shows an 'Open Firefox' button and a jump link next to every captcha that needs attention, so you can hop straight over to solve it. Firefox cannot be deep-linked to a specific tab from outside, so this opens the browser and you pick the flagged tab.",
-    },
-  ],
+  get settingsSchema() {
+    return [
+      {
+        key: "accessMode",
+        label: "Status view access",
+        type: "select",
+        options: ["admin", "open", "locked"],
+        default: "admin",
+        description:
+          "admin requires a valid settings/admin session, open lets anyone who can run the bang view and clear 4play status, and locked disables the status API for everyone.",
+      },
+      transportField(),
+      {
+        key: "firefoxUrl",
+        label: "Firefox browser link",
+        type: "text",
+        default: "",
+        description:
+          "Link to the Firefox instance running the 4play extension (e.g. a remote-desktop/VNC/noVNC URL like http://192.168.86.233:6080, or any URL that opens that browser). When set, the status card shows an 'Open Firefox' button and a jump link next to every captcha that needs attention, so you can hop straight over to solve it. Firefox cannot be deep-linked to a specific tab from outside, so this opens the browser and you pick the flagged tab.",
+      },
+    ];
+  },
 
   routes: [
     { method: "get", path: "/status", handler: statusHandler },
@@ -303,12 +391,14 @@ export default {
     template = ctx.template;
     useCacheFn = ctx.useCache;
     pluginApiBase = ctx.apiBase || "";
+    pluginDir = ctx.dir || "";
+    loadKnownList();
   },
 
   configure(settings) {
     const mode = String(settings?.accessMode || "admin").trim();
     accessMode = ["admin", "open", "locked"].includes(mode) ? mode : "admin";
-    transportOverride = String(settings?.transportName || "").trim();
+    transportChoice = String(settings?.transportName || "").trim();
     firefoxUrl = String(settings?.firefoxUrl || "").trim();
   },
 

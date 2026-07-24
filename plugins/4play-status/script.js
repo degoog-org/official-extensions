@@ -58,30 +58,28 @@
     const body = root.querySelector("[data-body]");
     const subtitle = root.querySelector("[data-subtitle]");
     const clearAllBtn = root.querySelector("[data-clear-all]");
-    const actions = root.querySelector(".fourplay-actions");
+    const firefoxLink = root.querySelector("[data-firefox]");
+    const testBtn = root.querySelector("[data-test]");
+    const testResult = root.querySelector("[data-test-result]");
     const apiBase = apiBaseFromRoot(root) || apiBaseFromScript();
 
     let refreshTimer = null;
-
-    const firefoxLink = document.createElement("a");
-    firefoxLink.className = "fourplay-btn fourplay-btn--firefox";
-    firefoxLink.target = "_blank";
-    firefoxLink.rel = "noopener noreferrer";
-    firefoxLink.hidden = true;
-    firefoxLink.style.display = "none";
-    firefoxLink.innerHTML =
-      '<i class="fa-brands fa-firefox-browser"></i>Open Firefox';
-    if (actions) actions.insertBefore(firefoxLink, actions.lastChild);
 
     const setFirefox = (url) => {
       const normalized = normalizeUrl(url);
       if (normalized) {
         firefoxLink.href = normalized;
-        firefoxLink.style.display = "";
+        firefoxLink.hidden = false;
       } else {
-        firefoxLink.style.display = "none";
         firefoxLink.removeAttribute("href");
+        firefoxLink.hidden = true;
       }
+    };
+
+    const setTestResult = (text, tone) => {
+      testResult.textContent = text;
+      testResult.dataset.tone = tone;
+      testResult.hidden = false;
     };
 
     const setSubtitle = (text) => {
@@ -99,20 +97,18 @@
       message = "Log into the admin panel to unlock the 4play status view.",
     ) => {
       clearAllBtn.hidden = true;
+      testBtn.hidden = true;
       setSubtitle("admin only");
       body.innerHTML = hero("fa-lock", message);
     };
 
     const renderEmpty = (data) => {
       clearAllBtn.hidden = true;
-      setSubtitle(data.transport || "no 4play transport found");
-      const wake = data.transport
-        ? '<button type="button" class="fourplay-btn" data-wake><i class="fa-solid fa-bolt"></i>Wake transport</button>'
-        : "";
+      testBtn.hidden = !data.transport;
+      setSubtitle(data.transport || "no 4play transport selected");
       body.innerHTML = hero(
         data.transport ? "fa-moon" : "fa-satellite-dish",
         data.hint || "No status available.",
-        wake,
       );
     };
 
@@ -169,6 +165,7 @@
 
       setSubtitle(data.transport || "");
       clearAllBtn.hidden = false;
+      testBtn.hidden = false;
 
       const autoWarm = status.autoWarm || {};
       const containers = status.containers || {};
@@ -318,18 +315,28 @@
       }
     };
 
-    const wakeTransport = async () => {
+    const testTransport = async () => {
+      testBtn.disabled = true;
+      setTestResult("Fetching https://example.com through the transport...", "");
       try {
         const res = await authFetch(`${apiBase}/ping`, { method: "POST" });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.error || `status ${res.status}`);
-        console.warn(
-          `[4play-status] wake request for ${data?.transport || "unknown"}: ${data?.ok ? "ok" : data?.message || "failed"}`,
-        );
+        const via = data?.transport ? ` via ${data.transport}` : "";
+        if (data?.ok) {
+          setTestResult(`example.com reached${via}.`, "success");
+        } else {
+          setTestResult(
+            `example.com failed${via}: ${data?.message || "no reason given"}`,
+            "danger",
+          );
+        }
       } catch (error) {
-        console.warn(
-          `[4play-status] wake request failed: ${error?.message || error}`,
-        );
+        const reason = error?.message || error;
+        console.warn(`[4play-status] test request failed: ${reason}`);
+        setTestResult(`Test request failed: ${reason}`, "danger");
+      } finally {
+        testBtn.disabled = false;
       }
       await fetchStatus();
     };
@@ -349,8 +356,8 @@
         yeetSessions("all");
         return;
       }
-      if (event.target.closest("[data-wake]")) {
-        wakeTransport();
+      if (event.target.closest("[data-test]") || event.target.closest("[data-wake]")) {
+        testTransport();
         return;
       }
       if (event.target.closest("[data-refresh]")) {

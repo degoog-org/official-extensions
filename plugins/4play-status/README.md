@@ -7,6 +7,7 @@ By default the card is admin gated. Anyone can run the bang, but the status and 
 ## Controls
 
 - Refresh: re-reads the latest status snapshot.
+- Test 4play: fetches `https://example.com` through the selected transport and reports the result on the card. Also useful to bootstrap a transport that has not served a fetch yet.
 - Clear all sessions: wipes every warmed session and cookie jar and retires pooled containers.
 - Per-session clear: the x on a row wipes just that origin/container session.
 
@@ -14,9 +15,11 @@ Clears are queued through a control channel and picked up by the transport withi
 
 ## Transport detection
 
-The plugin auto-detects the installed 4play transport at request time by asking the app for its transport list and probing each candidate's status channel, so it works whatever folder name the transport was installed under.
+The "4play transport" setting is a dropdown of every transport currently installed, so you never type a name. The list comes from `/api/extensions?type=transports` whenever the card loads, and is cached so it survives restarts; before the card has ever run it falls back to scanning the transports folder next to this plugin.
 
-The app only hands a transport its cache handle on the transport's first fetch, so a freshly (re)started app shows "asleep" until a search runs through the transport. The card offers a "Wake transport" button that triggers one test fetch to bootstrap it.
+It pre-selects the first installed transport whose name mentions 4play, which is the right one on a normal install including forks. Pick a different entry if you run a third-party 4play transport or renamed yours to something that does not mention 4play.
+
+The app only hands a transport its cache handle on the transport's first fetch, so a freshly (re)started app shows "asleep" until a search runs through the transport. Use "Test 4play" to bootstrap it.
 
 ## Requirements
 
@@ -26,4 +29,5 @@ The app only hands a transport its cache handle on the transport's first fetch, 
 ## Settings
 
 - Status view access: `admin` requires a valid settings/admin session, `open` skips session checks and lets anyone who can run the bang view and clear 4play status, and `locked` disables the status API for everyone.
-- Transport name override: leave blank for auto-detection. Only set it if you run multiple 4play transports and want to pin one (use the runtime name shown at the bottom of the status card).
+- 4play transport: dropdown of the installed transports, pre-selecting the first one whose name mentions 4play.
+- Firefox browser link: URL that opens the Firefox instance running the 4play extension. When set, the card shows an "Open Firefox" button and a jump link on every captcha that needs attention.
