@@ -244,12 +244,23 @@
     {
       "path": "engines/google",
       "name": "Google",
-      "description": "Adds Google web search to degoog.",
-      "version": "1.2.0",
+      "description": "Adds Google web search to degoog. Requires the 4play (lolcat) transport, Google no longer returns results over plain HTTP. Use Google CSE if you cannot run 4play.",
+      "version": "1.2.1",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "google",
         "google-engine"
+      ]
+    },
+    {
+      "path": "engines/google-cse",
+      "name": "Google CSE",
+      "description": "Adds Google CSE to degoog.",
+      "version": "1.0.0",
+      "minDegoogVersion": "0.23.0",
+      "legacyIds": [
+        "google-cse",
+        "google-cse-engine"
       ]
     },
     {

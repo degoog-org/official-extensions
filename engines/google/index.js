@@ -159,6 +159,9 @@ const _parseDesktop = ($, name) => {
   return results;
 };
 
+export const description =
+  "Google web search. The [4play (lolcat)](https://github.com/degoog-org/official-extensions/tree/main/transports/lolcat-4play) transport is mandatory: Google now requires a real browser session, so this engine returns nothing over plain HTTP transports. Install 4play from the Store tab and select it as this engine's transport. If you cannot run 4play, use the Google CSE engine instead, it works over plain HTTP.";
+
 export default class GoogleEngine {
   isClientExposed = false;
   name = "Google";
@@ -182,7 +185,7 @@ export default class GoogleEngine {
       optionLabels: ["Lite results", "HTML results"],
       default: "lite",
       description:
-        "Lite results use a lightweight mobile page that works over any transport. HTML results fetch the full desktop results page for higher-quality results with proper titles and snippets, but require a real browser session; install [4play (lolcat)](https://github.com/degoog-org/official-extensions/tree/main/transports/lolcat-4play) from the Store tab and select it as this engine's transport.",
+        "Both modes need the [4play (lolcat)](https://github.com/degoog-org/official-extensions/tree/main/transports/lolcat-4play) transport selected above, it is mandatory for this engine. Lite results use the lightweight mobile page, HTML results fetch the full desktop page for better titles and snippets.",
     },
     {
       key: "safeSearch",
