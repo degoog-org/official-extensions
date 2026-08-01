@@ -37,10 +37,32 @@ const controlCacheFor = (name) =>
 const knownCache = () =>
   useCacheFn ? useCacheFn(KNOWN_NAMESPACE, KNOWN_TTL_MS) : null;
 
+const DEFAULT_PORT = 4444;
+
 const apiBaseFor = (reqUrl) => {
   const url = new URL(reqUrl);
   const base = url.pathname.split("/api/plugin/")[0];
   return `${url.origin}${base}`;
+};
+
+const loopbackBase = (reqUrl) => {
+  const port = Number(process.env.DEGOOG_PORT) || DEFAULT_PORT;
+  const base = new URL(reqUrl).pathname.split("/api/plugin/")[0];
+  return `http://127.0.0.1:${port}${base}`;
+};
+
+const selfBases = (reqUrl) => [loopbackBase(reqUrl), apiBaseFor(reqUrl)];
+
+const overSelf = async (req, run) => {
+  let lastError = null;
+  for (const base of selfBases(req.url)) {
+    try {
+      return await run(base);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("no reachable api base");
 };
 
 const SETTINGS_TOKEN_COOKIE = "settings-token";
@@ -66,31 +88,61 @@ const authHeadersForToken = (token) => {
 
 const authHeaders = (req) => authHeadersForToken(tokenCandidates(req)[0] || "");
 
-const gandalfSaysYes = async (req) => {
-  try {
-    const candidates = tokenCandidates(req);
-    if (candidates.length === 0) return false;
-    for (const token of candidates) {
-      const res = await fetch(`${apiBaseFor(req.url)}${AUTH_PATH}`, {
-        headers: { Accept: "application/json", ...authHeadersForToken(token) },
-      });
-      if (!res.ok) continue;
-      const contentType = res.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) continue;
-      const data = await res.json().catch(() => null);
-      if (data?.valid === true) return true;
+const VERDICT = Object.freeze({
+  GRANTED: "granted",
+  DENIED: "denied",
+  UNREACHABLE: "unreachable",
+});
+
+const askAuth = async (base, req, token) => {
+  const cookie = req.headers.get("cookie");
+  const res = await fetch(`${base}${AUTH_PATH}`, {
+    headers: {
+      Accept: "application/json",
+      ...(cookie ? { cookie } : {}),
+      ...authHeadersForToken(token),
+    },
+  });
+  if (!res.ok) return false;
+  if (!(res.headers.get("content-type") || "").includes("application/json")) return false;
+  const data = await res.json().catch(() => null);
+  return data?.valid === true;
+};
+
+const gandalfVerdict = async (req) => {
+  const candidates = tokenCandidates(req);
+  const tokens = candidates.length > 0 ? candidates : [""];
+  let reached = false;
+
+  for (const base of selfBases(req.url)) {
+    for (const token of tokens) {
+      try {
+        if (await askAuth(base, req, token)) return VERDICT.GRANTED;
+        reached = true;
+      } catch (error) {
+        log(`auth check via ${base} failed: ${error?.message || error}`);
+      }
     }
-    return false;
-  } catch (error) {
-    log(`auth check failed: ${error?.message || error}`);
-    return false;
+    if (reached) break;
   }
+
+  return reached ? VERDICT.DENIED : VERDICT.UNREACHABLE;
 };
 
 const accessDecision = async (req) => {
   if (accessMode === "open") return { ok: true };
   if (accessMode === "locked") return { ok: false, status: 403 };
-  return (await gandalfSaysYes(req)) ? { ok: true } : { ok: false, status: 401 };
+
+  const verdict = await gandalfVerdict(req);
+  if (verdict === VERDICT.GRANTED) return { ok: true };
+  if (verdict === VERDICT.UNREACHABLE) {
+    return {
+      ok: false,
+      status: 503,
+      error: "could not reach the settings auth endpoint to verify admin access",
+    };
+  }
+  return { ok: false, status: 401, error: "You shall not pass!" };
 };
 
 const transportIdFor = (folderName) => {
@@ -150,7 +202,9 @@ const pullList = async (base, headers = {}) => {
 const refreshKnown = async (req) => {
   if (Date.now() - knownCheckedAt < KNOWN_REFRESH_MS) return;
   try {
-    await rememberTransports(await pullList(apiBaseFor(req.url), authHeaders(req)));
+    await rememberTransports(
+      await overSelf(req, (base) => pullList(base, authHeaders(req))),
+    );
   } catch (error) {
     log(`transport list refresh failed: ${error?.message || error}`);
   }
@@ -231,7 +285,7 @@ const jsonResponse = (payload, status) =>
 const statusHandler = async (req) => {
   const access = await accessDecision(req);
   if (!access.ok) {
-    return jsonResponse({ error: "You shall not pass!" }, access.status);
+    return jsonResponse({ error: access.error }, access.status);
   }
   if (!useCacheFn) {
     log("useCache was never provided by the app; cannot read transport status");
@@ -275,7 +329,7 @@ const statusHandler = async (req) => {
 const pingHandler = async (req) => {
   const access = await accessDecision(req);
   if (!access.ok) {
-    return jsonResponse({ error: "You shall not pass!" }, access.status);
+    return jsonResponse({ error: access.error }, access.status);
   }
 
   const resolved = await resolveTransport();
@@ -284,9 +338,11 @@ const pingHandler = async (req) => {
   }
 
   try {
-    const res = await fetch(
-      `${apiBaseFor(req.url)}${TRANSPORT_TEST_PATH}/${encodeURIComponent(resolved.name)}/test`,
-      { method: "POST", headers: authHeaders(req) },
+    const res = await overSelf(req, (base) =>
+      fetch(
+        `${base}${TRANSPORT_TEST_PATH}/${encodeURIComponent(resolved.name)}/test`,
+        { method: "POST", headers: authHeaders(req) },
+      ),
     );
     const data = await res.json().catch(() => ({}));
     log(
@@ -305,7 +361,7 @@ const pingHandler = async (req) => {
 const clearHandler = async (req) => {
   const access = await accessDecision(req);
   if (!access.ok) {
-    return jsonResponse({ error: "You shall not pass!" }, access.status);
+    return jsonResponse({ error: access.error }, access.status);
   }
   if (!useCacheFn) {
     return jsonResponse({ error: "cache unavailable" }, 503);

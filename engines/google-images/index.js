@@ -62,6 +62,16 @@ const _gsaAgent = () => {
   return `Opera/9.80 (${platform}; Opera Mini/${v.version}.${build}/${subMajor}.${subMinor}; U; en) Presto/${v.presto} Version/${v.release}`;
 };
 
+const GO_APP_ANDROID_VERSIONS = ["11", "12", "13", "14"];
+
+const _goAppAgent = () => {
+  const major = _randInt(3, 4);
+  const minor = _randInt(40, 74);
+  const build = _randInt(100000000, 899999999);
+  const android = _pick(GO_APP_ANDROID_VERSIONS);
+  return `NSTN/${major}.${minor}.${build}.release Dalvik/2.1.0 (Linux; U; Android ${android}; US) gzip`;
+};
+
 const TBS_MAP = {
   hour: "qdr:h",
   day: "qdr:d",
@@ -251,7 +261,7 @@ export default class GoogleImagesEngine {
       `https://www.google.com/search?${params.toString()}&async=_fmt:json,p:1,ijn:${page - 1}`,
       {
         headers: {
-          "User-Agent": _gsaAgent(),
+          "User-Agent": _goAppAgent(),
           Accept: "*/*",
           "Accept-Language":
             context?.buildAcceptLanguage?.() || "en-US,en;q=0.9",

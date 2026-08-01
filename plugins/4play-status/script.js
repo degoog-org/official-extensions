@@ -276,6 +276,14 @@
           renderLocked("The 4play status view is locked in plugin settings.");
           return false;
         }
+        if (res.status === 503) {
+          const detail = await res.json().catch(() => null);
+          renderLocked(
+            detail?.error ||
+              "The admin check could not reach the settings API. Check the server logs.",
+          );
+          return false;
+        }
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         setFirefox(data.firefoxUrl || "");
