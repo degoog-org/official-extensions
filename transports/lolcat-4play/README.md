@@ -22,17 +22,7 @@ Routes searches through a real Firefox session using the official [4play](https:
 ## 1. Install the Firefox extension
 
 Install the extension on a **clean Firefox profile** - not your main one, as it manages tabs and containers globally.
-
-Clone the repository:
-
-```bash
-git clone https://git.lolcat.ca/lolcat/4play.git
-```
-
-- Open `about:debugging` -> This Firefox -> **Load Temporary Add-on** -> select `manifest.json` from `4play/extension/`.
-- Click the extension icon in the toolbar.
-- Find the exact WebSocket URL in **Settings -> Transports -> 4play (lolcat) -> Configure**. It is shown at the top of the settings panel. If you set a password, append it as a path segment. The WebSocket runs on degoog's main port, no separate port needed.
-- The badge turns green when connected.
+You can install it from the [official firefox store](https://addons.mozilla.org/en-US/firefox/addon/4play/)
 
 ## 2. Configure in degoog
 
