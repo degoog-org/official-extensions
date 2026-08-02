@@ -122,6 +122,29 @@ export default class StartpageVideosEngine {
     };
   }
 
+  async _getPage(doFetch, params, context) {
+    const url = `${SEARCH_URL}?${params.toString()}`;
+    const res = await doFetch(url, { headers: this._baseHeaders(context), redirect: "follow" });
+    context?.sentinel?.(res, this.name);
+    return res.text();
+  }
+
+  async _postPage(doFetch, body, context) {
+    const res = await doFetch(SEARCH_URL, {
+      method: "POST",
+      headers: {
+        ...this._baseHeaders(context),
+        "Content-Type": "application/x-www-form-urlencoded",
+        Referer: `${BASE_URL}/`,
+        "Sec-Fetch-Site": "same-origin",
+      },
+      body: body.toString(),
+      redirect: "follow",
+    });
+    context?.sentinel?.(res, this.name);
+    return res.text();
+  }
+
   async executeSearch(query, page = 1, timeFilter, context) {
     const doFetch = context?.fetch ?? fetch;
     const p = Math.max(1, page || 1);
@@ -140,19 +163,10 @@ export default class StartpageVideosEngine {
         page: String(p),
       });
       if (this.safeSearch !== "off") body.set("qadf", "heavy");
-      const res = await doFetch(SEARCH_URL, {
-        method: "POST",
-        headers: {
-          ...this._baseHeaders(context),
-          "Content-Type": "application/x-www-form-urlencoded",
-          Referer: `${BASE_URL}/`,
-          "Sec-Fetch-Site": "same-origin",
-        },
-        body: body.toString(),
-        redirect: "follow",
-      });
-      context?.sentinel?.(res, this.name);
-      html = await res.text();
+      // with_date is deliberately omitted here: the POST endpoint ignores the
+      // time window and returns a fresh page-1 set when it's present (tested
+      // 2026-08; matches the startpage web engine's behavior)
+      html = await this._postPage(doFetch, body, context);
     } else {
       const params = new URLSearchParams({ query, cat: "video", pl: "opensearch" });
       if (this.safeSearch !== "off") params.set("qadf", "heavy");
@@ -160,12 +174,7 @@ export default class StartpageVideosEngine {
       if (timeFilter && timeFilter !== "any" && timeFilter !== "custom" && TIME_MAP[timeFilter]) {
         params.set("with_date", TIME_MAP[timeFilter]);
       }
-      const res = await doFetch(`${SEARCH_URL}?${params.toString()}`, {
-        headers: this._baseHeaders(context),
-        redirect: "follow",
-      });
-      context?.sentinel?.(res, this.name);
-      html = await res.text();
+      html = await this._getPage(doFetch, params, context);
     }
 
     if (_isCaptcha(html)) {
@@ -202,8 +211,8 @@ export default class StartpageVideosEngine {
       if (typeof block?.display_type !== "string" || !block.display_type.startsWith("video-")) continue;
       if (!Array.isArray(block.results)) continue;
       for (const item of block.results) {
-        let url = _esc(item.clickUrl ?? "");
-        if (!url.startsWith("http")) continue;
+        let url = item.clickUrl ?? "";
+        if (typeof url !== "string" || !url.startsWith("http")) continue;
         const title = _esc(item.title ?? "");
         if (!title) continue;
         if (this.useAnonymousView && typeof item.anonViewUrl === "string" && item.anonViewUrl) {

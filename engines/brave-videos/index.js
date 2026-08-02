@@ -28,7 +28,7 @@ const _decode = (raw) =>
 // video:{duration:"MM:SS",...,creator:"...",...},...,thumbnail:{src:"..."}
 // Bounded lazy spans keep a match from bleeding into the next record.
 const RESULT_RE =
-  /title:"((?:[^"\\]|\\.)*)",url:"((?:[^"\\]|\\.)*)",[\s\S]{0,1500}?description:(?:"((?:[^"\\]|\\.)*)"|null)[\s\S]{0,800}?type:"video_result",video:\{duration:(?:"([^"]*)"|null)[\s\S]{0,600}?thumbnail:\{src:"((?:[^"\\]|\\.)*)"/g;
+  /title:"((?:[^"\\]|\\.)*)",url:"((?:[^"\\]|\\.)*)",[\s\S]{0,400}?description:(?:"((?:[^"\\]|\\.)*)"|null)[\s\S]{0,400}?type:"video_result",video:\{duration:(?:"([^"]*)"|null)[\s\S]{0,600}?thumbnail:\{src:"((?:[^"\\]|\\.)*)"/g;
 
 const _parseResults = (html, source) => {
   const results = [];

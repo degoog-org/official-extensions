@@ -122,6 +122,29 @@ export default class StartpageImagesEngine {
     };
   }
 
+  async _getPage(doFetch, params, context, safe) {
+    const url = `${SEARCH_URL}?${params.toString()}`;
+    const res = await doFetch(url, { headers: this._baseHeaders(context, safe), redirect: "follow" });
+    context?.sentinel?.(res, this.name);
+    return res.text();
+  }
+
+  async _postPage(doFetch, body, context, safe) {
+    const res = await doFetch(SEARCH_URL, {
+      method: "POST",
+      headers: {
+        ...this._baseHeaders(context, safe),
+        "Content-Type": "application/x-www-form-urlencoded",
+        Referer: `${BASE_URL}/`,
+        "Sec-Fetch-Site": "same-origin",
+      },
+      body: body.toString(),
+      redirect: "follow",
+    });
+    context?.sentinel?.(res, this.name);
+    return res.text();
+  }
+
   async executeSearch(query, page = 1, _timeFilter, context) {
     const doFetch = context?.fetch ?? fetch;
     const p = Math.max(1, page || 1);
@@ -141,29 +164,12 @@ export default class StartpageImagesEngine {
         page: String(p),
       });
       if (safe !== "off") body.set("qadf", "heavy");
-      const res = await doFetch(SEARCH_URL, {
-        method: "POST",
-        headers: {
-          ...this._baseHeaders(context, safe),
-          "Content-Type": "application/x-www-form-urlencoded",
-          Referer: `${BASE_URL}/`,
-          "Sec-Fetch-Site": "same-origin",
-        },
-        body: body.toString(),
-        redirect: "follow",
-      });
-      context?.sentinel?.(res, this.name);
-      html = await res.text();
+      html = await this._postPage(doFetch, body, context, safe);
     } else {
       const params = new URLSearchParams({ query, cat: "pics", pl: "opensearch" });
       if (safe !== "off") params.set("qadf", "heavy");
       if (context?.lang) params.set("language", context.lang);
-      const res = await doFetch(`${SEARCH_URL}?${params.toString()}`, {
-        headers: this._baseHeaders(context, safe),
-        redirect: "follow",
-      });
-      context?.sentinel?.(res, this.name);
-      html = await res.text();
+      html = await this._getPage(doFetch, params, context, safe);
     }
 
     if (_isCaptcha(html)) {
@@ -200,12 +206,12 @@ export default class StartpageImagesEngine {
       if (typeof block?.display_type !== "string" || !block.display_type.startsWith("images-")) continue;
       if (!Array.isArray(block.results)) continue;
       for (const item of block.results) {
-        const pageUrl = _esc(item.altClickUrl ?? "");
+        const pageUrl = item.altClickUrl ?? "";
         const thumbnail = _absolute(item.thumbnailUrl);
         const imageUrl = typeof item.rawImageUrl === "string" && item.rawImageUrl.startsWith("http")
           ? item.rawImageUrl
           : _absolute(item.clickUrl);
-        if (!pageUrl.startsWith("http") || !thumbnail) continue;
+        if (typeof pageUrl !== "string" || !pageUrl.startsWith("http") || !thumbnail) continue;
         results.push({
           title: _esc(item.title ?? ""),
           url: pageUrl,
