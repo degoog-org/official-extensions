@@ -56,13 +56,18 @@ export class StatusReporter {
 
   build() {
     const now = Date.now();
-    const sessions = [...this._store.sessionKeys()]
+    const everySession = [...this._store.sessionKeys()]
       .map((key) => this._store.sessionEntry(key, now))
       .map((session) => ({
         ...session,
         containerLabel: this._tabs.containerLabel(session.container),
       }))
       .sort((a, b) => a.origin.localeCompare(b.origin));
+
+    const sessions = everySession.filter((s) => this._seenOrigins.has(s.origin));
+    const taggedAlong = everySession.filter(
+      (s) => !this._seenOrigins.has(s.origin),
+    );
 
     const captchaTabs = [...this._captcha.captchaTabIds].map((tabId) => {
       const tab = this._tabs.tabDetails.get(tabId) || { id: tabId };
@@ -79,6 +84,7 @@ export class StatusReporter {
     return {
       connected: this._connected(),
       sessions,
+      taggedAlong,
       containers: {
         idle: this._containers.idleCount(),
         leased: this._containers.busyCount(),

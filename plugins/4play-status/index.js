@@ -3,7 +3,7 @@ import { dirname, join } from "path";
 
 const AUTH_PATH = "/api/settings/auth";
 const TRANSPORT_TEST_PATH = "/api/extensions/transports";
-const TRANSPORT_LIST_PATH = "/api/extensions?type=transports";
+const TRANSPORT_LIST_PATH = "/api/extensions?type=transport";
 const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
 const CONTROL_TTL_MS = 60 * 1000;
 const KNOWN_NAMESPACE = "4play-status:transports";
@@ -26,6 +26,14 @@ let knownCheckedAt = 0;
 
 const log = (msg) => {
   console.warn(`[4play-status] ${msg}`);
+};
+
+let lastRefreshGripe = "";
+
+const logOnce = (msg) => {
+  if (msg === lastRefreshGripe) return;
+  lastRefreshGripe = msg;
+  log(msg);
 };
 
 const statusCacheFor = (name) =>
@@ -201,12 +209,14 @@ const pullList = async (base, headers = {}) => {
 
 const refreshKnown = async (req) => {
   if (Date.now() - knownCheckedAt < KNOWN_REFRESH_MS) return;
+  knownCheckedAt = Date.now();
   try {
     await rememberTransports(
       await overSelf(req, (base) => pullList(base, authHeaders(req))),
     );
+    lastRefreshGripe = "";
   } catch (error) {
-    log(`transport list refresh failed: ${error?.message || error}`);
+    logOnce(`transport list refresh failed: ${error?.message || error}`);
   }
 };
 

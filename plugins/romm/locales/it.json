@@ -8,13 +8,20 @@
         "placeholder": "https://tuo-server-romm.com",
         "description": "URL base dell'istanza RomM"
       },
+      "apiToken": {
+        "label": "Token API",
+        "placeholder": "rmm_...",
+        "description": "Token API client RomM. Preferito rispetto a nome utente/password."
+      },
       "username": {
         "label": "Nome utente",
-        "placeholder": "Utente di accesso RomM"
+        "placeholder": "Utente di accesso RomM",
+        "description": "Fallback legacy se non e configurato un token API."
       },
       "password": {
         "label": "Password",
-        "placeholder": "Password di accesso RomM"
+        "placeholder": "Password di accesso RomM",
+        "description": "Fallback legacy se non e configurato un token API."
       }
     }
   }

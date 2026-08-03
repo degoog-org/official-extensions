@@ -221,6 +221,16 @@
   color: var(--text-primary);
 }
 
+.fourplay-section-head [data-show-tagalong] {
+  margin-left: auto;
+}
+
+.fourplay-modal-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
 .fourplay-sessions {
   display: flex;
   flex-direction: column;

@@ -8,13 +8,20 @@
         "placeholder": "https://your-romm-server.com",
         "description": "Base URL of your RomM instance"
       },
+      "apiToken": {
+        "label": "API Token",
+        "placeholder": "rmm_...",
+        "description": "RomM client API token. Preferred over username/password."
+      },
       "username": {
         "label": "Username",
-        "placeholder": "RomM login username"
+        "placeholder": "RomM login username",
+        "description": "Legacy fallback if no API token is configured."
       },
       "password": {
         "label": "Password",
-        "placeholder": "RomM login password"
+        "placeholder": "RomM login password",
+        "description": "Legacy fallback if no API token is configured."
       }
     }
   }

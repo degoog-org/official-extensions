@@ -155,6 +155,33 @@
         </div>`;
     };
 
+    let taggedAlong = [];
+
+    const closeTagAlong = () => {
+      root.querySelector(".fourplay-modal-overlay")?.remove();
+    };
+
+    const openTagAlong = () => {
+      closeTagAlong();
+      const rows = taggedAlong.length
+        ? taggedAlong.map(sessionRow).join("")
+        : hero("fa-mug-hot", "Nothing tagged along yet.");
+      const shell = document.createElement("div");
+      shell.className = "ext-modal-overlay fourplay-modal-overlay";
+      shell.innerHTML = `
+        <div class="ext-modal" role="dialog" aria-modal="true" aria-label="Origins that tagged along">
+          <div class="ext-modal-header">
+            <h2 class="ext-modal-title">Origins that tagged along</h2>
+            <button class="ext-modal-close degoog-icon-btn" type="button" data-close-tagalong aria-label="Close">&times;</button>
+          </div>
+          <div class="ext-modal-body">
+            <p class="fourplay-modal-note">The browser picked these up loading the page: analytics, fonts, ad and consent hosts. 4play never fetches through them, so they are listed here instead of cluttering the session list.</p>
+            <div class="fourplay-sessions">${rows}</div>
+          </div>
+        </div>`;
+      root.appendChild(shell);
+    };
+
     const render = (data) => {
       const firefoxUrl = normalizeUrl(data.firefoxUrl || "");
       const status = data.status;
@@ -170,6 +197,7 @@
       const autoWarm = status.autoWarm || {};
       const containers = status.containers || {};
       const sessions = Array.isArray(status.sessions) ? status.sessions : [];
+      taggedAlong = Array.isArray(status.taggedAlong) ? status.taggedAlong : [];
       const warmCount = sessions.filter((s) => s.alive).length;
       const blockedCount = sessions.filter((s) => s.blocked).length;
       const captchaTabs = Array.isArray(status.captchaTabs)
@@ -248,10 +276,15 @@
           </div>`
         : "";
 
+      const tagAlongBtn = taggedAlong.length
+        ? `<button type="button" class="fourplay-btn" data-show-tagalong title="Origins the page pulled in on its own. 4play never fetches through these.">${esc(String(taggedAlong.length))} tagged along</button>`
+        : "";
+
       const sectionHead = `
         <div class="fourplay-section-head">
           <span class="fourplay-section-title">Primed browser sessions</span>
           <span class="degoog-badge">${sessions.length}</span>
+          ${tagAlongBtn}
         </div>`;
 
       const footerBits = [];
@@ -262,6 +295,8 @@
       const footer = `<div class="fourplay-footer">${esc(footerBits.join(" | "))}</div>`;
 
       body.innerHTML = `${tiles}${captchaList}${sectionHead}<div class="fourplay-sessions">${list}</div>${footer}`;
+
+      if (root.querySelector(".fourplay-modal-overlay")) openTagAlong();
     };
 
     const fetchStatus = async () => {
@@ -350,6 +385,17 @@
     };
 
     root.addEventListener("click", (event) => {
+      if (event.target.closest("[data-show-tagalong]")) {
+        openTagAlong();
+        return;
+      }
+      if (
+        event.target.closest("[data-close-tagalong]") ||
+        event.target.classList.contains("fourplay-modal-overlay")
+      ) {
+        closeTagAlong();
+        return;
+      }
       const clearBtn = event.target.closest("[data-clear-key]");
       if (clearBtn) {
         yeetSessions("session", clearBtn.dataset.clearKey);
