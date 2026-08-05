@@ -464,6 +464,41 @@
       "name": "The Guardian",
       "description": "Adds The Guardian as a news engine to degoog via the Guardian Open Platform API. Requires a free API key from open-platform.theguardian.com.",
       "version": "1.0.4"
+    },
+    {
+      "path": "engines/duckduckgo-videos",
+      "name": "DuckDuckGo Videos",
+      "description": "DuckDuckGo video search using the v.js JSON endpoint.",
+      "version": "1.0.0",
+      "minDegoogVersion": "0.23.0"
+    },
+    {
+      "path": "engines/brave-videos",
+      "name": "Brave Videos",
+      "description": "Brave video search (HTML scraping) parsed from the Brave Search video results page.",
+      "version": "1.0.0",
+      "minDegoogVersion": "0.23.0"
+    },
+    {
+      "path": "engines/startpage-images",
+      "name": "Startpage Images",
+      "description": "Startpage image search with thumbnails proxied through Startpage.",
+      "version": "1.0.0",
+      "minDegoogVersion": "0.23.0"
+    },
+    {
+      "path": "engines/startpage-videos",
+      "name": "Startpage Videos",
+      "description": "Startpage video search fetched anonymously through Startpage.",
+      "version": "1.0.0",
+      "minDegoogVersion": "0.23.0"
+    },
+    {
+      "path": "engines/startpage-news",
+      "name": "Startpage News",
+      "description": "Startpage news search with per-outlet source attribution.",
+      "version": "1.0.0",
+      "minDegoogVersion": "0.23.0"
     }
   ],
   "autocomplete": [
