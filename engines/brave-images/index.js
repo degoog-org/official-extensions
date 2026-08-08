@@ -1,6 +1,5 @@
 export const type = "images";
-export const description =
-  "Brave image search (HTML scraping). Results are parsed from the Brave Search image results page.";
+export const description = "";
 export const filters = {
   nsfw: ["on", "moderate", "off"],
 };

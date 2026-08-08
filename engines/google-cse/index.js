@@ -1,8 +1,7 @@
 import { cseToken, dropToken } from "./token.js";
 import { cseBody, cseResults } from "./parse.js";
 
-export const description =
-  "Google Custom Search Engine. Works over plain HTTP without a browser session, and can be pointed at your own CSE.";
+export const description = "";
 
 const ELEMENT_URL = "https://cse.google.com/cse/element/v1";
 const PUBLIC_CX = "partner-pub-8993703457585266:4862972284";
