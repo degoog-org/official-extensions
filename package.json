@@ -212,7 +212,7 @@
       "path": "transports/browserless",
       "name": "Browserless",
       "description": "Fetches pages through a self-hosted Browserless instance (or any compatible headless browser service). Renders JavaScript before returning HTML - useful for engines like Google Images that block standard HTTP requests. Compatible with browserless/chromium, CloakBrowser wrappers, and any service exposing POST /content.",
-      "version": "1.1.1"
+      "version": "1.1.2"
     },
     {
       "path": "transports/cloakbrowser",
