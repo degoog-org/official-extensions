@@ -8,6 +8,11 @@
         "thinking": "Réflexion en cours\u2026",
         "no-response": "Impossible d'obtenir une réponse. Réessayez.",
         "request-failed": "La requête a échoué. Réessayez.",
-        "read-more": "Lire la suite"
+        "read-more": "Lire la suite",
+        "show-less": "Afficher moins",
+        "writing": "Rédaction de la réponse\u2026",
+        "site": "{n} site",
+        "sites": "{n} sites",
+        "sources": "Sources"
     }
 }

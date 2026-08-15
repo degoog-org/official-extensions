@@ -8,6 +8,11 @@
     "thinking": "חושב…",
     "no-response": "לא התקבלה תגובה. נסה שוב.",
     "request-failed": "הבקשה נכשלה. נסה שוב.",
-    "read-more": "קרא עוד"
+    "read-more": "קרא עוד",
+    "show-less": "הצג פחות",
+    "writing": "כותב תשובה…",
+    "site": "אתר {n}",
+    "sites": "{n} אתרים",
+    "sources": "מקורות"
   }
 }

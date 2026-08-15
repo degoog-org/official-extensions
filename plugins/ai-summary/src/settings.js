@@ -41,6 +41,7 @@ export const parseSettings = (raw) => {
     questionMarkOnly: asBool(raw["questionMarkOnly"]),
     enableThinking: asBool(raw["enableThinking"]),
     hideOnError: asBool(raw["hideOnError"]),
+    enableInputStyling: asBool(raw["enableInputStyling"]),
   };
 };
 
@@ -56,6 +57,12 @@ export const settingsSchema = [
     label: "Hide summary on error or timeout",
     type: "toggle",
     description: "Hide the summary box instead of showing an error message when the provider fails or times out.",
+  },
+  {
+    key: "enableInputStyling",
+    label: "Enable input styling",
+    type: "toggle",
+    description: "Adds a rainbow rotating border on the follow-up input when focused. Just flexing.",
   },
   {
     key: "baseUrl",
