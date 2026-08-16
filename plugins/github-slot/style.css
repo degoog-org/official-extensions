@@ -37,10 +37,6 @@
   min-width: 0;
 }
 
-.gh-slot-grid::-webkit-scrollbar {
-  display: none;
-}
-
 .gh-slot-grid::-webkit-scrollbar-track {
   background: var(--bg-hover);
   border-radius: 3px;
