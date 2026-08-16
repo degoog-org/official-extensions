@@ -1,0 +1,14 @@
+{
+  "ai-summary": {
+    "name": "AI Summary",
+    "description": "Streamt eine KI-generierte Zusammenfassung mit Inline-Quellenangaben. Funktioniert mit OpenAI-kompatiblen APIs (inkl. Ollama), Google Gemini und Anthropic Claude.",
+    "badge": "KI-Zusammenfassung",
+    "dive-deeper": "Tiefer eintauchen",
+    "follow-up-placeholder": "Frag etwas …",
+    "thinking": "Denke nach …",
+    "writing": "Schreibe Antwort …",
+    "no-response": "Keine Antwort erhalten. Versuch es erneut.",
+    "request-failed": "Anfrage fehlgeschlagen. Versuch es erneut.",
+    "read-more": "Mehr lesen"
+  }
+}

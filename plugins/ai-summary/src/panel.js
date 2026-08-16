@@ -57,11 +57,11 @@ export const buildPanelHtml = (t, query, sources, hideOnError) => {
     "</div>" +
     "</div>" +
     "</div>" +
-    `<button class="glance-ai-expand" type="button">${t("ai-summary.read-more")}</button>` +
+    '<button class="glance-ai-expand" type="button">{{ t:ai-summary.read-more }}</button>' +
     "</div>" +
     '<div class="glance-ai-chat" hidden>' +
     '<div class="glance-ai-messages"></div>' +
-    `<textarea class="glance-ai-input degoog-input degoog-input--chat" placeholder="${t("ai-summary.follow-up-placeholder")}" rows="1"></textarea>` +
+    '<textarea class="glance-ai-input degoog-input degoog-input--chat" placeholder="{{ t:ai-summary.follow-up-placeholder }}" rows="1"></textarea>' +
     "</div>" +
     "</div>"
   );
