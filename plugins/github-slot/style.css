@@ -37,6 +37,14 @@
   min-width: 0;
 }
 
+.gh-slot-grid::-webkit-scrollbar {
+  /* The global theme rule (src/styles/style.scss) only sets `width`, which
+     affects vertical scrollbars. Set the height here so the horizontal bar
+     of this grid matches (0.5rem). Ideally this moves into the theme so all
+     horizontal scrollbars are consistent site-wide. */
+  height: 0.5rem;
+}
+
 .gh-slot-grid::-webkit-scrollbar-track {
   background: var(--bg-hover);
   border-radius: 3px;
