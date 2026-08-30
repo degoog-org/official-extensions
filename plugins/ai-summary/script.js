@@ -6,7 +6,12 @@
   const SUMMARY_URL = `${API_BASE}/stream`;
   const CHAT_URL = `${API_BASE}/chat`;
   const MAX_SOURCES = 6;
-  const FAVICON_BASE = "https://www.google.com/s2/favicons";
+  const BASE_URL = window.__DEGOOG_BASE_URL__ ?? "";
+  const FAVICON_ENDPOINT = `${BASE_URL}/api/proxy/favicon`;
+  const CITE_GROUP = "\\[[ \\t]*N?\\d+(?:[,\\s]*N?\\d+)*[ \\t]*\\]";
+  const CITE_RUN_RE = new RegExp(`${CITE_GROUP}(?:[ \\t]*,?[ \\t]*${CITE_GROUP})*`, "g");
+  const HIGHLIGHT_MAX = 200;
+  const HIGHLIGHT_RE = /==([^=]+)==/g;
 
   let history = [];
   let sources = [];
@@ -42,48 +47,69 @@
 
   const faviconFor = (url) => {
     const host = hostOf(url);
-    return host ? `${FAVICON_BASE}?domain=${encodeURIComponent(host)}&sz=32` : "";
+    return host ? `${FAVICON_ENDPOINT}?domain=${encodeURIComponent(host)}` : "";
   };
 
-  const citeHtml = (n) => {
+  const hostLabel = (src) => src.h || hostOf(src.u) || src.u;
+
+  const hydrateIcons = (root) => {
+    root.querySelectorAll("img[data-favicon-host]").forEach((img) => {
+      const host = img.dataset.faviconHost;
+      if (!host) return;
+      img.onerror = () => img.remove();
+      img.src = `${FAVICON_ENDPOINT}?domain=${encodeURIComponent(host)}`;
+    });
+  };
+
+  const pickSrcs = (nums) => {
     const map = new Map(sources.map((s) => [s.i, s]));
-    const src = map.get(parseInt(n, 10));
-    if (!src) return escapeHtml(`[${n}]`);
-    const fav = faviconFor(src.u);
-    const host = src.h || hostOf(src.u);
+    const seen = new Set();
+    const out = [];
+    for (const n of nums) {
+      const src = map.get(parseInt(n, 10));
+      if (!src) continue;
+      const key = src.h || src.u;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(src);
+    }
+    return out;
+  };
+
+  const citeChip = (picked) => {
+    const head = picked[0];
+    const extra = picked.length - 1;
+    const fav = faviconFor(head.u);
     return (
-      `<a class="degoog-badge glance-ai-cite" href="${escapeHtml(src.u)}" ` +
-      `data-cite-n="${escapeHtml(n)}" target="_blank" rel="noopener">` +
-      (fav ? `<img class="glance-ai-cite-favicon" src="${escapeHtml(fav)}" alt="" width="12" height="12">` : "") +
-      `<span class="glance-ai-cite-n">[${escapeHtml(n)}]</span>` +
-      (host ? `<span class="glance-ai-cite-host">${escapeHtml(host)}</span>` : "") +
-      "</a>"
+      '<button type="button" class="glance-ai-cite" ' +
+      `data-cite-ns="${picked.map((s) => s.i).join(",")}">` +
+      (fav ? `<img class="glance-ai-cite-favicon" src="${escapeHtml(fav)}" alt="" width="14" height="14">` : "") +
+      `<span class="glance-ai-cite-host">${escapeHtml(hostLabel(head))}</span>` +
+      (extra > 0 ? `<span class="glance-ai-cite-more">+${extra}</span>` : "") +
+      "</button>"
     );
   };
 
   const injectCites = (text) => {
     if (!sources.length) return text;
-    const srcMap = new Map(sources.map((s) => [s.i, s]));
-    const seenHosts = new Set();
-    return text.replace(/\[N?\d+(?:[,\s]+N?\d+)*\]/g, (bracket) =>
-      (bracket.match(/\d+/g) || [])
-        .filter((n) => {
-          const src = srcMap.get(parseInt(n, 10));
-          const key = src ? (src.h || src.u) : n;
-          if (seenHosts.has(key)) return false;
-          seenHosts.add(key);
-          return true;
-        })
-        .map(citeHtml)
-        .join(""),
-    );
+    return text.replace(CITE_RUN_RE, (run) => {
+      const picked = pickSrcs(run.match(/\d+/g) || []);
+      return picked.length ? citeChip(picked) : run;
+    });
   };
 
+  const injectMarks = (text) =>
+    text.replace(HIGHLIGHT_RE, (_, inner) =>
+      inner.length <= HIGHLIGHT_MAX && !inner.includes("\n")
+        ? `<mark class="glance-ai-key">${inner}</mark>`
+        : inner
+    );
+
   const renderRich = (text) => {
-    const withCites = injectCites(text);
+    const enriched = injectCites(injectMarks(text));
     const md = window.__degoogMd;
-    if (md) return md.block(withCites);
-    return escapeHtml(withCites).replace(/\n/g, "<br>");
+    if (md) return md.block(enriched);
+    return escapeHtml(enriched).replace(/\n/g, "<br>");
   };
 
   const autoResize = (el) => {
@@ -155,7 +181,7 @@
       let parsed = {};
       try {
         parsed = JSON.parse(payload);
-      } catch {}
+      } catch { }
       if (evt === "delta") handlers.onDelta(parsed.text || "");
       else if (evt === "thinking") handlers.onThinking(parsed.text || "");
       else if (evt === "done") handlers.onDone(parsed.finishReason);
@@ -251,35 +277,30 @@
     const target = box.querySelector(".glance-snippet");
     const bodyEl = box.querySelector(".glance-ai-body");
     const expandBtn = box.querySelector(".glance-ai-expand");
+    const collapseBtn = box.querySelector(".glance-ai-collapse");
     if (!target) return;
 
     let streamDone = false;
-    let expandClicked = false;
     let expanded = false;
+    let needsClamp = true;
 
-    const collapse = () => {
-      expanded = false;
-      if (bodyEl) bodyEl.classList.add("glance-ai-body--clamped");
-      if (expandBtn) expandBtn.hidden = false;
+    const applyExpand = (open) => {
+      expanded = open;
+      if (!bodyEl) return;
+      if (expandBtn) expandBtn.hidden = open;
+      if (collapseBtn) collapseBtn.hidden = !open;
+      if (open) {
+        bodyEl.classList.remove("glance-ai-body--clamped");
+        if (streamDone) openChat(box);
+        return;
+      }
       const chatWrap = box.querySelector(".glance-ai-chat");
       if (chatWrap) chatWrap.hidden = true;
+      if (needsClamp) bodyEl.classList.add("glance-ai-body--clamped");
     };
 
-    const onDocClick = (e) => {
-      if (expanded && !box.contains(e.target)) collapse();
-    };
-
-    document.addEventListener("click", onDocClick, { capture: true });
-
-    if (expandBtn && bodyEl) {
-      expandBtn.addEventListener("click", () => {
-        expandClicked = true;
-        expanded = true;
-        bodyEl.classList.remove("glance-ai-body--clamped");
-        expandBtn.hidden = true;
-        if (streamDone) openChat(box);
-      });
-    }
+    expandBtn?.addEventListener("click", () => applyExpand(true));
+    collapseBtn?.addEventListener("click", () => applyExpand(false));
 
     const query = getQuery();
     const results = collectResults();
@@ -299,19 +320,13 @@
         target.innerHTML = renderRich(text);
         initFollowUp(box, text);
         requestAnimationFrame(() => {
-          if (!bodyEl || !expandBtn || bodyEl.scrollHeight <= MAX_SUMMARY_HEIGHT) {
-            if (bodyEl) bodyEl.classList.remove("glance-ai-body--clamped");
-            if (expandBtn) expandBtn.hidden = true;
-            openChat(box);
-            return;
-          }
-          if (expandClicked) openChat(box);
+          needsClamp = !!(bodyEl && bodyEl.scrollHeight > MAX_SUMMARY_HEIGHT);
+          if (!needsClamp || expanded) applyExpand(true);
         });
       },
       onFail: (msg) => {
         streamDone = true;
         if (box.dataset.hideOnError === "1") {
-          document.removeEventListener("click", onDocClick, { capture: true });
           box.remove();
           return;
         }
@@ -319,6 +334,7 @@
         target.textContent = msg;
         if (bodyEl) bodyEl.classList.remove("glance-ai-body--clamped");
         if (expandBtn) expandBtn.hidden = true;
+        if (collapseBtn) collapseBtn.hidden = true;
       },
     });
   };
@@ -396,64 +412,121 @@
     input.focus();
   };
 
-  const tooltipEl = (() => {
+  const popEl = (() => {
     const el = document.createElement("div");
-    el.className = "glance-ai-tooltip";
+    el.className = "glance-ai-pop";
     document.body.appendChild(el);
     return el;
   })();
 
-  const hideTooltip = () => tooltipEl.classList.remove("glance-ai-tooltip--visible");
+  let pinnedCite = null;
 
-  const showTooltip = (cite) => {
-    const n = parseInt(cite.dataset.citeN || "0", 10);
-    const src = new Map(sources.map((s) => [s.i, s])).get(n);
-    if (!src) return;
-    const fav = faviconFor(src.u);
-    const host = src.h || hostOf(src.u);
-    tooltipEl.innerHTML =
-      '<div class="glance-ai-tooltip-head">' +
-      (fav ? `<img src="${escapeHtml(fav)}" width="12" height="12" class="glance-ai-cite-favicon" alt="">` : "") +
-      `<span class="glance-ai-tooltip-host">${escapeHtml(host)}</span>` +
-      "</div>" +
-      (src.t ? `<div class="glance-ai-tooltip-title">${escapeHtml(src.t)}</div>` : "") +
-      (src.s ? `<div class="glance-ai-tooltip-snippet">${escapeHtml(src.s)}</div>` : "");
-    tooltipEl.classList.add("glance-ai-tooltip--visible");
-    requestAnimationFrame(() => {
-      const anchor = cite.getBoundingClientRect();
-      const tt = tooltipEl.getBoundingClientRect();
-      const spaceAbove = anchor.top - 8;
-      const top = spaceAbove >= tt.height
-        ? anchor.top - tt.height - 6
-        : anchor.bottom + 6;
-      const left = Math.min(
-        Math.max(anchor.left, 8),
-        window.innerWidth - tt.width - 8,
-      );
-      tooltipEl.style.top = top + "px";
-      tooltipEl.style.left = left + "px";
-    });
+  const closePop = () => {
+    pinnedCite?.classList.remove("glance-ai-cite--open");
+    pinnedCite = null;
+    popEl.classList.remove("glance-ai-pop--visible", "glance-ai-pop--pinned");
   };
 
-  let activeCite = null;
+  const srcRow = (src) => {
+    const fav = faviconFor(src.u);
+    return (
+      `<a class="glance-ai-pop-row" href="${escapeHtml(src.u)}" target="_blank" rel="noopener">` +
+      '<span class="glance-ai-pop-head">' +
+      (fav ? `<img class="glance-ai-cite-favicon" src="${escapeHtml(fav)}" alt="" width="14" height="14">` : "") +
+      `<span class="glance-ai-pop-host">${escapeHtml(hostLabel(src))}</span>` +
+      "</span>" +
+      (src.t ? `<span class="glance-ai-pop-title">${escapeHtml(src.t)}</span>` : "") +
+      (src.s ? `<span class="glance-ai-pop-snippet">${escapeHtml(src.s)}</span>` : "") +
+      "</a>"
+    );
+  };
+
+  const placePop = (cite) => {
+    const anchor = cite.getBoundingClientRect();
+    const pop = popEl.getBoundingClientRect();
+    const top = anchor.top - 8 >= pop.height
+      ? anchor.top - pop.height - 6
+      : anchor.bottom + 6;
+    const left = Math.min(
+      Math.max(anchor.left, 8),
+      Math.max(8, window.innerWidth - pop.width - 8),
+    );
+    popEl.style.top = top + "px";
+    popEl.style.left = left + "px";
+  };
+
+  const openPop = (cite, pinned) => {
+    const nums = (cite.dataset.citeNs || "").split(",");
+    const picked = pickSrcs(nums);
+    if (!picked.length) return;
+    popEl.innerHTML =
+      (picked.length > 1
+        ? `<div class="glance-ai-pop-label">${escapeHtml(t("ai-summary.sources"))}</div>`
+        : "") + picked.map(srcRow).join("");
+    popEl.classList.add("glance-ai-pop--visible");
+    popEl.classList.toggle("glance-ai-pop--pinned", !!pinned);
+    requestAnimationFrame(() => placePop(cite));
+  };
+
   glanceEl.addEventListener("mouseover", (e) => {
+    if (pinnedCite) return;
     const cite = e.target.closest(".glance-ai-cite");
-    if (cite === activeCite) return;
-    activeCite = cite;
-    if (cite) showTooltip(cite);
-    else hideTooltip();
+    if (cite) openPop(cite, false);
+    else if (!popEl.contains(e.target)) closePop();
   });
+
   glanceEl.addEventListener("mouseout", (e) => {
+    if (pinnedCite) return;
     const cite = e.target.closest(".glance-ai-cite");
     if (!cite || cite.contains(e.relatedTarget)) return;
-    activeCite = null;
-    hideTooltip();
+    closePop();
   });
+
+  glanceEl.addEventListener("click", (e) => {
+    const cite = e.target.closest(".glance-ai-cite");
+    if (!cite) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (pinnedCite === cite) {
+      closePop();
+      return;
+    }
+    pinnedCite?.classList.remove("glance-ai-cite--open");
+    pinnedCite = cite;
+    cite.classList.add("glance-ai-cite--open");
+    openPop(cite, true);
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!pinnedCite || popEl.contains(e.target)) return;
+    closePop();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && pinnedCite) closePop();
+  });
+
+  window.addEventListener("scroll", () => {
+    if (pinnedCite) placePop(pinnedCite);
+  }, { passive: true });
+
+  const initRail = (box) => {
+    const toggle = box.querySelector(".glance-ai-sources-toggle");
+    const rail = box.querySelector(".glance-ai-rail");
+    if (!toggle || !rail) return;
+    toggle.addEventListener("click", () => {
+      const open = rail.hidden;
+      rail.hidden = !open;
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+  };
 
   const bootBox = (box) => {
     if (box.dataset.chatInit) return;
     box.dataset.chatInit = "1";
     sources = parseSrcs(box);
+    hydrateIcons(box);
+    initRail(box);
     if (box.dataset.stream === "1") streamSummary(box);
   };
 

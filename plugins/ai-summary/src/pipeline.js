@@ -40,7 +40,7 @@ const pump = async (iter, controller) => {
 };
 
 export const runStream = (messages, maxTokens, cacheKey, settings, cache) => {
-  const adapter = pickAdapter(settings.provider);
+  const adapter = pickAdapter(settings.provider, settings.openAICompatProvider);
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), settings.timeoutMs);
 

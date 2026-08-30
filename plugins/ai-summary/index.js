@@ -1,10 +1,21 @@
-import { ProviderId } from "./providers/index.js";
+import {
+  adapterRequirements,
+  DetectSource,
+  effectiveProviderId,
+  forgetDetection,
+  listModels,
+  PROVIDER_LABELS,
+  PROVIDER_ORDER,
+  sniffProvider,
+} from "./providers/index.js";
 import { DEFAULT_SYSTEM_PROMPT } from "./src/prompt.js";
 import { parseSettings, settingsSchema, FOLLOWUP_MIN_TOKENS } from "./src/settings.js";
 import { buildSources, buildUserPrompt, buildPanelHtml, summaryCacheKey } from "./src/panel.js";
 import { runStream } from "./src/pipeline.js";
 
 const AI_SUMMARY_ID = "ai-summary-slot";
+const MODEL_FIELD_KEY = "model";
+const PROVIDER_FIELD_KEY = "provider";
 const SUMMARY_NAMESPACE = "ext:ai-summary:summary";
 const SHORT_TTL_MS = 2 * 60 * 1000;
 const ROUTE_STREAM = "/stream";
@@ -37,6 +48,41 @@ const buildSummaryMsgs = (query, results) => {
   ];
 };
 
+const providerOptions = () =>
+  PROVIDER_ORDER.map((id) => ({ value: id, label: PROVIDER_LABELS[id] ?? id }));
+
+const detectProvider = async (settings) => {
+  forgetDetection(settings.baseUrl);
+  const found = await sniffProvider(settings.baseUrl, settings.apiKey);
+  const options = providerOptions();
+  if (found.source === DetectSource.Fallback) {
+    return {
+      options,
+      notice: `Could not identify ${found.origin}. Pick a provider yourself; OpenAI compatible is the safe bet.`,
+    };
+  }
+  const where = settings.baseUrl.trim()
+    ? `at ${found.origin}`
+    : `on the default ${found.origin}, since no base URL is set`;
+  return {
+    options,
+    value: found.id,
+    notice: `Detected ${PROVIDER_LABELS[found.id]} ${where}.`,
+  };
+};
+
+const fetchModels = async (settings) => {
+  const id = effectiveProviderId(settings.provider, settings.openAICompatProvider);
+  const options = await listModels(id, settings);
+  const label = PROVIDER_LABELS[id] ?? id;
+  return {
+    options,
+    notice: options.length
+      ? `${options.length} models served over the ${label} API.`
+      : `No models came back from the ${label} API. Check the base URL and key, or type the model id yourself.`,
+  };
+};
+
 const jsonError = (msg, status) =>
   new Response(JSON.stringify({ error: msg }), {
     status,
@@ -60,12 +106,21 @@ export const slot = {
 
   configure(s) {
     _settings = parseSettings(s ?? {});
+    forgetDetection(_settings.baseUrl);
+  },
+
+  async getFieldOptions(key, values) {
+    const settings = parseSettings(values ?? {});
+    if (key === PROVIDER_FIELD_KEY) return detectProvider(settings);
+    if (key === MODEL_FIELD_KEY) return fetchModels(settings);
+    return { options: [] };
   },
 
   async trigger(query) {
     if (!_settings.model) return false;
-    if (_settings.provider === ProviderId.OpenAICompat && !_settings.baseUrl) return false;
-    if (_settings.provider !== ProviderId.OpenAICompat && !_settings.apiKey) return false;
+    const reqs = adapterRequirements(_settings.provider, _settings.openAICompatProvider);
+    if (reqs.baseUrl && !_settings.baseUrl) return false;
+    if (reqs.apiKey && !_settings.apiKey) return false;
     if (_settings.questionMarkOnly && !query.trim().endsWith("?")) return false;
     return true;
   },
@@ -76,7 +131,7 @@ export const slot = {
     if (!_settings.model) return { html: "" };
     if (_settings.questionMarkOnly && !query.trim().endsWith("?")) return { html: "" };
     const sources = buildSources(results);
-    return { html: buildPanelHtml(this.t, query.trim(), sources, _settings.hideOnError) };
+    return { html: buildPanelHtml(this.t, query.trim(), sources, _settings.hideOnError, _settings.enableInputStyling) };
   },
 
   settingsSchema,

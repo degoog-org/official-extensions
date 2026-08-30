@@ -9,6 +9,10 @@
     "writing": "Writing answer\u2026",
     "no-response": "Could not get a response. Try again.",
     "request-failed": "Request failed. Try again.",
-    "read-more": "Read more"
+    "read-more": "Read more",
+    "show-less": "Show less",
+    "site": "{n} site",
+    "sites": "{n} sites",
+    "sources": "Sources"
   }
 }
