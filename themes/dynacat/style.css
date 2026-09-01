@@ -1,0 +1,404 @@
+/* degoog declares its own accent inside :root:not([data-theme="dark"]), which
+   outranks a plain :root mapping, so these need !important. */
+:root {
+  --primary: var(--dc-accent) !important;
+  --primary-hover: var(--dc-accent-hover) !important;
+  --primary-rgb: var(--dc-accent-rgb) !important;
+  --brand-blue: var(--dc-accent) !important;
+  --brand-yellow: var(--warning) !important;
+  --btn-text: var(--text-primary) !important;
+  --degoog-search-bar-radius: 5px;
+
+  --dc-radius: 5px;
+  --dc-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas,
+    "Liberation Mono", Menlo, monospace;
+}
+
+:root {
+  --dc-accent: #ae48ea;
+  --dc-accent-hover: #bf6dee;
+  --dc-accent-rgb: 174, 72, 234;
+  --dc-accent-soft: #c78bef;
+  --dc-accent-deep: #8226c4;
+
+  --bg: #151519;
+  --bg-light: #17171c;
+  --bg-hover: #1e1e24;
+  --modal-footer: #1e1e24;
+
+  --border: #28282f;
+  --border-light: #1e1e24;
+
+  --text-primary: #d6d6dc;
+  --text-secondary: #8b8b9c;
+  --text-cite: #b5b5c0;
+  --text-snippet: #b5b5c0;
+  --text-link: #c48af0;
+  --text-link-visited: #9a7ab8;
+
+  --danger: #e87d7d;
+  --warning: #e7c15f;
+  --success: #6ecf9e;
+
+  --search-bar-bg: #17171c;
+  --search-bar-bg-hover: #1e1e24;
+  --btn-bg: #1e1e24;
+
+  --overlay-bg: rgba(10, 10, 13, 0.72);
+  --white: #f4f4f7;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --dc-accent: #852eb8;
+    --dc-accent-hover: #70279b;
+    --dc-accent-rgb: 133, 46, 184;
+    --dc-accent-soft: #a75fd0;
+    --dc-accent-deep: #5f1c88;
+
+    --bg: #f1f1f3;
+    --bg-light: #f9f9fa;
+    --bg-hover: #e6e6ea;
+    --modal-footer: #ececf0;
+
+    --border: #c8c8d0;
+    --border-light: #dedee3;
+
+    --text-primary: #232329;
+    --text-secondary: #636374;
+    --text-cite: #3f3f4a;
+    --text-snippet: #3f3f4a;
+    --text-link: #7b2fb0;
+    --text-link-visited: #5b3a91;
+
+    --danger: #ca2b2b;
+    --warning: #a98019;
+    --success: #2f7f57;
+
+    --search-bar-bg: #ffffff;
+    --search-bar-bg-hover: #ffffff;
+    --btn-bg: #e6e6ea;
+
+    --overlay-bg: rgba(21, 21, 25, 0.45);
+    --white: #ffffff;
+  }
+}
+
+[data-theme="light"] {
+  --dc-accent: #852eb8;
+  --dc-accent-hover: #70279b;
+  --dc-accent-rgb: 133, 46, 184;
+  --dc-accent-soft: #a75fd0;
+  --dc-accent-deep: #5f1c88;
+
+  --bg: #f1f1f3;
+  --bg-light: #f9f9fa;
+  --bg-hover: #e6e6ea;
+  --modal-footer: #ececf0;
+
+  --border: #c8c8d0;
+  --border-light: #dedee3;
+
+  --text-primary: #232329;
+  --text-secondary: #636374;
+  --text-cite: #3f3f4a;
+  --text-snippet: #3f3f4a;
+  --text-link: #7b2fb0;
+  --text-link-visited: #5b3a91;
+
+  --danger: #ca2b2b;
+  --warning: #a98019;
+  --success: #2f7f57;
+
+  --search-bar-bg: #ffffff;
+  --search-bar-bg-hover: #ffffff;
+  --btn-bg: #e6e6ea;
+
+  --overlay-bg: rgba(21, 21, 25, 0.45);
+  --white: #ffffff;
+}
+
+/* Icon fonts are excluded so Font Awesome glyphs keep rendering. */
+body,
+body *:not(i):not(svg):not(path):not(.fa):not([class*="fa-"]) {
+  font-family: var(--dc-mono) !important;
+  font-variant-ligatures: none !important;
+}
+
+.degoog-result--cite {
+  color: var(--text-secondary) !important;
+  letter-spacing: -0.01em !important;
+}
+
+.degoog-result--title {
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+}
+
+.degoog-result--snippet {
+  line-height: 1.6 !important;
+}
+
+.degoog-search-bar {
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  transition: border-color 0.15s ease !important;
+}
+
+.degoog-search-bar:hover,
+.degoog-search-bar:focus-within {
+  border-color: var(--dc-accent) !important;
+  box-shadow: none !important;
+}
+
+.degoog-search-bar *,
+.degoog-search-bar *:focus,
+.degoog-search-bar *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.ac-dropdown {
+  border: 1px solid var(--border) !important;
+  border-top: none !important;
+  border-radius: 0 0 var(--dc-radius) var(--dc-radius) !important;
+  box-shadow: none !important;
+}
+
+#settings-global-search,
+.settings-nav-search-input {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.degoog-btn,
+.degoog-btn--primary,
+.degoog-btn--secondary,
+.degoog-btn--danger,
+.search-btn,
+.search-bar-action-btn,
+.degoog-icon-btn,
+.degoog-input,
+.degoog-input--tools,
+.degoog-input--chat,
+.degoog-badge,
+.degoog-panel,
+.degoog-file,
+.degoog-toggle-wrap,
+.degoog-result--thumb,
+.degoog-result--favicon,
+.degoog-ac-rich-thumb,
+.degoog-ac-rich-type,
+.degoog-result--actions-toggle,
+[class*="card"],
+[class*="skeleton"],
+[class*="image-card"],
+[class*="video-card"],
+[class*="lightbox"] {
+  border-radius: var(--dc-radius) !important;
+}
+
+.degoog-panel {
+  border: 1px solid var(--border-light) !important;
+  box-shadow: none !important;
+}
+
+.degoog-input {
+  outline: none !important;
+}
+
+.degoog-search-bar .degoog-input,
+.degoog-search-bar .search-input,
+.settings-nav-search-input {
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+
+.degoog-input--tools:focus,
+.degoog-input--tools:focus-visible,
+.degoog-input--chat:focus,
+.degoog-input--chat:focus-visible {
+  border-color: var(--dc-accent) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+[class*="dropdown"]:not(.ac-dropdown) {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--dc-radius) !important;
+  box-shadow: none !important;
+}
+
+.degoog-result {
+  border-bottom: 1px solid var(--border-light) !important;
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+}
+
+.degoog-result:last-child {
+  border-bottom: none !important;
+}
+
+.degoog-toggle {
+  background: var(--border) !important;
+}
+
+.degoog-toggle::after {
+  background: var(--text-secondary) !important;
+  border-color: var(--border) !important;
+}
+
+input:checked + .degoog-toggle {
+  background: rgba(var(--dc-accent-rgb), 0.4) !important;
+}
+
+input:checked + .degoog-toggle::after {
+  background: var(--dc-accent) !important;
+  border-color: var(--dc-accent) !important;
+}
+
+.degoog-checkbox {
+  border-radius: 4px !important;
+  border: 1px solid var(--border) !important;
+  background: var(--bg) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+}
+
+/* The tick is a glyph with its own side bearings, so center it on its own box. */
+.degoog-checkbox .fa-check {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 !important;
+  text-align: center !important;
+  line-height: 1 !important;
+  font-size: 0.7rem !important;
+}
+
+.degoog-checkbox-wrap:hover .degoog-checkbox {
+  border-color: var(--dc-accent) !important;
+}
+
+input:checked + .degoog-checkbox {
+  background: rgba(var(--dc-accent-rgb), 0.18) !important;
+  border-color: var(--dc-accent) !important;
+}
+
+input:checked + .degoog-checkbox .fa-check {
+  color: var(--dc-accent) !important;
+}
+
+.ext-modal {
+  border-radius: var(--dc-radius) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+}
+
+.ext-modal-header {
+  border-bottom: 1px solid var(--border-light) !important;
+}
+
+.ext-modal-footer {
+  background: var(--modal-footer) !important;
+  border-top: 1px solid var(--border-light) !important;
+}
+
+:focus-visible {
+  outline: 2px solid var(--dc-accent) !important;
+  outline-offset: 1px !important;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.degoog-input:focus-visible,
+.degoog-toggle-wrap:focus-visible,
+.degoog-checkbox-wrap:focus-visible {
+  outline: none !important;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: var(--dc-radius);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dc-accent);
+}
+
+::selection {
+  background: rgba(var(--dc-accent-rgb), 0.28);
+  color: var(--text-primary);
+}
+
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+a:visited {
+  color: var(--text-link-visited);
+}
+
+.logo-d,
+.logo-o1,
+.logo-o2 {
+  color: var(--dc-accent) !important;
+}
+
+.logo-e {
+  color: var(--dc-accent-soft) !important;
+}
+
+.logo-g1,
+.logo-g2 {
+  color: var(--dc-accent-deep) !important;
+}
+
+/* Mascot logo, off unless the "Dynacat logo" theme setting is on. The svg is
+   swapped per scheme because its connecting stroke is white. */
+html[data-dynacat-logo="true"] .logo,
+html[data-dynacat-logo="true"] .results-logo {
+  display: inline-block;
+  width: 4.25em;
+  height: 1.2em;
+  background-image: url("__THEME_PATH__/logo.svg");
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: contain;
+}
+
+html[data-dynacat-logo="true"] .logo span,
+html[data-dynacat-logo="true"] .results-logo span {
+  display: none;
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-dynacat-logo="true"]:not([data-theme="dark"]) .logo,
+  html[data-dynacat-logo="true"]:not([data-theme="dark"]) .results-logo {
+    background-image: url("__THEME_PATH__/logo-light.svg");
+  }
+}
+
+html[data-dynacat-logo="true"][data-theme="light"] .logo,
+html[data-dynacat-logo="true"][data-theme="light"] .results-logo {
+  background-image: url("__THEME_PATH__/logo-light.svg");
+}

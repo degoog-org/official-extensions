@@ -1,0 +1,15 @@
+{
+  "name": "Dynacat Theme",
+  "description": "The Dynacat dashboard palette ported to degoog: violet-tinted neutrals, one purple accent, monospace type and flat 5px corners. Follows the built-in light and dark toggle.",
+  "css": "style.css",
+  "settingsSchema": [
+    {
+      "key": "customLogo",
+      "label": "Dynacat logo",
+      "type": "toggle"
+    }
+  ],
+  "dataAttrsFromSettings": {
+    "customLogo": "dynacat-logo"
+  }
+}
