@@ -114,10 +114,12 @@ export const buildPanelHtml = (t, query, sources, hideOnError, enableInputStylin
     "</div>" +
     '<div class="glance-ai-chat" hidden>' +
     '<div class="glance-ai-messages"></div>' +
-    '<textarea class="glance-ai-input degoog-input degoog-input--chat" placeholder="${t("ai-summary.follow-up-placeholder")}" rows="1"></textarea>' +
+    `<div class="${inputWrapClass}">` +
+    '<textarea class="glance-ai-input degoog-input degoog-input--chat" placeholder="{{ t:ai-summary.follow-up-placeholder }}" rows="1"></textarea>' +
     "</div>" +
     "</div>" +
-    `<button class="glance-ai-collapse" type="button" hidden>${t("ai-summary.show-less")}</button>` +
+    "</div>" +
+    '<button class="glance-ai-collapse" type="button" hidden>{{ t:ai-summary.show-less }}</button>' +
     "</div>"
   );
 };
