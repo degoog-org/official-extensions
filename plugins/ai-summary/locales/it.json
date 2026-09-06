@@ -8,6 +8,11 @@
     "thinking": "Elaborazione…",
     "no-response": "Impossibile ottenere una risposta. Riprova.",
     "request-failed": "Richiesta non riuscita. Riprova.",
-    "read-more": "Leggi tutto"
+    "read-more": "Leggi tutto",
+    "show-less": "Mostra meno",
+    "writing": "Scrittura risposta…",
+    "site": "{n} fonte",
+    "sites": "{n} fonti",
+    "sources": "Fonti"
   }
 }
