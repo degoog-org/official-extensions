@@ -16,7 +16,7 @@
       "path": "plugins/ai-summary",
       "name": "AI Summary",
       "description": "AI-powered summary panel for search results. Supports OpenAI-compatible, OpenAI, OpenRouter, Ollama, llama.cpp, vLLM, LM Studio, Gemini, and Anthropic providers.",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "type": "slot",
       "minDegoogVersion": "0.25.0",
       "legacyIds": [
