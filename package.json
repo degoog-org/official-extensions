@@ -138,6 +138,14 @@
       "minDegoogVersion": "0.22.0"
     },
     {
+      "path": "plugins/engine-stats",
+      "name": "Engine stats",
+      "description": "Records per-engine response times, failure rates and result counts, then shows them with !engine-stats.",
+      "version": "1.0.0",
+      "type": "interceptor",
+      "minDegoogVersion": "0.26.0"
+    },
+    {
       "path": "plugins/spell-check",
       "name": "Spell Check",
       "description": "Intercepts search queries and corrects spelling using Yandex Speller.",
