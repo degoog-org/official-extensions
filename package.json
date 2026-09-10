@@ -400,8 +400,8 @@
     {
       "path": "engines/startpage",
       "name": "Startpage",
-      "description": "Adds the Startpage engine to degoog. You can enable Anonymous View so result links open via Startpage's proxy.",
-      "version": "1.1.9"
+      "description": "Adds the Startpage engine to degoog. Solves the Anubis proof-of-work gate Startpage puts in front of search, so no browser transport is needed. You can enable Anonymous View so result links open via Startpage's proxy.",
+      "version": "1.2.0"
     },
     {
       "path": "engines/internet-archive",
