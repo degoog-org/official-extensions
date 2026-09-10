@@ -17,6 +17,13 @@ export const ChunkKind = Object.freeze({
   Error: "error",
 });
 
+export const TokenParam = Object.freeze({
+  MaxTokens: "max_tokens",
+  MaxCompletionTokens: "max_completion_tokens",
+});
+
+export const SESSION_PLACEHOLDER = "{{session}}";
+
 export const ChatRole = Object.freeze({
   System: "system",
   User: "user",

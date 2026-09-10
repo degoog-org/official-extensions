@@ -1,4 +1,4 @@
-import { PROVIDER_LABELS, PROVIDER_ORDER, ProviderId } from "../providers/index.js";
+import { PROVIDER_LABELS, PROVIDER_ORDER, ProviderId, TokenParam } from "../providers/index.js";
 import { DEFAULT_SYSTEM_PROMPT } from "./prompt.js";
 
 export const DEFAULT_TIMEOUT_S = 180;
@@ -12,6 +12,12 @@ const normaliseProvider = (raw) => {
   const all = Object.values(ProviderId);
   return all.includes(raw) ? raw : ProviderId.OpenAICompat;
 };
+
+const TOKEN_PARAM_ORDER = [TokenParam.MaxTokens, TokenParam.MaxCompletionTokens];
+
+const normaliseTokenParam = (raw) => (
+  TOKEN_PARAM_ORDER.includes(raw) ? raw : TokenParam.MaxTokens
+);
 
 const normaliseCompatProvider = (raw) => {
   const compat = [
@@ -35,6 +41,8 @@ export const parseSettings = (raw) => {
     baseUrl: asStr(raw["baseUrl"]),
     model: asStr(raw["model"]),
     apiKey: asStr(raw["apiKey"]),
+    extraHeaders: asStr(raw["extraHeaders"]),
+    tokenParam: normaliseTokenParam(asStr(raw["tokenLimitParam"])),
     timeoutMs: Math.max(5, timeoutSeconds) * 1000,
     systemPrompt: asStr(raw["systemPrompt"]),
     maxTokens: Math.max(16, maxTokens),
@@ -109,6 +117,24 @@ export const settingsSchema = [
     },
     description:
       "Model id. Lists: [OpenAI](https://platform.openai.com/docs/models), [Gemini](https://ai.google.dev/gemini-api/docs/models), [Anthropic](https://docs.anthropic.com/en/docs/about-claude/models). For Ollama/vLLM use whatever you have served. Reasoning models work; their thoughts stream live and clear when the answer starts.",
+  },
+  {
+    key: "tokenLimitParam",
+    label: "Token limit parameter",
+    type: "select",
+    options: [...TOKEN_PARAM_ORDER],
+    optionLabels: ["max_tokens (default)", "max_completion_tokens (newer OpenAI models)"],
+    default: TokenParam.MaxTokens,
+    description:
+      "Which field carries the token cap on OpenAI-style APIs. Newer OpenAI reasoning models reject `max_tokens` and answer with *Unsupported parameter*; switch to `max_completion_tokens` for those. Ignored by Gemini, Anthropic and Ollama, which have their own field.",
+  },
+  {
+    key: "extraHeaders",
+    label: "Extra request headers",
+    type: "textarea",
+    placeholder: "x-opencode-session: {{session}}",
+    description:
+      "One `Name: value` per line, sent with every request to your provider. `{{session}}` becomes a stable id for the conversation, which is what OpenCode Go wants in `x-opencode-session`. Lines starting with `#` are ignored, and `Content-Type` and `Accept` cannot be overridden.",
   },
   {
     key: "enableThinking",

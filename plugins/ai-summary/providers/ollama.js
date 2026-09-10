@@ -1,4 +1,5 @@
 import { resolveProviderBaseUrl } from "./base-url.js";
+import { withExtras } from "./headers.js";
 import { readNdjson } from "./ndjson.js";
 import { ChunkKind, OLLAMA_DEFAULT_BASE, ProviderId } from "./types.js";
 
@@ -18,7 +19,7 @@ const callOllama = (config, messages, opts) => {
   if (config.apiKey) headers["Authorization"] = `Bearer ${config.apiKey}`;
   return fetch(`${resolveOllamaBase(config.baseUrl)}/api/chat`, {
     method: "POST",
-    headers,
+    headers: withExtras(headers, config),
     body: JSON.stringify({
       model: config.model,
       messages,

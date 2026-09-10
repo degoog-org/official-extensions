@@ -1,4 +1,4 @@
-import { ChunkKind, pickAdapter } from "../providers/index.js";
+import { ChunkKind, pickAdapter, sessionTag } from "../providers/index.js";
 
 const LOG_NS = "ai-summary:pipeline";
 const THINK_ONLY_MS = 45_000;
@@ -39,7 +39,7 @@ const pump = async (iter, controller) => {
   return { finishReason, errored, text };
 };
 
-export const runStream = (messages, maxTokens, cacheKey, settings, cache) => {
+export const runStream = (messages, maxTokens, cacheKey, settings, cache, sessionSeed = "") => {
   const adapter = pickAdapter(settings.provider, settings.openAICompatProvider);
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), settings.timeoutMs);
@@ -63,9 +63,20 @@ export const runStream = (messages, maxTokens, cacheKey, settings, cache) => {
           }, THINK_ONLY_MS);
         }
         const iter = adapter.stream(
-          { baseUrl: settings.baseUrl, model: settings.model, apiKey: settings.apiKey },
+          {
+            baseUrl: settings.baseUrl,
+            model: settings.model,
+            apiKey: settings.apiKey,
+            extraHeaders: settings.extraHeaders,
+            sessionId: sessionTag(sessionSeed),
+          },
           messages,
-          { maxTokens, enableThinking: settings.enableThinking, signal: abort.signal },
+          {
+            maxTokens,
+            enableThinking: settings.enableThinking,
+            tokenParam: settings.tokenParam,
+            signal: abort.signal,
+          },
         );
         const wrapped = (async function* () {
           for await (const ch of iter) {

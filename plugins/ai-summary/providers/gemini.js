@@ -1,4 +1,5 @@
 import { resolveProviderBaseUrl } from "./base-url.js";
+import { withExtras } from "./headers.js";
 import { readSse } from "./sse.js";
 import { ChatRole, ChunkKind, GEMINI_DEFAULT_BASE, ProviderId } from "./types.js";
 
@@ -36,10 +37,10 @@ const callGemini = async (config, messages, opts) => {
   if (system) body["systemInstruction"] = { parts: [{ text: system }] };
   return fetch(url, {
     method: "POST",
-    headers: {
+    headers: withExtras({
       "Content-Type": "application/json",
       Accept: "text/event-stream",
-    },
+    }, config),
     body: JSON.stringify(body),
     signal: opts.signal,
   });

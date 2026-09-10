@@ -1,4 +1,4 @@
-import { createOpenAIChatAdapter } from "./openai-chat.js";
+import { createOpenAIChatAdapter, tokenCap } from "./openai-chat.js";
 import { OPENAI_DEFAULT_BASE, ProviderId } from "./types.js";
 
 const buildBody = (config, messages, opts) => {
@@ -6,7 +6,7 @@ const buildBody = (config, messages, opts) => {
     model: config.model,
     messages,
     stream: true,
-    max_tokens: opts.maxTokens,
+    ...tokenCap(opts),
   };
   if (opts.enableThinking) body.reasoning_effort = "medium";
   return body;
