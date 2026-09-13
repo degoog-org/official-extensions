@@ -7,7 +7,7 @@
     {
       "path": "plugins/4play-status",
       "name": "4play status",
-      "description": "!4play bang showing live 4play transport status with configurable admin/open/locked access.",
+      "description": "!4play shows live 4play transport status. Access can be admin-only, open, or locked.",
       "version": "1.4.0",
       "type": "command",
       "minDegoogVersion": "0.23.0"
@@ -15,7 +15,7 @@
     {
       "path": "plugins/ai-summary",
       "name": "AI Summary",
-      "description": "AI-powered summary panel for search results. Supports OpenAI-compatible, OpenAI, OpenRouter, Ollama, llama.cpp, vLLM, LM Studio, Gemini, and Anthropic providers.",
+      "description": "Summarizes search results. Works with OpenAI-compatible APIs, OpenAI, OpenRouter, Ollama, llama.cpp, vLLM, LM Studio, Gemini, and Anthropic.",
       "version": "1.4.0",
       "type": "slot",
       "minDegoogVersion": "0.25.0",
@@ -75,7 +75,7 @@
     {
       "path": "plugins/math-slot",
       "name": "Math",
-      "description": "Evaluates math expressions straight in the search bar and shows an interactive calculator.",
+      "description": "Evaluates math in the search bar and shows a calculator.",
       "version": "1.2.1",
       "type": "slot"
     },
@@ -118,21 +118,21 @@
     {
       "path": "plugins/freshrss",
       "name": "FreshRSS",
-      "description": "Integrates a self-hosted FreshRSS instance. Works the same way as the home rss plugin but uses the FreshRSS API instead.",
+      "description": "Shows feeds from your FreshRSS instance, same layout as the home RSS plugin, through the FreshRSS API.",
       "version": "1.0.2",
       "type": "slot"
     },
     {
       "path": "plugins/github-slot",
       "name": "GitHub",
-      "description": "When search results include GitHub repos or users, shows styled info above results.",
+      "description": "When results include GitHub repos or users, a card appears above the list.",
       "version": "1.1.1",
       "type": "slot"
     },
     {
       "path": "plugins/apps-pocket",
       "name": "Apps pocket",
-      "description": "Adds a Google-style apps grid next to the settings icon. Apps are managed as a list in the plugin settings.",
+      "description": "App grid next to the settings icon. You manage the list in plugin settings.",
       "version": "1.3.0",
       "type": "command",
       "minDegoogVersion": "0.22.0"
@@ -178,22 +178,29 @@
     {
       "path": "plugins/oidc",
       "name": "OIDC / SSO",
-      "description": "Single sign-on gate for the settings area using any OpenID Connect provider. Adds a home-page avatar for the signed-in user.",
+      "description": "Locks settings behind any OpenID Connect provider. Puts an avatar on the home page for the signed-in user.",
       "version": "1.0.0",
       "type": "middleware"
+    },
+    {
+      "path": "plugins/dynacat",
+      "name": "Dynacat",
+      "description": "Puts Dynacat widgets on the home page and behind !dynacat. The token stays on the server. A picker sets which widgets show, how wide they are, and in what order.",
+      "version": "1.0.0",
+      "type": "command"
     }
   ],
   "themes": [
     {
       "path": "themes/degoog-docs",
       "name": "Degoog Docs",
-      "description": "A theme that matches the degoog documentation site.",
+      "description": "Matches the degoog documentation site.",
       "version": "1.0.3"
     },
     {
       "path": "themes/zen",
       "name": "Zen",
-      "description": "A minimalist calming theme.",
+      "description": "Paper-colored theme with Bricolage Grotesque and Junicode.",
       "version": "2.1.0"
     },
     {
@@ -207,38 +214,44 @@
       "name": "Pokemon",
       "description": "Starter-inspired: Pikachu (yellow), Bulbasaur (green), Charmander (orange), Squirtle (blue).",
       "version": "1.3.0"
+    },
+    {
+      "path": "themes/dynacat",
+      "name": "Dynacat",
+      "description": "Dynacat's dashboard colors on degoog. Violet-tinted neutrals, one purple accent, monospace type, flat 5px corners.",
+      "version": "1.0.0"
     }
   ],
   "transports": [
     {
       "path": "transports/flaresolverr",
       "name": "FlareSolverr",
-      "description": "Bypass Cloudflare challenges via a FlareSolverr instance. Once configured, engines can select flaresolverr as their outgoing transport.",
+      "description": "Sends requests through FlareSolverr to get past Cloudflare. Engines pick it as their outgoing transport once it is set up.",
       "version": "1.1.1"
     },
     {
       "path": "transports/browserless",
       "name": "Browserless",
-      "description": "Fetches pages through a self-hosted Browserless instance (or any compatible headless browser service). Renders JavaScript before returning HTML - useful for engines like Google Images that block standard HTTP requests. Compatible with browserless/chromium, CloakBrowser wrappers, and any service exposing POST /content.",
+      "description": "Fetches pages through Browserless or any headless browser that accepts POST /content. It runs JavaScript and returns HTML, which is what you want for engines like Google Images that ignore a normal HTTP request. Works with browserless/chromium and CloakBrowser wrappers.",
       "version": "1.1.2"
     },
     {
       "path": "transports/cloakbrowser",
       "name": "CloakBrowser",
-      "description": "Fetches pages through a self-hosted CloakBrowser service (stealth Chromium). Patches bot-detection signals at the C++ level - navigator.webdriver, canvas, CDP leaks - bypassing Google and Cloudflare. See homelab/cloakbrowser for the Docker service.",
+      "description": "Fetches pages through CloakBrowser, a stealth Chromium that patches navigator.webdriver, canvas, and CDP leaks in C++. Gets past Google and Cloudflare. Docker setup lives in homelab/cloakbrowser.",
       "version": "1.0.1"
     },
     {
       "path": "transports/camoufox",
       "name": "Camoufox",
-      "description": "Fetches pages through a self-hosted Camoufox service (stealth Firefox). Patches bot-detection signals at the C++ level, bypassing Google and Cloudflare. See Korosys/camoufox-degoog for the Docker service.",
+      "description": "Fetches pages through Camoufox, a stealth Firefox that patches bot-detection signals in C++. Gets past Google and Cloudflare. Docker setup lives at Korosys/camoufox-degoog.",
       "version": "1.0.2"
     },
     {
       "path": "transports/lolcat-4play",
       "name": "4play (lolcat)",
       "minDegoogVersion": "0.23.0",
-      "description": "Fetches pages using a real Firefox session via the official lolcat 4play browser extension.",
+      "description": "Fetches pages with a real Firefox session through the official lolcat 4play browser extension.",
       "version": "1.8.1"
     }
   ],
@@ -246,7 +259,7 @@
     {
       "path": "engines/google",
       "name": "Google",
-      "description": "Adds Google web search to degoog. Requires the 4play (lolcat) transport, Google no longer returns results over plain HTTP. Use Google CSE if you cannot run 4play.",
+      "description": "Google web search. Needs the 4play lolcat transport, because Google stopped returning results over plain HTTP. Use Google CSE if you cannot run 4play.",
       "version": "1.2.1",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
@@ -257,7 +270,7 @@
     {
       "path": "engines/google-cse",
       "name": "Google CSE",
-      "description": "Adds Google CSE to degoog.",
+      "description": "Google Custom Search.",
       "version": "1.0.0",
       "minDegoogVersion": "0.23.0",
       "legacyIds": [
@@ -268,7 +281,7 @@
     {
       "path": "engines/google-images",
       "name": "Google Images",
-      "description": "Adds Google Images to degoog. Choose JSON or HTML results in engine settings - each mode links to the matching transport in the Store.",
+      "description": "Google image search. Pick JSON or HTML in engine settings. Each mode points you at the matching transport in the Store.",
       "version": "1.3.1",
       "minDegoogVersion": "0.23.0",
       "legacyIds": [
@@ -279,7 +292,7 @@
     {
       "path": "engines/google-videos",
       "name": "Google Videos",
-      "description": "Adds Google Videos to degoog.",
+      "description": "Google video search.",
       "version": "1.1.0",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
@@ -334,7 +347,7 @@
     {
       "path": "engines/brave",
       "name": "Brave Search",
-      "description": "Brave web search (HTML scraping). For API access use Brave API Search.",
+      "description": "Brave web search by scraping HTML. For API access use Brave API Search.",
       "version": "1.0.0",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
@@ -367,7 +380,7 @@
     {
       "path": "engines/wikipedia",
       "name": "Wikipedia",
-      "description": "Wikipedia search via the MediaWiki API.",
+      "description": "Wikipedia search through the MediaWiki API.",
       "version": "1.1.0",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
@@ -378,7 +391,7 @@
     {
       "path": "engines/reddit",
       "name": "Reddit",
-      "description": "Reddit post search via the public RSS feed.",
+      "description": "Reddit post search through the public RSS feed.",
       "version": "1.0.3",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
@@ -389,44 +402,44 @@
     {
       "path": "engines/ecosia",
       "name": "Ecosia",
-      "description": "Adds the Ecosia engine to degoog. Note: Ecosia may return no results when Cloudflare blocks server-side requests; use another engine if that happens.",
+      "description": "Ecosia web search. Cloudflare often blocks the server and you get nothing. Use another engine when that happens.",
       "version": "1.0.8"
     },
     {
       "path": "engines/startpage",
       "name": "Startpage",
-      "description": "Adds the Startpage engine to degoog. Solves the Anubis proof-of-work gate Startpage puts in front of search, so no browser transport is needed. You can enable Anonymous View so result links open via Startpage's proxy.",
+      "description": "Startpage web search. Handles the Anubis proof-of-work gate itself, so you do not need a browser transport. Turn on Anonymous View if you want result links to open through Startpage's proxy.",
       "version": "1.2.0"
     },
     {
       "path": "engines/internet-archive",
       "name": "Internet Archive",
-      "description": "Adds the Internet Archive as a file-type engine. Searches archive.org for downloadable files, books, software, media, and more.",
+      "description": "File-type engine for archive.org. Books, software, whatever they have.",
       "version": "1.0.6"
     },
     {
       "path": "engines/lemmy",
       "name": "Lemmy World",
-      "description": "Adds the Lemmy engine to degoog. Searches Lemmy for posts, comments, and communities.",
+      "description": "Lemmy search for posts, comments, and communities.",
       "version": "1.0.4"
     },
     {
       "path": "engines/brave-api-search",
       "name": "Brave API Search",
-      "description": "Adds the Brave API Search engine to degoog. Searches Brave.com for search results via the api instead of scraping the frontend.",
+      "description": "Brave web search through their API, not the HTML page.",
       "version": "1.0.3"
     },
     {
       "path": "engines/duckduckgo-images",
       "name": "DuckDuckGo Images",
-      "description": "Adds the DuckDuckGo images search engine to degoog, adding an extra ~70 images per page to the image results.",
+      "description": "DuckDuckGo image search. About 70 images per page.",
       "version": "1.2.0",
       "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/brave-images",
       "name": "Brave Images",
-      "description": "Adds the Brave Images search engine to degoog (HTML scraping of the Brave Search image results page).",
+      "description": "Brave image search by scraping the results page.",
       "version": "1.0.0",
       "minDegoogVersion": "0.23.0",
       "legacyIds": [
@@ -437,40 +450,40 @@
     {
       "path": "engines/openverse",
       "name": "Openverse",
-      "description": "Adds the Openverse image engine to degoog. Searches CC-licensed images aggregated from Flickr, Wikimedia and museum collections via the public Openverse API.",
+      "description": "CC-licensed images from Flickr, Wikimedia, and museum collections, through the Openverse API.",
       "version": "1.2.0",
       "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/wikimedia-commons",
       "name": "Wikimedia Commons",
-      "description": "Adds the Wikimedia Commons image engine to degoog. Searches the Wikimedia Commons media archive via the MediaWiki API.",
+      "description": "Wikimedia Commons images through the MediaWiki API.",
       "version": "1.2.0",
       "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/nasa-images",
       "name": "NASA Images",
-      "description": "Adds the NASA image engine to degoog. Searches the NASA Image and Video Library.",
+      "description": "NASA Image and Video Library search.",
       "version": "1.1.0",
       "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/hacker-news",
       "name": "Hacker News",
-      "description": "Adds the Hacker News engine to degoog. Searches Hacker News stories via the Algolia API.",
+      "description": "Hacker News stories through the Algolia API.",
       "version": "1.0.4"
     },
     {
       "path": "engines/duckduckgo-news",
       "name": "DuckDuckGo News",
-      "description": "Adds the DuckDuckGo News engine to degoog.",
+      "description": "DuckDuckGo news search.",
       "version": "1.0.5"
     },
     {
       "path": "engines/the-guardian",
       "name": "The Guardian",
-      "description": "Adds The Guardian as a news engine to degoog via the Guardian Open Platform API. Requires a free API key from open-platform.theguardian.com.",
+      "description": "Guardian news through the Open Platform API. Needs a free key from open-platform.theguardian.com.",
       "version": "1.0.4"
     },
     {
@@ -483,7 +496,7 @@
     {
       "path": "engines/brave-videos",
       "name": "Brave Videos",
-      "description": "Brave video search (HTML scraping) parsed from the Brave Search video results page.",
+      "description": "Brave video search by scraping the video results page.",
       "version": "1.0.0",
       "minDegoogVersion": "0.23.0"
     },
@@ -504,7 +517,7 @@
     {
       "path": "engines/startpage-news",
       "name": "Startpage News",
-      "description": "Startpage news search with per-outlet source attribution.",
+      "description": "Startpage news search. Each result names its outlet.",
       "version": "1.0.0",
       "minDegoogVersion": "0.23.0"
     }
@@ -513,7 +526,7 @@
     {
       "path": "autocomplete/google",
       "name": "Google Autocomplete",
-      "description": "Autocomplete suggestions from Google.",
+      "description": "Suggestions from Google.",
       "version": "1.1.0",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
@@ -524,7 +537,7 @@
     {
       "path": "autocomplete/duckduckgo",
       "name": "DuckDuckGo Autocomplete",
-      "description": "Autocomplete suggestions from DuckDuckGo.",
+      "description": "Suggestions from DuckDuckGo.",
       "version": "1.1.0",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
@@ -535,25 +548,25 @@
     {
       "path": "autocomplete/brave",
       "name": "Brave Autocomplete",
-      "description": "Autocomplete suggestions from Brave Search. Works without an API key; optionally add your Brave Search API key for authenticated requests.",
+      "description": "Suggestions from Brave Search. No API key required. Add one if you want authenticated requests.",
       "version": "1.1.0"
     },
     {
       "path": "autocomplete/bing",
       "name": "Bing Autocomplete",
-      "description": "Autocomplete suggestions from Bing.",
+      "description": "Suggestions from Bing.",
       "version": "1.1.0"
     },
     {
       "path": "autocomplete/yahoo",
       "name": "Yahoo Autocomplete",
-      "description": "Autocomplete suggestions from Yahoo Search.",
+      "description": "Suggestions from Yahoo Search.",
       "version": "1.1.0"
     },
     {
       "path": "autocomplete/qwant",
       "name": "Qwant Autocomplete",
-      "description": "Autocomplete suggestions from Qwant.",
+      "description": "Suggestions from Qwant.",
       "version": "1.1.0"
     }
   ],
