@@ -1,6 +1,7 @@
 import { resolveProviderBaseUrl } from "./base-url.js";
+import { withExtras } from "./headers.js";
 import { readSse } from "./sse.js";
-import { ChunkKind } from "./types.js";
+import { ChunkKind, TokenParam } from "./types.js";
 
 const THINK_OPEN = "<think>";
 const THINK_CLOSE = "</think>";
@@ -55,11 +56,15 @@ const makeSplitter = () => {
   };
 };
 
+export const tokenCap = (opts) => ({
+  [opts.tokenParam || TokenParam.MaxTokens]: opts.maxTokens,
+});
+
 export const basicOpenAIBody = (_config, messages, opts) => ({
   model: _config.model,
   messages,
   stream: true,
-  max_tokens: opts.maxTokens,
+  ...tokenCap(opts),
 });
 
 export const createOpenAIChatAdapter = ({ id, logNs, defaultBaseUrl, buildBody = basicOpenAIBody }) => {
@@ -67,14 +72,14 @@ export const createOpenAIChatAdapter = ({ id, logNs, defaultBaseUrl, buildBody =
     const base = defaultBaseUrl
       ? resolveProviderBaseUrl(config.baseUrl ?? "", defaultBaseUrl)
       : (config.baseUrl ?? "").replace(/\/$/, "");
-    const headers = {
+    const stdHeaders = {
       "Content-Type": "application/json",
       Accept: "text/event-stream",
     };
-    if (config.apiKey) headers["Authorization"] = `Bearer ${config.apiKey}`;
+    if (config.apiKey) stdHeaders["Authorization"] = `Bearer ${config.apiKey}`;
     return fetch(`${base}/chat/completions`, {
       method: "POST",
-      headers,
+      headers: withExtras(stdHeaders, config),
       body: JSON.stringify(buildBody(config, messages, opts)),
       signal: opts.signal,
     });

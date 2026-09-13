@@ -11,6 +11,7 @@ import { ProviderId } from "./types.js";
 
 export * from "./types.js";
 export * from "./detect.js";
+export * from "./session.js";
 export { listModels } from "./models.js";
 
 export const ADAPTERS = {

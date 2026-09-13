@@ -1,5 +1,6 @@
 import { originOf } from "./detect.js";
 import { resolveProviderBaseUrl } from "./base-url.js";
+import { withExtras } from "./headers.js";
 import {
   ANTHROPIC_DEFAULT_BASE,
   ANTHROPIC_VERSION,
@@ -31,12 +32,12 @@ const openAIBase = (providerId, baseUrl) => {
   return (baseUrl ?? "").trim().replace(/\/+$/, "");
 };
 
-const askJson = async (url, headers) => {
+const askJson = async (url, headers, config) => {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), LIST_TIMEOUT_MS);
   try {
     const res = await fetch(url, {
-      headers: { Accept: "application/json", ...headers },
+      headers: withExtras({ Accept: "application/json", ...headers }, config),
       signal: abort.signal,
     });
     if (!res.ok) throw new Error(`status ${res.status}`);
@@ -51,7 +52,7 @@ const bearer = (apiKey) => (apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
 const fromOpenAI = async (providerId, config) => {
   const base = openAIBase(providerId, config.baseUrl);
   if (!base) return [];
-  const data = await askJson(`${base}/models`, bearer(config.apiKey));
+  const data = await askJson(`${base}/models`, bearer(config.apiKey), config);
   return (data?.data ?? [])
     .filter((entry) => typeof entry?.id === "string")
     .map((entry) => ({ value: entry.id, label: entry.name || entry.id }));
@@ -61,6 +62,7 @@ const fromOllama = async (_providerId, config) => {
   const data = await askJson(
     `${originOf(config.baseUrl)}/api/tags`,
     bearer(config.apiKey),
+    config,
   );
   return (data?.models ?? [])
     .filter((entry) => typeof entry?.name === "string")
@@ -71,6 +73,7 @@ const fromLmStudio = async (_providerId, config) => {
   const data = await askJson(
     `${originOf(config.baseUrl)}/api/v0/models`,
     bearer(config.apiKey),
+    config,
   );
   return (data?.data ?? [])
     .filter((entry) => typeof entry?.id === "string")
@@ -80,7 +83,7 @@ const fromLmStudio = async (_providerId, config) => {
 const fromGemini = async (providerId, config) => {
   const base = openAIBase(providerId, config.baseUrl);
   const key = encodeURIComponent(config.apiKey ?? "");
-  const data = await askJson(`${base}/models?key=${key}`, {});
+  const data = await askJson(`${base}/models?key=${key}`, {}, config);
   return (data?.models ?? [])
     .filter((entry) => typeof entry?.name === "string")
     .map((entry) => {
@@ -94,7 +97,7 @@ const fromAnthropic = async (providerId, config) => {
   const data = await askJson(`${base}/models`, {
     "x-api-key": config.apiKey ?? "",
     "anthropic-version": ANTHROPIC_VERSION,
-  });
+  }, config);
   return (data?.data ?? [])
     .filter((entry) => typeof entry?.id === "string")
     .map((entry) => ({ value: entry.id, label: entry.display_name || entry.id }));

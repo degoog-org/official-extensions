@@ -153,7 +153,14 @@ export const routes = [
       if (!query || results.length === 0) return jsonError("Missing query or results", 400);
       if (!_settings.model) return jsonError("AI summary not configured", 400);
       if (_settings.questionMarkOnly && !query.endsWith("?")) return jsonError("Question-only mode", 403);
-      return runStream(buildSummaryMsgs(query, results), _settings.maxTokens, summaryCacheKey(query, results), _settings, _summaryCache);
+      return runStream(
+        buildSummaryMsgs(query, results),
+        _settings.maxTokens,
+        summaryCacheKey(query, results),
+        _settings,
+        _summaryCache,
+        query,
+      );
     },
   },
   {
@@ -170,7 +177,14 @@ export const routes = [
         return jsonError("Missing messages", 400);
       }
       if (!_settings.model) return jsonError("AI summary not configured", 400);
-      return runStream(body.messages, Math.max(_settings.maxTokens, FOLLOWUP_MIN_TOKENS), null, _settings, _summaryCache);
+      return runStream(
+        body.messages,
+        Math.max(_settings.maxTokens, FOLLOWUP_MIN_TOKENS),
+        null,
+        _settings,
+        _summaryCache,
+        String(body.messages[0]?.content ?? ""),
+      );
     },
   },
 ];

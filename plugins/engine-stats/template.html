@@ -1,0 +1,23 @@
+<div id="engine-stats" class="command-result es-command">
+  <div class="es-header">
+    <div class="es-heading">
+      <span class="es-logo"><i class="fa-solid fa-gauge-high"></i></span>
+      <div class="es-heading-text">
+        <span class="es-title">Engine stats</span>
+        <span class="es-subtitle">last {{window}}</span>
+      </div>
+    </div>
+    <div class="es-actions">
+      <div class="es-tabs">{{tabs}}</div>
+    </div>
+  </div>
+
+  <div class="es-cards">{{summary}}</div>
+
+  {{table}}
+
+  <p class="es-foot">
+    Percentiles are bucketed approximations. Cache replays are counted
+    separately and never affect timings.
+  </p>
+</div>

@@ -1,11 +1,11 @@
-import { createOpenAIChatAdapter } from "./openai-chat.js";
+import { createOpenAIChatAdapter, tokenCap } from "./openai-chat.js";
 import { ProviderId, VLLM_DEFAULT_BASE } from "./types.js";
 
 const buildBody = (config, messages, opts) => ({
   model: config.model,
   messages,
   stream: true,
-  max_tokens: opts.maxTokens,
+  ...tokenCap(opts),
   chat_template_kwargs: { enable_thinking: !!opts.enableThinking },
 });
 

@@ -1,4 +1,5 @@
 import { resolveProviderBaseUrl } from "./base-url.js";
+import { withExtras } from "./headers.js";
 import { readSse } from "./sse.js";
 import {
   ANTHROPIC_DEFAULT_BASE,
@@ -42,12 +43,12 @@ const callAnthropic = async (config, messages, opts) => {
   }
   return fetch(`${base}/messages`, {
     method: "POST",
-    headers: {
+    headers: withExtras({
       "Content-Type": "application/json",
       Accept: "text/event-stream",
       "x-api-key": config.apiKey,
       "anthropic-version": ANTHROPIC_VERSION,
-    },
+    }, config),
     body: JSON.stringify(body),
     signal: opts.signal,
   });
