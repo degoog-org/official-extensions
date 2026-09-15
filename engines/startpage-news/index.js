@@ -8,6 +8,15 @@ const SEARCH_URL = `${BASE_URL}/sp/search`;
 
 const TIME_MAP = { hour: "h", day: "d", week: "w", month: "m", year: "y" };
 
+// Startpage fronts search with an Anubis proof-of-work gate. Solving it lives in the `anubis`
+// transport, so every Startpage engine gets it from one implementation instead of four copies.
+const CHALLENGE_TAG = 'id="anubis_challenge"';
+const GATE_HINT =
+  "Startpage answered with its Anubis proof-of-work gate. Install the Anubis transport from the Store and select it as this engine's outgoing transport.";
+
+const _isGate = (html) =>
+  typeof html === "string" && html.includes(CHALLENGE_TAG);
+
 const CAPTCHA_MARKERS = [
   "/sp/captcha",
   "Startpage Captcha",
@@ -175,6 +184,16 @@ export default class StartpageNewsEngine {
         params.set("with_date", TIME_MAP[timeFilter]);
       }
       html = await this._getPage(doFetch, params, context);
+    }
+
+    // The transport answers the gate. Seeing it here means nothing did, so say what is missing
+    // rather than failing on a page that has no results to parse.
+    if (_isGate(html)) {
+      const gate = `${this.name}: ${GATE_HINT}`;
+      if (context?.engineError) {
+        throw context.engineError("interstitial", gate, { engine: this.name });
+      }
+      throw new Error(gate);
     }
 
     if (_isCaptcha(html)) {
