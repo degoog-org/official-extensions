@@ -253,6 +253,12 @@
       "minDegoogVersion": "0.23.0",
       "description": "Fetches pages with a real Firefox session through the official lolcat 4play browser extension.",
       "version": "1.8.1"
+    },
+    {
+      "path": "transports/anubis",
+      "name": "Anubis",
+      "description": "Solves the Anubis proof-of-work gate that sites like Startpage put in front of search, then replays the request with the cookies it hands back. Select it as an engine's outgoing transport; no browser or external service needed.",
+      "version": "1.0.0"
     }
   ],
   "engines": [
@@ -409,7 +415,7 @@
       "path": "engines/startpage",
       "name": "Startpage",
       "description": "Startpage web search. Handles the Anubis proof-of-work gate itself, so you do not need a browser transport. Turn on Anonymous View if you want result links to open through Startpage's proxy.",
-      "version": "1.2.0"
+      "version": "1.3.0"
     },
     {
       "path": "engines/internet-archive",
@@ -504,21 +510,21 @@
       "path": "engines/startpage-images",
       "name": "Startpage Images",
       "description": "Startpage image search with thumbnails proxied through Startpage.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/startpage-videos",
       "name": "Startpage Videos",
       "description": "Startpage video search fetched anonymously through Startpage.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/startpage-news",
       "name": "Startpage News",
       "description": "Startpage news search. Each result names its outlet.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "minDegoogVersion": "0.23.0"
     }
   ],
