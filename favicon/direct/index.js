@@ -11,6 +11,17 @@ const DEFAULT_TIMEOUT_MS = 4000;
 const MAX_HTML_BYTES = 256 * 1024;
 const MAX_REDIRECTS = 3;
 const MISS = "";
+const MAX_CONCURRENT_FETCHES = 5;
+let _activeFetches = 0;
+const _fetchWaiters = [];
+const _acquireFetchSlot = () =>
+  _activeFetches < MAX_CONCURRENT_FETCHES
+    ? void _activeFetches++
+    : new Promise((resolve) => _fetchWaiters.push(resolve)).then(() => void _activeFetches++);
+const _releaseFetchSlot = () => {
+  _activeFetches--;
+  _fetchWaiters.shift()?.();
+};
 const UNKNOWN_SIZE_PENALTY = 24;
 const SMALLER_THAN_TARGET_WEIGHT = 2;
 const PREFERRED_FORMAT_PENALTY = 0;
@@ -247,6 +258,7 @@ export default class DirectFaviconProvider {
     const target = Number(context?.size) || 32;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this._timeoutMs);
+    await _acquireFetchSlot();
     try {
       const page = await this._fetchHomepage(host, doFetch, context?.userAgent, controller.signal);
       if (!page) return null;
@@ -256,6 +268,7 @@ export default class DirectFaviconProvider {
       return null;
     } finally {
       clearTimeout(timer);
+      _releaseFetchSlot();
     }
   }
 
