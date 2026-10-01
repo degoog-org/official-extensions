@@ -16,7 +16,7 @@
       "path": "plugins/ai-summary",
       "name": "AI Summary",
       "description": "Summarizes search results. Works with OpenAI-compatible APIs, OpenAI, OpenRouter, Ollama, llama.cpp, vLLM, LM Studio, Gemini, and Anthropic.",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "type": "slot",
       "minDegoogVersion": "0.25.0",
       "legacyIds": [

@@ -118,7 +118,6 @@ export const buildPanelHtml = (t, query, sources, hideOnError, enableInputStylin
     '<textarea class="glance-ai-input degoog-input degoog-input--chat" placeholder="{{ t:ai-summary.follow-up-placeholder }}" rows="1"></textarea>' +
     "</div>" +
     "</div>" +
-    "</div>" +
     '<button class="glance-ai-collapse" type="button" hidden>{{ t:ai-summary.show-less }}</button>' +
     "</div>"
   );
