@@ -22,9 +22,11 @@ const SUMMARY_NAMESPACE = "ext:ai-summary:summary";
 const SHORT_TTL_MS = 2 * 60 * 1000;
 const ROUTE_STREAM = "/stream";
 const ROUTE_CHAT = "/chat";
+const ROUTE_ANIMATIONS = "/animations.js";
 
 let _settings = parseSettings({});
 let _summaryCache = null;
+let _animationsSource = "";
 
 const resolveCache = (ctx) => {
   if (typeof ctx?.useCache === "function") {
@@ -111,6 +113,7 @@ export const slot = {
 
   async init(ctx) {
     _summaryCache = resolveCache(ctx);
+    _animationsSource = (await ctx.readFile?.("animations.js")) ?? "";
   },
 
   configure(s) {
@@ -156,6 +159,16 @@ export const slot = {
 };
 
 export const routes = [
+  {
+    method: "get",
+    path: ROUTE_ANIMATIONS,
+    handler: () =>
+      _animationsSource
+        ? new Response(_animationsSource, {
+            headers: { "Content-Type": "text/javascript", "Cache-Control": "no-cache" },
+          })
+        : jsonError("Not ready", 503),
+  },
   {
     method: "post",
     path: ROUTE_STREAM,

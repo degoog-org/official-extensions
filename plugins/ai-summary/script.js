@@ -5,6 +5,7 @@
   const API_BASE = `/api/plugin/${__PLUGIN_ID__}`;
   const SUMMARY_URL = `${API_BASE}/stream`;
   const CHAT_URL = `${API_BASE}/chat`;
+  const ANIMATIONS_URL = `${API_BASE}/animations.js`;
   const MAX_SOURCES = 6;
   const CITE_GROUP = "\\[[ \\t]*N?\\d+(?:[,\\s]*N?\\d+)*[ \\t]*\\]";
   const CITE_RUN_RE = new RegExp(`${CITE_GROUP}(?:[ \\t]*,?[ \\t]*${CITE_GROUP})*`, "g");
@@ -14,6 +15,13 @@
   let history = [];
   let sources = [];
   let newTab = false;
+  let animations = null;
+
+  const loadAnimations = () =>
+    (animations ??= import(ANIMATIONS_URL).catch(() => {
+      animations = null;
+      return null;
+    }));
 
   const escapeHtml = (s) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -282,11 +290,11 @@
 
   const MAX_SUMMARY_HEIGHT = 160;
 
-  const openChat = (box) => {
+  const openChat = (box, focusInput = false) => {
     const chatWrap = box.querySelector(".glance-ai-chat");
     const input = box.querySelector(".glance-ai-input");
     if (chatWrap) chatWrap.hidden = false;
-    if (input) input.focus({ preventScroll: true });
+    if (focusInput && input) input.focus({ preventScroll: true });
   };
 
   const streamSummary = async (box) => {
@@ -294,53 +302,89 @@
     const bodyEl = box.querySelector(".glance-ai-body");
     const expandBtn = box.querySelector(".glance-ai-expand");
     const collapseBtn = box.querySelector(".glance-ai-collapse");
+    const robot = box.querySelector(".glance-ai-title .fa-robot");
     if (!target) return;
 
     let streamDone = false;
     let expanded = false;
     let needsClamp = true;
+    let focusInputOnComplete = false;
+    let squashed = false;
 
-    const applyExpand = (open) => {
+    let stopTyping = null;
+
+    const playFx = (name) => loadAnimations().then((fx) => fx?.[name]?.(robot));
+    const endTyping = () => {
+      const pending = stopTyping;
+      stopTyping = null;
+      pending?.then((stop) => stop?.());
+    };
+
+    const applyExpand = (open, focusInput = false) => {
       expanded = open;
+      if (open && squashed) {
+        squashed = false;
+        playFx("revive");
+      }
       if (!bodyEl) return;
       if (expandBtn) expandBtn.hidden = open;
       if (collapseBtn) collapseBtn.hidden = !open;
       if (open) {
         bodyEl.classList.remove("glance-ai-body--clamped");
-        if (streamDone) openChat(box);
+        if (streamDone) {
+          focusInputOnComplete = false;
+          openChat(box, focusInput);
+        } else if (focusInput) focusInputOnComplete = true;
         return;
       }
+      focusInputOnComplete = false;
       const chatWrap = box.querySelector(".glance-ai-chat");
       if (chatWrap) chatWrap.hidden = true;
       if (needsClamp) bodyEl.classList.add("glance-ai-body--clamped");
     };
 
-    expandBtn?.addEventListener("click", () => applyExpand(true));
+    expandBtn?.addEventListener("click", () => applyExpand(true, true));
     collapseBtn?.addEventListener("click", () => applyExpand(false));
+    robot?.addEventListener("click", () => {
+      if (target.dataset.state !== "done") return;
+      if (squashed) return applyExpand(true);
+      if (!expanded) return;
+      applyExpand(false);
+      squashed = true;
+      playFx("knockOut");
+    });
 
     const query = getQuery();
     const results = collectResults();
     if (!query || results.length === 0) return;
+
+    playFx("hop");
 
     await runStream({
       url: SUMMARY_URL,
       payload: { query, results, language: browserLanguage() },
       target,
       onFirstText: () => {
+        stopTyping = playFx("typing");
         target.dataset.state = "streaming";
         target.innerHTML = writingHtml();
       },
       onComplete: (text) => {
+        endTyping();
         streamDone = true;
         target.dataset.state = "done";
         paintRich(target, text);
         initFollowUp(box, text);
         requestAnimationFrame(() => {
           needsClamp = !!(bodyEl && bodyEl.scrollHeight > MAX_SUMMARY_HEIGHT);
-          if (!needsClamp || expanded) applyExpand(true);
+          const focusInput = focusInputOnComplete && document.hasFocus() &&
+            (document.activeElement === document.body || document.activeElement === expandBtn);
+          focusInputOnComplete = false;
+          if (!needsClamp || expanded) applyExpand(true, focusInput);
         });
       },
       onFail: (msg) => {
+        endTyping();
         streamDone = true;
         if (box.dataset.hideOnError === "1") {
           box.remove();
@@ -425,7 +469,6 @@
         messagesEl.appendChild(err);
       },
     });
-    input.focus();
   };
 
   const popEl = (() => {
