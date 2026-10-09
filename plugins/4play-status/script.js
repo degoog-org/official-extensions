@@ -13,7 +13,9 @@
   };
   const TOKEN_KEY = "degoog-settings-token";
   const REFRESH_MS = 10000;
-  const CLEAR_SETTLE_MS = 3500;
+  const TICK_MS = 1000;
+  const RECONNECT_MIN_MS = 2000;
+  const RECONNECT_MAX_MS = 30000;
 
   const normalizeUrl = (value) => {
     const raw = String(value || "").trim();
@@ -113,7 +115,7 @@
     };
 
     const tile = (label, value, sub, tone = "") => `
-      <div class="col-12 col-sm-6 col-lg-3">
+      <div class="col-12 col-sm-6 col-lg-4">
         <div class="fourplay-tile degoog-panel">
           <span class="fourplay-tile-label">${esc(label)}</span>
           <span class="fourplay-tile-value" data-tone="${tone}">${value}</span>
@@ -121,38 +123,111 @@
         </div>
       </div>`;
 
+    let statusAt = Date.now();
+
+    const untilFrom = (ms) =>
+      ms === null || ms === undefined ? null : statusAt + ms;
+
+    const countdown = (until, prefix = "", suffix = "") =>
+      until
+        ? `<span data-until="${esc(until)}" data-prefix="${esc(prefix)}" data-suffix="${esc(suffix)}">${esc(`${prefix}${fmtDur(until - Date.now())}${suffix}`)}</span>`
+        : "";
+
+    const routeTag = (route) => {
+      if (!route) return "";
+      if (route.kind === "direct") {
+        return `<span class="degoog-badge fourplay-route" title="No proxy, this session leaves from the server's own IP.">direct</span>`;
+      }
+      if (route.kind === "own") {
+        return `<span class="degoog-badge fourplay-route" title="The proxy set in the 4play transport's own settings.">own proxy ${esc(route.label || "")}</span>`;
+      }
+      if (route.known === false) {
+        return `<span class="degoog-badge fourplay-route" data-tone="muted" title="This proxy is no longer in the proxy list, or the server restarted since the session was warmed.">retired proxy</span>`;
+      }
+      const name = route.position ? `proxy #${route.position}` : "proxy";
+      const bits = [
+        `<span class="degoog-badge fourplay-route" title="${esc(route.label || "")}">${esc(name)} <span class="fourplay-route-host">${esc(route.label || "")}</span></span>`,
+      ];
+      if (route.benchedUntil) {
+        bits.push(
+          `<span class="degoog-badge fourplay-route" data-tone="danger" title="Degoog took this proxy off ${esc(route.site || "this site")} after a captcha, block or rate limit. Other proxies serve it until then.">benched ${countdown(route.benchedUntil, "", " left")}</span>`,
+        );
+      } else if (route.current === false) {
+        bits.push(
+          `<span class="degoog-badge fourplay-route" data-tone="muted" title="This proxy got flagged on ${esc(route.site || "this site")} after the session was warmed, so the next search starts a fresh one instead of reusing it.">stale, next search starts fresh</span>`,
+        );
+      }
+      return bits.join("");
+    };
+
     const sessionRow = (session) => {
+      const expiresAt = untilFrom(session.expiresInMs);
+      const cooldownAt = untilFrom(session.cooldownLeftMs);
       const state = session.blocked
-        ? `blocked, ${fmtDur(session.cooldownLeftMs)} left`
+        ? `blocked, ${countdown(cooldownAt, "", " left")}`
         : session.alive
-          ? `primed, expires in ${fmtDur(session.expiresInMs)}`
+          ? `primed, expires in ${countdown(expiresAt)}`
           : "cold";
       const tone = session.blocked
         ? "danger"
         : session.alive
           ? "success"
           : "muted";
-      const metaBits = [`container ${session.container || "default"}`];
+      const containerName =
+        session.containerLabel || session.container || "default";
+      const metaBits = [`container ${containerName}`];
       if (session.ageMs !== null && session.ageMs !== undefined) {
         metaBits.push(`warmed ${fmtDur(session.ageMs)} ago`);
       }
       if (session.blocked && session.reason) {
         metaBits.push(session.reason);
       }
-      const containerName =
-        session.containerLabel || session.container || "default";
       return `
         <div class="fourplay-session degoog-panel" data-key="${esc(session.key)}">
           <span class="fourplay-dot" data-tone="${tone}"></span>
           <div class="fourplay-session-info">
             <span class="fourplay-session-origin">${esc(session.origin)}</span>
-            <span class="fourplay-session-meta">${esc([`container ${containerName}`, ...metaBits.slice(1)].join(" | "))}</span>
+            <span class="fourplay-session-meta">${esc(metaBits.join(" | "))}</span>
+            <span class="fourplay-session-routes">${routeTag(session.route)}</span>
           </div>
-          <span class="degoog-badge fourplay-session-state" data-tone="${tone}">${esc(state)}</span>
+          <span class="degoog-badge fourplay-session-state" data-tone="${tone}">${state}</span>
           <button type="button" class="degoog-icon-btn fourplay-session-clear" data-clear-key="${esc(session.key)}" aria-label="Clear session" title="Clear this session">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>`;
+    };
+
+    const proxyRows = (lineup) => {
+      if (!Array.isArray(lineup) || lineup.length === 0) return "";
+      const rows = lineup
+        .map((spot) => {
+          const benched = Array.isArray(spot.benched) ? spot.benched : [];
+          const tone = benched.length ? "danger" : "success";
+          const state = benched.length
+            ? `benched on ${benched.length} site${benched.length === 1 ? "" : "s"}`
+            : "in the lineup";
+          const sites = benched
+            .map(
+              (b) =>
+                `<span class="degoog-badge fourplay-route" data-tone="danger" title="${esc(b.trigger)}">${esc(b.site)} ${countdown(b.until, "", " left")}</span>`,
+            )
+            .join("");
+          return `<div class="fourplay-session degoog-panel">
+            <span class="fourplay-dot" data-tone="${tone}"></span>
+            <div class="fourplay-session-info">
+              <span class="fourplay-session-origin">proxy #${esc(spot.position)}</span>
+              <span class="fourplay-session-meta">${esc(spot.label)}</span>
+              ${sites ? `<span class="fourplay-session-routes">${sites}</span>` : ""}
+            </div>
+            <span class="degoog-badge fourplay-session-state" data-tone="${tone}">${esc(state)}</span>
+          </div>`;
+        })
+        .join("");
+      return `<div class="fourplay-section-head">
+          <span class="fourplay-section-title">Proxies</span>
+          <span class="degoog-badge">${lineup.length}</span>
+        </div>
+        <div class="fourplay-sessions">${rows}</div>`;
     };
 
     let taggedAlong = [];
@@ -182,6 +257,28 @@
       root.appendChild(shell);
     };
 
+    const replayTile = (replay) => {
+      if (!replay) {
+        return tile("Replays", "unknown", "shows up after the first search");
+      }
+      if (replay.mode === "library") {
+        return tile(
+          "Replays",
+          "library",
+          `${replay.profile}, reuses connections per proxy`,
+          "success",
+        );
+      }
+      if (replay.mode === "binary") {
+        return tile(
+          "Replays",
+          "binary",
+          `${replay.profile}, new connection per request`,
+        );
+      }
+      return tile("Replays", "browser only", "no curl found, every page loads in a tab", "danger");
+    };
+
     const render = (data) => {
       const firefoxUrl = normalizeUrl(data.firefoxUrl || "");
       const status = data.status;
@@ -189,6 +286,9 @@
         renderEmpty(data);
         return;
       }
+      statusAt = status.updatedAt || Date.now();
+      const lineup = Array.isArray(data.proxies) ? data.proxies : [];
+      const benchedProxies = lineup.filter((spot) => spot.benched?.length).length;
 
       setSubtitle(data.transport || "");
       clearAllBtn.hidden = false;
@@ -231,6 +331,15 @@
             captchaCount ? "solve them in the browser" : "no open challenges",
             captchaCount ? "danger" : "",
           )}
+          ${replayTile(status.replay)}
+          ${tile(
+            "Proxies",
+            lineup.length ? String(lineup.length) : "none",
+            lineup.length
+              ? `${benchedProxies} benched somewhere`
+              : "4play uses its own proxy or none",
+            benchedProxies ? "danger" : "",
+          )}
           ${tile(
             "Background warmup",
             autoWarm.intervalMs
@@ -251,6 +360,7 @@
         ? `<div class="fourplay-section-head">
             <span class="fourplay-section-title">Captcha tabs</span>
             <span class="degoog-badge">${captchaTabs.length}</span>
+            <button type="button" class="fourplay-btn" data-clear-captchas title="Drop every captcha flag. Use it once you've solved them, or if the tabs are stale.">Dismiss all</button>
           </div>
           <div class="fourplay-sessions">
             ${captchaTabs
@@ -287,16 +397,34 @@
           ${tagAlongBtn}
         </div>`;
 
-      const footerBits = [];
-      if (status.updatedAt) {
-        footerBits.push(`Updated ${fmtDur(Date.now() - status.updatedAt)} ago`);
-      }
-      footerBits.push("auto-refreshes every 10s");
-      const footer = `<div class="fourplay-footer">${esc(footerBits.join(" | "))}</div>`;
+      const footer = `<div class="fourplay-footer">${
+        status.updatedAt
+          ? `Updated <span data-since="${esc(status.updatedAt)}">${esc(fmtDur(Date.now() - status.updatedAt))}</span> ago | `
+          : ""
+      }<span data-live-mode>${esc(liveLabel())}</span></div>`;
 
-      body.innerHTML = `${tiles}${captchaList}${sectionHead}<div class="fourplay-sessions">${list}</div>${footer}`;
+      body.innerHTML = `${tiles}${captchaList}${sectionHead}<div class="fourplay-sessions">${list}</div>${proxyRows(lineup)}${footer}`;
 
       if (root.querySelector(".fourplay-modal-overlay")) openTagAlong();
+    };
+
+    const apply = (data) => {
+      setFirefox(data.firefoxUrl || "");
+      render(data);
+    };
+
+    let live = "connecting";
+    const liveLabel = () =>
+      live === "stream"
+        ? "live"
+        : live === "polling"
+          ? "live updates unavailable, refreshing every 10s"
+          : "connecting";
+
+    const setLive = (mode) => {
+      live = mode;
+      const el = root.querySelector("[data-live-mode]");
+      if (el) el.textContent = liveLabel();
     };
 
     const fetchStatus = async () => {
@@ -320,9 +448,7 @@
           return false;
         }
         if (!res.ok) throw new Error(`status ${res.status}`);
-        const data = await res.json();
-        setFirefox(data.firefoxUrl || "");
-        render(data);
+        apply(await res.json());
         return true;
       } catch (error) {
         console.warn(
@@ -339,22 +465,28 @@
     };
 
     const yeetSessions = async (scope, key = null) => {
+      body.classList.add("fourplay-busy");
       try {
         const res = await authFetch(`${apiBase}/clear`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(bodyFor(scope, key)),
         });
-        if (!res.ok) throw new Error(`status ${res.status}`);
-        body.classList.add("fourplay-busy");
-        setTimeout(async () => {
-          body.classList.remove("fourplay-busy");
-          await fetchStatus();
-        }, CLEAR_SETTLE_MS);
-      } catch (error) {
-        console.warn(
-          `[4play-status] failed to request clear: ${error?.message || error}`,
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok && res.status !== 202) {
+          throw new Error(data?.error || `status ${res.status}`);
+        }
+        setTestResult(
+          data?.message || (data?.ok ? "Done." : "4play didn't confirm."),
+          data?.ok ? "success" : "danger",
         );
+      } catch (error) {
+        const reason = error?.message || error;
+        console.warn(`[4play-status] failed to request clear: ${reason}`);
+        setTestResult(`Clear failed: ${reason}`, "danger");
+      } finally {
+        body.classList.remove("fourplay-busy");
+        if (live !== "stream") await fetchStatus();
       }
     };
 
@@ -401,6 +533,10 @@
         yeetSessions("session", clearBtn.dataset.clearKey);
         return;
       }
+      if (event.target.closest("[data-clear-captchas]")) {
+        yeetSessions("captcha");
+        return;
+      }
       const captchaBtn = event.target.closest("[data-clear-captcha]");
       if (captchaBtn) {
         yeetSessions("captcha", captchaBtn.dataset.clearCaptcha);
@@ -419,9 +555,12 @@
       }
     });
 
+    const gone = () => !document.body.contains(root);
+
     const startPolling = () => {
+      if (refreshTimer) return;
       refreshTimer = setInterval(async () => {
-        if (!document.body.contains(root)) {
+        if (gone()) {
           clearInterval(refreshTimer);
           return;
         }
@@ -429,8 +568,97 @@
       }, REFRESH_MS);
     };
 
+    const stopPolling = () => {
+      if (!refreshTimer) return;
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    };
+
+    const tickClocks = setInterval(() => {
+      if (gone()) {
+        clearInterval(tickClocks);
+        return;
+      }
+      const now = Date.now();
+      for (const el of root.querySelectorAll("[data-until]")) {
+        const left = Number(el.dataset.until) - now;
+        el.textContent = left > 0
+          ? `${el.dataset.prefix || ""}${fmtDur(left)}${el.dataset.suffix || ""}`
+          : "now";
+      }
+      for (const el of root.querySelectorAll("[data-since]")) {
+        el.textContent = fmtDur(now - Number(el.dataset.since));
+      }
+    }, TICK_MS);
+
+    const readEvents = async (res, onEvent) => {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) return;
+        if (gone()) {
+          reader.cancel().catch(() => {});
+          return;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        let split;
+        while ((split = buffer.indexOf("\n\n")) !== -1) {
+          const block = buffer.slice(0, split);
+          buffer = buffer.slice(split + 2);
+          let event = "message";
+          const data = [];
+          for (const line of block.split("\n")) {
+            if (line.startsWith("event:")) event = line.slice(6).trim();
+            else if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
+          }
+          if (data.length) onEvent(event, data.join("\n"));
+        }
+      }
+    };
+
+    let backoff = RECONNECT_MIN_MS;
+
+    const stream = async () => {
+      if (gone()) return;
+      let locked = false;
+      try {
+        const res = await authFetch(`${apiBase}/stream`, {
+          headers: { Accept: "text/event-stream" },
+        });
+        if (res.status === 401 || res.status === 403) {
+          await fetchStatus();
+          return;
+        }
+        if (!res.ok || !res.body) throw new Error(`status ${res.status}`);
+        stopPolling();
+        setLive("stream");
+        backoff = RECONNECT_MIN_MS;
+        await readEvents(res, (event, data) => {
+          if (event === "locked") {
+            locked = true;
+            renderLocked();
+            return;
+          }
+          try {
+            apply(JSON.parse(data));
+          } catch (error) {
+            console.warn(`[4play-status] bad stream payload: ${error?.message || error}`);
+          }
+        });
+      } catch (error) {
+        console.warn(`[4play-status] live updates dropped: ${error?.message || error}`);
+      }
+      if (gone() || locked) return;
+      setLive("polling");
+      startPolling();
+      setTimeout(stream, backoff);
+      backoff = Math.min(backoff * 2, RECONNECT_MAX_MS);
+    };
+
     fetchStatus().then((unlocked) => {
-      if (unlocked) startPolling();
+      if (unlocked) stream();
     });
   };
 

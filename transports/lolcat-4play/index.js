@@ -11,7 +11,9 @@ import {
   buildExtensionProxy,
   curlProxyUrlFor,
   extensionProxyFromUrl,
+  proxyNameplate,
 } from "./src/net/proxy.js";
+import { describeReplay } from "./src/net/curl-session.js";
 import { OriginBlockedError, originFor } from "./src/warmup/origin-warmup.js";
 import { WarmupDriver } from "./src/warmup/warmup-driver.js";
 import { wantsLocation, wrapResponse } from "./src/net/response.js";
@@ -70,6 +72,8 @@ export default class FourPlayTransport {
 
   _seenOrigins = new Set();
   _slots = new Map();
+  _containerEgress = new Map();
+  _replay = null;
   _dom = new DomWaiters();
 
   _tabs = new TabController({
@@ -150,6 +154,8 @@ export default class FourPlayTransport {
     tabs: this._tabs,
     captcha: this._captcha,
     seenOrigins: this._seenOrigins,
+    routeFor: (containerId) => this._routeFor(containerId),
+    replay: () => this._replay,
     maxPoolSize: () => this._settings.maxPoolSize,
     autoWarmMs: () => this._settings.autoWarmMs,
     timeoutMs: () => this._settings.timeoutMs,
@@ -232,6 +238,7 @@ export default class FourPlayTransport {
       this._scheduler.stopAutoWarm();
       this._control.stop();
       this._containers.clear();
+      this._containerEgress.clear();
       this._store.clearMemory();
       this._tabs.clear();
       this._captcha.clear();
@@ -342,9 +349,11 @@ export default class FourPlayTransport {
       if (captchaRes) return captchaRes;
 
       const route = this._route(context);
+      this._noteReplay(route.impersonate);
       if (route.container && origin) {
         const slot = this._slotFor(origin, route);
         containerId = await this._containers.summonContainer(slot, context.sessionKey, route.proxy);
+        this._tagContainer(containerId, route.egress);
       }
 
       if (origin && this._captcha.hasOpenTab(origin, containerId)) {
@@ -400,6 +409,32 @@ export default class FourPlayTransport {
       impersonate: context.impersonate,
       libraryEgress: `${OWN_ROUTE}|${this._containerConfigKey}`,
     };
+  }
+
+  _noteReplay(impersonate) {
+    describeReplay(impersonate)
+      .then((replay) => {
+        this._replay = replay;
+      })
+      .catch(() => {});
+  }
+
+  _tagContainer(containerId, egress) {
+    this._containerEgress.delete(containerId);
+    if (!egress) return;
+    this._containerEgress.set(containerId, egress);
+    const cap = this._settings.maxPoolSize * 4;
+    while (this._containerEgress.size > cap) {
+      this._containerEgress.delete(this._containerEgress.keys().next().value);
+    }
+  }
+
+  _routeFor(containerId) {
+    const egress = containerId ? this._containerEgress.get(containerId) : undefined;
+    if (egress) return { kind: "core", egress };
+    const own = proxyNameplate(this._settings);
+    if (own && this._useContainer()) return { kind: "own", label: own };
+    return { kind: "direct" };
   }
 
   _slotFor(origin, route) {

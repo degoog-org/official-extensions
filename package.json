@@ -8,7 +8,7 @@
       "path": "plugins/4play-status",
       "name": "4play status",
       "description": "!4play shows live 4play transport status. Access can be admin-only, open, or locked.",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "type": "command",
       "minDegoogVersion": "1.1.0"
     },

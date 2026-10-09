@@ -60,3 +60,8 @@ export const curlProxyUrlFor = (settings = {}) =>
     password: settings.proxyPassword,
     proxyDns: settings.proxyDns,
   });
+
+export const proxyNameplate = (settings = {}) =>
+  settings.proxyType && settings.proxyType !== "none" && settings.proxyHost
+    ? `${settings.proxyType}://${settings.proxyHost}:${settings.proxyPort}`
+    : null;

@@ -148,6 +148,12 @@ const profileFrom = async (name) => {
   return { binary, args };
 };
 
+export const describeReplay = async (impersonate) => {
+  if (impersonate) return { mode: "library", profile: LIBRARY_TARGET };
+  const binary = await resolveCurlBinary();
+  return binary ? { mode: "binary", profile: binary } : { mode: "browser", profile: null };
+};
+
 export const resolveCurlProfile = async () => {
   if (resolvedProfile !== undefined) return resolvedProfile;
 

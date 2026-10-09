@@ -13,6 +13,8 @@ export class StatusReporter {
     tabs,
     captcha,
     seenOrigins,
+    routeFor,
+    replay,
     maxPoolSize,
     autoWarmMs,
     timeoutMs,
@@ -25,6 +27,8 @@ export class StatusReporter {
     this._tabs = tabs;
     this._captcha = captcha;
     this._seenOrigins = seenOrigins;
+    this._routeFor = routeFor;
+    this._replay = replay;
     this._maxPoolSize = maxPoolSize;
     this._autoWarmMs = autoWarmMs;
     this._timeoutMs = timeoutMs;
@@ -63,6 +67,7 @@ export class StatusReporter {
       .map((session) => ({
         ...session,
         containerLabel: this._tabs.containerLabel(session.container),
+        route: this._routeFor(session.container),
       }))
       .sort((a, b) => a.origin.localeCompare(b.origin));
 
@@ -93,6 +98,7 @@ export class StatusReporter {
         max: this._maxPoolSize(),
       },
       captchaTabs,
+      replay: this._replay(),
       autoWarm: {
         intervalMs: this._autoWarmMs(),
         tracked: [...this._seenOrigins],
