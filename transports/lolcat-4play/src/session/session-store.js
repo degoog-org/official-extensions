@@ -77,16 +77,17 @@ export class SessionStore {
 
   async loadCookieJar(origin, containerId) {
     const memKey = cookieJarKeyFor(origin, this.memKey(containerId));
+    const fresh = this._cookieJarTexts.get(memKey);
+    if (fresh) return fresh;
+    if (!this._cookieCache) return null;
+
     const cacheKey = cookieJarKeyFor(origin, this.cacheKey(containerId));
-    if (this._cookieCache) {
-      try {
-        const cached = await this._cookieCache.get(cacheKey);
-        if (cached) return cached;
-      } catch (error) {
-        this._log(`failed to read cookie jar for ${origin}: ${error?.message || error}`);
-      }
+    try {
+      return (await this._cookieCache.get(cacheKey)) || null;
+    } catch (error) {
+      this._log(`failed to read cookie jar for ${origin}: ${error?.message || error}`);
+      return null;
     }
-    return this._cookieJarTexts.get(memKey) || null;
   }
 
   async loadSessionFromCache(origin, containerId) {
@@ -150,10 +151,10 @@ export class SessionStore {
     }
 
     const state = this.warmupState(origin, containerId);
-    if (!state?.warmedAt || state?.blockedUntil) {
+    if (!state) {
       this.setWarmupState(origin, containerId, { warmedAt: Date.now() });
       this._log(
-        `unblocked/warmed ${origin} via captured browser request (container=${containerId || "default"}, url=${data.url})`,
+        `warmed ${origin} via captured browser request (container=${containerId || "default"}, url=${data.url})`,
       );
     }
   }

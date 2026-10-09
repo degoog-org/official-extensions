@@ -10,7 +10,7 @@ import { StatusReporter, STATUS_TTL_MS } from "./src/runtime/status-reporter.js"
 import { buildExtensionProxy, curlProxyUrlFor } from "./src/net/proxy.js";
 import { OriginBlockedError, originFor } from "./src/warmup/origin-warmup.js";
 import { WarmupDriver } from "./src/warmup/warmup-driver.js";
-import { wrapResponse } from "./src/net/response.js";
+import { wantsLocation, wrapResponse } from "./src/net/response.js";
 import {
   DEFAULT_CONTAINER_TTL_H,
   FETCH_TIMEOUT_MS,
@@ -258,7 +258,7 @@ export default class FourPlayTransport {
 
   _scrapeHint(options = {}) {
     const method = String(options.method || "GET").toUpperCase();
-    if (options.body || method !== "GET") return null;
+    if (options.body || method !== "GET" || wantsLocation(options)) return null;
     return options.match || {};
   }
 
@@ -322,20 +322,18 @@ export default class FourPlayTransport {
     this._status.publish();
   }
 
-  async _fetchOnce(url, options = {}, context = {}) {
+  async fetch(url, options = {}, context = {}) {
     this._bindCaches(context);
     await this._containers.sweepRetiredContainers();
-
     const origin = originFor(url);
-    const useContainer = this._useContainer();
     let containerId = null;
 
     try {
       const captchaRes = await this._captcha.tryFetch(url);
       if (captchaRes) return captchaRes;
 
-      if (useContainer && origin) {
-        containerId = await this._containers.summonContainer(origin);
+      if (this._useContainer() && origin) {
+        containerId = await this._containers.summonContainer(origin, context.sessionKey);
       }
 
       if (origin && this._captcha.hasOpenTab(origin, containerId)) {
@@ -344,25 +342,22 @@ export default class FourPlayTransport {
 
       await this._captcha.syncAllTabs();
 
-      const scrape = this._scrapeHint(options);
       const { origin: warmedOrigin, html } = await this._warmer.ensureWarm(
         url,
         containerId,
-        scrape,
+        this._scrapeHint(options),
       );
-
       const res =
         (html && wrapResponse(html)) ??
         (await this._fetcher.curlFetchWarmed(url, warmedOrigin, containerId, options)) ??
-        (await this._fetcher.browserFetch(url, warmedOrigin, containerId, options));
+        (await this._browserFallback(url, warmedOrigin, containerId, options));
       await this._captcha.clearTabsForOrigin(warmedOrigin);
       return res;
     } catch (error) {
-      if (error instanceof OriginBlockedError) {
-        await this._captcha.syncAllTabs();
-        const captchaRes = await this._captcha.tryFetch(url);
-        if (captchaRes) return captchaRes;
-      }
+      if (!(error instanceof OriginBlockedError)) throw error;
+      await this._captcha.syncAllTabs();
+      const captchaRes = await this._captcha.tryFetch(url);
+      if (captchaRes) return captchaRes;
       throw error;
     } finally {
       await this._containers.tuckContainerIn(containerId);
@@ -370,22 +365,12 @@ export default class FourPlayTransport {
     }
   }
 
-  async fetch(url, options = {}, context = {}) {
-    try {
-      return await this._fetchOnce(url, options, context);
-    } catch (error) {
-      if (!(error instanceof OriginBlockedError)) throw error;
+  _browserFallback(url, origin, containerId, options) {
+    options.signal?.throwIfAborted();
+    return this._fetcher.browserFetch(url, origin, containerId, options);
+  }
 
-      const captchaOpen = this._captcha.hasOpenTabForOrigin(error.origin);
-      const canRetry =
-        this._useContainer() && !captchaOpen && error.status !== "consent";
-      if (!canRetry) throw error;
-
-      const retryTab = typeof error.tabId === "number" ? error.tabId : "unknown";
-      this._warn(
-        `retrying ${error.origin} with a fresh container after block detection (tab=${retryTab})`,
-      );
-      return this._fetchOnce(url, options, context);
-    }
+  async endSession(sessionKey) {
+    await this._containers.endSession(sessionKey);
   }
 }

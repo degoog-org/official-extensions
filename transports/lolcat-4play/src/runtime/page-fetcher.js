@@ -15,7 +15,9 @@ import {
   looksConsent,
   sleep,
 } from "../warmup/origin-warmup.js";
-import { wrapResponse } from "../net/response.js";
+import { wantsLocation, wrapResponse } from "../net/response.js";
+
+const isRedirect = (status) => status >= 300 && status < 400;
 
 const BLOCK_WORDS = [
   "captcha",
@@ -128,32 +130,39 @@ export class PageFetcher {
     }
   }
 
-  async curlFetchWarmed(url, origin, containerId, options = {}) {
-    const session = this._store.usableHeaderSession(origin, containerId);
-    if (!session || !(await resolveCurlBinary())) return null;
-
+  async _sessionCurl(url, origin, containerId, session, options, followRedirects) {
     const jar =
       (await this._store.loadCookieJar(origin, containerId)) ||
       session.cookieJarText ||
       emptyCookieJar();
     const wanted = options.headers || {};
-    const cookieJarText = fillCookieGaps(origin, jar, wanted.Cookie || wanted.cookie);
 
+    return curlFetchWithBrowserHeaders({
+      url,
+      headers: session.headers,
+      extraHeaders: engineHeaders(wanted),
+      method: options.method || "",
+      body: options.body || "",
+      timeoutSeconds: this._timeoutMs() / 1000,
+      cookieJarText: fillCookieGaps(origin, jar, wanted.Cookie || wanted.cookie),
+      onCookieJarText: (updated) => {
+        session.cookieJarText = updated;
+        this._store.persistCookieJar(origin, containerId, updated);
+      },
+      proxyUrl: this._curlProxyUrl(),
+      followRedirects,
+      signal: options.signal,
+    });
+  }
+
+  async curlFetchWarmed(url, origin, containerId, options = {}) {
+    const session = this._store.usableHeaderSession(origin, containerId);
+    if (!session || !(await resolveCurlBinary())) return null;
+
+    const followRedirects = !wantsLocation(options);
     try {
-      const response = await curlFetchWithBrowserHeaders({
-        url,
-        headers: session.headers,
-        extraHeaders: engineHeaders(wanted),
-        method: options.method || "",
-        body: options.body || "",
-        timeoutSeconds: this._timeoutMs() / 1000,
-        cookieJarText,
-        onCookieJarText: (updated) => {
-          session.cookieJarText = updated;
-          this._store.persistCookieJar(origin, containerId, updated);
-        },
-        proxyUrl: this._curlProxyUrl(),
-      });
+      const response = await this._sessionCurl(url, origin, containerId, session, options, followRedirects);
+      if (!followRedirects && isRedirect(response.status)) return response;
       const text = await response.clone().text();
 
       if (origin && (looksConsent(text, url) || looksBlocked(text, url))) {
@@ -169,6 +178,7 @@ export class PageFetcher {
       }
       return response;
     } catch (error) {
+      if (options.signal?.aborted) throw error;
       this._warn(
         `warmed curl fetch failed for ${origin}: ${error?.message || error}; falling back to browser tab`,
       );

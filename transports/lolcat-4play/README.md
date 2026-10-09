@@ -33,6 +33,7 @@ Copy the path from your own Degoog settings, since renamed or third-party instal
 - Opens warmup tabs in Firefox for each search origin.
 - Copies the headers and cookies Firefox really sends.
 - Replays requests with that session through curl or curl-impersonate when it can.
+- Keeps one engine search in the same container from the first request to the last, so follow-ups like Google's result link lookups carry the same cookies.
 - Leaves tabs open when a CAPTCHA needs you.
 - Keeps its state across Degoog restarts if `DEGOOG_VALKEY_URL` is set.
 

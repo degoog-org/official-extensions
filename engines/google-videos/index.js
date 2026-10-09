@@ -3,6 +3,7 @@ import { SETTINGS_SCHEMA } from "./settings.js";
 import { buildHeaders, buildSearchUrl, gsaAgent } from "./request.js";
 import { isInterstitial, parseDesktop, parseLite } from "./parse.js";
 import { resolveGotos } from "./gotos.js";
+import { napTime, sniffEid, withSei } from "./soft-captcha.js";
 
 export { regions } from "./const/regions.js";
 
@@ -31,14 +32,14 @@ export default class GoogleVideosEngine {
   async _searchHtml(query, page, timeFilter, context) {
     const url = buildSearchUrl(query, page, timeFilter, this.safeSearch, context);
     const userAgent = context?.userAgent?.() || gsaAgent();
-    const doFetch = context?.fetch ?? fetch;
-    const response = await doFetch(url, {
-      headers: buildHeaders(userAgent, context),
-      redirect: "follow",
-    });
+    let html = await this._fetchHtml(url, userAgent, context);
 
-    context?.sentinel?.(response, this.name);
-    const html = await response.text();
+    const eid = sniffEid(html);
+    if (eid) {
+      console.warn("[google-videos] soft captcha hit, retrying with sei");
+      await napTime();
+      html = await this._fetchHtml(withSei(url, eid), userAgent, context);
+    }
 
     if (isInterstitial(html)) {
       if (context?.engineError) {
@@ -51,7 +52,19 @@ export default class GoogleVideosEngine {
       throw new Error(`${this.name} returned a JavaScript/consent interstitial`);
     }
 
-    return resolveGotos(parseDesktop(cheerio.load(html), this.name), userAgent);
+    const links = parseDesktop(cheerio.load(html), this.name);
+    return resolveGotos(links, userAgent, context?.fetch ?? fetch);
+  }
+
+  async _fetchHtml(url, userAgent, context) {
+    const doFetch = context?.fetch ?? fetch;
+    const response = await doFetch(url, {
+      headers: buildHeaders(userAgent, context),
+      redirect: "follow",
+    });
+
+    context?.sentinel?.(response, this.name);
+    return response.text();
   }
 
   async _searchLite(query, page = 1, timeFilter, context) {

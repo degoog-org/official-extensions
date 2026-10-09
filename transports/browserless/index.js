@@ -54,6 +54,21 @@ const _originOf = (url) => {
   }
 };
 
+const LOG_TAG = "[browserless]";
+const MANUAL_REDIRECT = "manual";
+
+const _wantsLocation = (options) =>
+  options?.redirect === MANUAL_REDIRECT && !options?.allowlistHop;
+
+const _direct = (url, options, context) =>
+  context.fetch(url, {
+    method: options?.method ?? "GET",
+    redirect: options?.redirect ?? "follow",
+    signal: options?.signal,
+    headers: options?.headers,
+    body: options?.body,
+  });
+
 export default class BrowserlessTransport {
   isClientExposed = false;
   name = "browserless";
@@ -119,6 +134,7 @@ export default class BrowserlessTransport {
   _waitUntil = "networkidle";
   _bypassProxy = true;
   _warmupEnabled = false;
+  _warmed = new Map();
 
   configure(settings) {
     this._url = (settings.url || "").replace(/\/+$/, "").trim();
@@ -136,6 +152,20 @@ export default class BrowserlessTransport {
 
   available() {
     return this._url.length > 0;
+  }
+
+  _shouldWarm(origin, url, sessionKey) {
+    if (!this._warmupEnabled || !origin || origin === url) return false;
+    if (!sessionKey) return true;
+    const warmed = this._warmed.get(sessionKey) ?? new Set();
+    if (warmed.has(origin)) return false;
+    warmed.add(origin);
+    this._warmed.set(sessionKey, warmed);
+    return true;
+  }
+
+  endSession(sessionKey) {
+    this._warmed.delete(sessionKey);
   }
 
   _buildRequestHeaders() {
@@ -174,26 +204,27 @@ export default class BrowserlessTransport {
   }
 
   async fetch(url, options, context) {
+    if (_wantsLocation(options)) return _direct(url, options, context);
     const doFetch = this._bypassProxy ? fetch : context.fetch;
     const headers = this._buildRequestHeaders();
 
-    if (this._warmupEnabled) {
-      const origin = _originOf(url);
-      if (origin && origin !== url) {
-        try {
-          await doFetch(`${this._url}/content`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              url: origin,
-              gotoOptions: {
-                waitUntil: "domcontentloaded",
-                timeout: this._timeoutMs,
-              },
-            }),
-            signal: options?.signal,
-          });
-        } catch {}
+    const origin = _originOf(url);
+    if (this._shouldWarm(origin, url, context?.sessionKey)) {
+      try {
+        await doFetch(`${this._url}/content`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            url: origin,
+            gotoOptions: {
+              waitUntil: "domcontentloaded",
+              timeout: this._timeoutMs,
+            },
+          }),
+          signal: options?.signal,
+        });
+      } catch (err) {
+        console.warn(`${LOG_TAG} warmup of ${origin} failed: ${err?.message || err}`);
       }
     }
 
@@ -205,7 +236,9 @@ export default class BrowserlessTransport {
         body: JSON.stringify(this._buildPayload(url, options)),
         signal: options?.signal,
       });
-    } catch {
+    } catch (err) {
+      if (options?.signal?.aborted) throw err;
+      console.warn(`${LOG_TAG} request to ${this._url} failed: ${err?.message || err}`);
       return new Response("", { status: 503 });
     }
 

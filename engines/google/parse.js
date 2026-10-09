@@ -45,19 +45,3 @@ export const parseDesktop = ($, name) => {
   });
   return results;
 };
-
-export const parseWml = ($, name) => {
-  const results = [];
-  const seen = new Set();
-  $("div.zMzFAb").each((_, el) => {
-    const block = $(el);
-    const linkEl = block.find("a.fuLhoc").first();
-    const title = linkEl.find("span.CVA68e").first().text().trim();
-    const url = _resolveHref(linkEl.attr("href") || "");
-    if (!title || !url.startsWith("http") || seen.has(url)) return;
-    seen.add(url);
-    const snippet = block.find("div.taTFJ span.FrIlee").text().trim();
-    results.push({ title, url, snippet, source: name });
-  });
-  return results;
-};

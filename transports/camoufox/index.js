@@ -48,6 +48,21 @@ const _originOf = (url) => {
   }
 };
 
+const LOG_TAG = "[camoufox]";
+const MANUAL_REDIRECT = "manual";
+
+const _wantsLocation = (options) =>
+  options?.redirect === MANUAL_REDIRECT && !options?.allowlistHop;
+
+const _direct = (url, options, context) =>
+  context.fetch(url, {
+    method: options?.method ?? "GET",
+    redirect: options?.redirect ?? "follow",
+    signal: options?.signal,
+    headers: options?.headers,
+    body: options?.body,
+  });
+
 export default class CamoufoxTransport {
   isClientExposed = false;
   name = "camoufox";
@@ -134,6 +149,7 @@ export default class CamoufoxTransport {
   }
 
   async fetch(url, options, context) {
+    if (_wantsLocation(options)) return _direct(url, options, context);
     const doFetch = this._bypassProxy ? fetch : context.fetch;
     const headers = options?.headers ?? {};
     const cookies = _parseCookies(_pickHeader(headers, "Cookie"), url);
@@ -179,7 +195,9 @@ export default class CamoufoxTransport {
         body: JSON.stringify(payload),
         signal: options?.signal,
       });
-    } catch {
+    } catch (err) {
+      if (options?.signal?.aborted) throw err;
+      console.warn(`${LOG_TAG} request to ${this._url} failed: ${err?.message || err}`);
       return new Response("", { status: 503 });
     }
 

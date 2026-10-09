@@ -1,27 +1,53 @@
-import { GOTO_ORIGIN, GOTO_TIMEOUT_MS } from "./const/serp.js";
+import * as cheerio from "cheerio";
+import {
+  GOTO_HEADERS,
+  GOTO_ORIGIN,
+  GOTO_PAGE_MAX_BYTES,
+  GOTO_PATH,
+  GOTO_TIMEOUT_MS,
+} from "./const/serp.js";
 import { isExternal, ytThumbnail } from "./parse.js";
 
-const _followGoto = async (url, userAgent) => {
+const _gotoUrl = (url) => {
+  const token = new URL(url).searchParams.get("url");
+  if (!token) return url;
+  return `${GOTO_ORIGIN}${GOTO_PATH}?url=${encodeURIComponent(token)}`;
+};
+
+const _absolute = (href) => (href.startsWith("//") ? `https:${href}` : href);
+
+const _anchorHref = (html) => {
+  if (html.length > GOTO_PAGE_MAX_BYTES) return "";
+  const href = cheerio.load(html)("a[href]").first().attr("href") || "";
+  return _absolute(href.trim());
+};
+
+const _followGoto = async (url, userAgent, doFetch) => {
   try {
-    const response = await fetch(url, {
+    const response = await doFetch(_gotoUrl(url), {
       method: "GET",
       redirect: "manual",
-      headers: { "User-Agent": userAgent },
+      headers: { ...GOTO_HEADERS, "User-Agent": userAgent },
       signal: AbortSignal.timeout(GOTO_TIMEOUT_MS),
     });
-    await response.body?.cancel();
-    const location = response.headers.get("location") || "";
-    return isExternal(location) ? location : "";
-  } catch {
+    const location = _absolute(response.headers.get("location") || "");
+    if (isExternal(location)) {
+      await response.body?.cancel();
+      return location;
+    }
+    const href = _anchorHref(await response.text());
+    return isExternal(href) ? href : "";
+  } catch (err) {
+    console.warn(`[google-videos] goto resolve failed: ${err?.message || err}`);
     return "";
   }
 };
 
-export const resolveGotos = async (results, userAgent) => {
+export const resolveGotos = async (results, userAgent, doFetch = fetch) => {
   const resolved = await Promise.all(
     results.map(async (result) => {
       if (!result.url.startsWith(GOTO_ORIGIN)) return result;
-      const url = await _followGoto(result.url, userAgent);
+      const url = await _followGoto(result.url, userAgent, doFetch);
       return { ...result, url, thumbnail: ytThumbnail(url) };
     }),
   );

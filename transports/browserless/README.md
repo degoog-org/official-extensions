@@ -36,4 +36,4 @@ Settings → Transports → Browserless → Configure:
 - **Browserless URL**: `http://127.0.0.1:53321` (or wherever you exposed the service)
 - **API Token**: leave blank if you set `TOKEN: ""` above; otherwise set the same token here.
 
-Then, in Settings → Engines → Configure → Advanced, pick `browserless` as the outgoing transport for any engine you want routed through it.
+Then, in `Settings -> Engines -> Configure`, pick `browserless` as the outgoing transport for any engine you want routed through it.

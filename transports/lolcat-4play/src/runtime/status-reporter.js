@@ -1,4 +1,5 @@
 export const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
+const PUBLISH_DEBOUNCE_MS = 1000;
 
 const asList = (res) =>
   Array.isArray(res) ? res : res?.containers || res?.tabs || res?.list || res?.data || [];
@@ -29,6 +30,7 @@ export class StatusReporter {
     this._timeoutMs = timeoutMs;
     this._warn = warn;
     this._cache = null;
+    this._publishTimer = null;
   }
 
   bindCache(cache) {
@@ -99,9 +101,19 @@ export class StatusReporter {
     };
   }
 
-  async publish() {
+  publish() {
+    if (!this._cache || this._publishTimer) return;
+    this._publishTimer = setTimeout(() => {
+      this._publishTimer = null;
+      this._publishNow().catch((error) => {
+        this._warn(`status publish failed: ${error?.message || error}`);
+      });
+    }, PUBLISH_DEBOUNCE_MS);
+  }
+
+  async _publishNow() {
     if (!this._cache) return;
     await this._refreshBrowserState();
-    this._cache.set("current", this.build(), STATUS_TTL_MS).catch(() => {});
+    await this._cache.set("current", this.build(), STATUS_TTL_MS);
   }
 }
