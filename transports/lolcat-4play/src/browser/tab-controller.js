@@ -108,6 +108,7 @@ export class TabController {
     let last = null;
 
     while (Date.now() < deadline) {
+      matcher.signal?.throwIfAborted();
       const probe = await this.inject(tabId, pageProbeJs(domMatch), cap).catch(
         () => null,
       );

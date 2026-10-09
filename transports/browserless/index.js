@@ -39,12 +39,6 @@ const _pickHeader = (headers, name) => {
   return headers[name] ?? headers[name.toLowerCase()];
 };
 
-const _normalizeUserAgent = (value) => {
-  if (typeof value === "string") return value.trim();
-  if (value && typeof value.userAgent === "string") return value.userAgent.trim();
-  return "";
-};
-
 const _originOf = (url) => {
   try {
     const u = new URL(url);
@@ -180,7 +174,6 @@ export default class BrowserlessTransport {
   _buildPayload(url, options) {
     const headers = options?.headers || {};
     const cookies = _parseCookies(_pickHeader(headers, "Cookie"), url);
-    const userAgent = _normalizeUserAgent(_pickHeader(headers, "User-Agent"));
     const acceptLanguage = _pickHeader(headers, "Accept-Language");
     const referer = _pickHeader(headers, "Referer");
 
@@ -196,7 +189,6 @@ export default class BrowserlessTransport {
       },
     };
 
-    if (userAgent) payload.userAgent = userAgent;
     if (Object.keys(extraHeaders).length > 0)
       payload.setExtraHTTPHeaders = extraHeaders;
     if (cookies.length > 0) payload.cookies = cookies;

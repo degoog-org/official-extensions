@@ -70,10 +70,15 @@ export const containerConfigKey = (settings) =>
     proxyType: settings.proxyType,
     proxyHost: settings.proxyHost,
     proxyPort: settings.proxyPort,
-    proxyUsername: settings.proxyUsername,
-    proxyPassword: settings.proxyPassword,
     proxyDns: settings.proxyDns,
   });
+
+const proxyCredentials = (settings) =>
+  JSON.stringify([settings.proxyUsername, settings.proxyPassword]);
+
+export const proxyChanged = (before, after) =>
+  containerConfigKey(before) !== containerConfigKey(after) ||
+  proxyCredentials(before) !== proxyCredentials(after);
 
 export const settingsSchemaFor = (transportName) => [
   {
@@ -189,12 +194,12 @@ export const settingsSchemaFor = (transportName) => [
   },
   {
     key: "proxyType",
-    label: "Proxy type",
+    label: "Proxy type (deprecated)",
     type: "select",
     options: ["none", ...PROXY_TYPES],
     default: "none",
     description:
-      "Proxy protocol for the containers. Any proxy turns on container isolation.",
+      "Deprecated, set proxies in Settings -> Server -> Proxy instead. When degoog picks a proxy for a search, 4play uses that one and gives every site and proxy pair its own container. This proxy is only used for engines degoog sends without one.",
   },
   {
     key: "proxyHost",

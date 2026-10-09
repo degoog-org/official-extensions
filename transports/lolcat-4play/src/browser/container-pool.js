@@ -100,7 +100,11 @@ export class ContainerPool {
     }
   }
 
-  async hatchContainer() {
+  _ownProxy() {
+    return this.proxyType() !== "none" ? this.buildProxy() : null;
+  }
+
+  async hatchContainer(proxy = this._ownProxy()) {
     const cr = await this.command("container_create");
     if (!cr?.id) {
       throw new Error("lolcat-4play: container_create did not return a container id");
@@ -109,11 +113,8 @@ export class ContainerPool {
     this._born.set(cr.id, Date.now());
     this.rememberContainer?.(cr);
 
-    if (this.proxyType() !== "none") {
-      await this.command("container_attach_proxy", {
-        id: cr.id,
-        proxy: this.buildProxy(),
-      });
+    if (proxy) {
+      await this.command("container_attach_proxy", { id: cr.id, proxy });
     }
 
     return cr.id;
@@ -148,7 +149,7 @@ export class ContainerPool {
     return Boolean(id) && !this.retired.has(id) && !this._isExpired(id);
   }
 
-  async _reserve(origin) {
+  async _reserve(origin, proxy) {
     const reserved = origin ? this._byOrigin.get(origin) : null;
     if (this._usable(reserved)) return reserved;
     if (reserved) {
@@ -157,17 +158,17 @@ export class ContainerPool {
     }
 
     await this._evictForCapacity(origin);
-    const id = await this.hatchContainer();
+    const id = await this.hatchContainer(proxy);
     if (origin) this._byOrigin.set(origin, id);
     return id;
   }
 
-  async _reserveOnce(origin) {
-    if (!origin) return this._reserve(origin);
+  async _reserveOnce(origin, proxy) {
+    if (!origin) return this._reserve(origin, proxy);
     const pending = this._hatching.get(origin);
     if (pending) return pending;
 
-    const hatching = this._reserve(origin).finally(() => {
+    const hatching = this._reserve(origin, proxy).finally(() => {
       this._hatching.delete(origin);
     });
     this._hatching.set(origin, hatching);
@@ -198,14 +199,14 @@ export class ContainerPool {
     if (previous) await this.tuckContainerIn(previous.id);
   }
 
-  async summonContainer(origin, sessionKey = "") {
+  async summonContainer(origin, sessionKey = "", proxy = undefined) {
     await this.sweepRetiredContainers();
     this._expireLeases();
 
     const leased = sessionKey && origin ? await this._leaseFor(sessionKey, origin) : null;
     if (leased) return this._hold(leased);
 
-    const id = await this._reserveOnce(origin);
+    const id = await this._reserveOnce(origin, proxy);
     if (sessionKey && origin) await this._recordLease(sessionKey, origin, id);
     return this._hold(id);
   }

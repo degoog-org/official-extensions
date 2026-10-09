@@ -7,7 +7,11 @@ import { ControlChannel, CONTROL_TTL_MS } from "./src/runtime/control-channel.js
 import { PageFetcher } from "./src/runtime/page-fetcher.js";
 import { Scheduler } from "./src/runtime/scheduler.js";
 import { StatusReporter, STATUS_TTL_MS } from "./src/runtime/status-reporter.js";
-import { buildExtensionProxy, curlProxyUrlFor } from "./src/net/proxy.js";
+import {
+  buildExtensionProxy,
+  curlProxyUrlFor,
+  extensionProxyFromUrl,
+} from "./src/net/proxy.js";
 import { OriginBlockedError, originFor } from "./src/warmup/origin-warmup.js";
 import { WarmupDriver } from "./src/warmup/warmup-driver.js";
 import { wantsLocation, wrapResponse } from "./src/net/response.js";
@@ -16,6 +20,7 @@ import {
   FETCH_TIMEOUT_MS,
   containerConfigKey,
   normaliseSettings,
+  proxyChanged,
   settingsSchemaFor,
 } from "./src/config/settings.js";
 
@@ -52,15 +57,18 @@ export default class FourPlayTransport {
     "Fetches pages using a real Firefox session via the official [lolcat 4play](https://addons.mozilla.org/en-GB/firefox/addon/4play/) browser extension. Point the extension at this transport's WebSocket address instead of a separate server.";
   needsAppRestart = true;
   handlesChallenges = true;
+  usesContextProxy = true;
 
   _session = null;
   _sessionId = Math.random().toString(36).slice(2, 8);
   _settings = { ...DEFAULT_SETTINGS };
   _containerConfigKey = "";
+  _configured = false;
   _cachesBound = false;
   _discoveryCache = null;
 
   _seenOrigins = new Set();
+  _slots = new Map();
   _dom = new DomWaiters();
 
   _tabs = new TabController({
@@ -129,7 +137,6 @@ export default class FourPlayTransport {
       this._warmer.markBlocked(origin, containerId, reason, tabId),
     flaresolverrUrl: () => this._settings.flaresolverrUrl,
     flaresolverrTimeoutMs: () => this._settings.flaresolverrTimeoutMs,
-    curlProxyUrl: () => curlProxyUrlFor(this._settings),
     timeoutMs: () => this._settings.timeoutMs,
     warn: (msg) => this._warn(msg),
   });
@@ -163,6 +170,7 @@ export default class FourPlayTransport {
     containers: this._containers,
     warmer: this._warmer,
     seenOrigins: this._seenOrigins,
+    warmTargets: () => this._warmTargets(),
     autoWarmMs: () => this._settings.autoWarmMs,
     useContainer: () => this._useContainer(),
     publish: () => this._status.publish(),
@@ -236,14 +244,14 @@ export default class FourPlayTransport {
   }
 
   configure(settings = {}) {
-    const oldKey = this._containerConfigKey;
+    const before = this._configured ? this._settings : null;
     this._settings = normaliseSettings(settings);
     this._containerConfigKey = containerConfigKey(this._settings);
-
-    if (oldKey && oldKey !== this._containerConfigKey) {
+    if (before && proxyChanged(before, this._settings)) {
       this._containers.yerOldGetOuttaHere();
       this._store.clearMemory();
     }
+    this._configured = true;
 
     if (this._session?.connected()) this._scheduler.startAutoWarm();
   }
@@ -259,7 +267,7 @@ export default class FourPlayTransport {
   _scrapeHint(options = {}) {
     const method = String(options.method || "GET").toUpperCase();
     if (options.body || method !== "GET" || wantsLocation(options)) return null;
-    return options.match || {};
+    return { ...(options.match || {}), signal: options.signal };
   }
 
   _warn(msg) {
@@ -332,8 +340,10 @@ export default class FourPlayTransport {
       const captchaRes = await this._captcha.tryFetch(url);
       if (captchaRes) return captchaRes;
 
-      if (this._useContainer() && origin) {
-        containerId = await this._containers.summonContainer(origin, context.sessionKey);
+      const route = this._route(context);
+      if (route.container && origin) {
+        const slot = this._slotFor(origin, route);
+        containerId = await this._containers.summonContainer(slot, context.sessionKey, route.proxy);
       }
 
       if (origin && this._captcha.hasOpenTab(origin, containerId)) {
@@ -349,8 +359,8 @@ export default class FourPlayTransport {
       );
       const res =
         (html && wrapResponse(html)) ??
-        (await this._fetcher.curlFetchWarmed(url, warmedOrigin, containerId, options)) ??
-        (await this._browserFallback(url, warmedOrigin, containerId, options));
+        (await this._fetcher.curlFetchWarmed(url, warmedOrigin, containerId, options, route.curlProxyUrl)) ??
+        (await this._browserFallback(url, warmedOrigin, containerId, options, route.curlProxyUrl));
       await this._captcha.clearTabsForOrigin(warmedOrigin);
       return res;
     } catch (error) {
@@ -365,9 +375,51 @@ export default class FourPlayTransport {
     }
   }
 
-  _browserFallback(url, origin, containerId, options) {
+  _browserFallback(url, origin, containerId, options, proxyUrl) {
     options.signal?.throwIfAborted();
-    return this._fetcher.browserFetch(url, origin, containerId, options);
+    return this._fetcher.browserFetch(url, origin, containerId, options, proxyUrl);
+  }
+
+  _route(context) {
+    if (context.proxyUrl && context.egressKey) {
+      return {
+        egress: context.egressKey,
+        container: true,
+        proxy: extensionProxyFromUrl(context.proxyUrl),
+        curlProxyUrl: context.proxyUrl,
+      };
+    }
+    return {
+      egress: "",
+      container: this._useContainer(),
+      proxy: undefined,
+      curlProxyUrl: curlProxyUrlFor(this._settings),
+    };
+  }
+
+  _slotFor(origin, route) {
+    if (!route.egress) return origin;
+    const slot = `${origin}|${route.egress}`;
+    this._slots.set(slot, { origin, proxy: route.proxy, usedAt: Date.now() });
+    return slot;
+  }
+
+  _warmTargets() {
+    const cutoff = Date.now() - this._settings.warmupTtlMs;
+    const targets = [];
+    const covered = new Set();
+    for (const [slot, entry] of this._slots) {
+      if (entry.usedAt < cutoff) {
+        this._slots.delete(slot);
+        continue;
+      }
+      covered.add(entry.origin);
+      targets.push({ slot, origin: entry.origin, proxy: entry.proxy });
+    }
+    for (const origin of this._seenOrigins) {
+      if (!covered.has(origin)) targets.push({ slot: origin, origin, proxy: undefined });
+    }
+    return targets;
   }
 
   async endSession(sessionKey) {

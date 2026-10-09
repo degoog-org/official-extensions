@@ -4,8 +4,10 @@ import {
   DIRECT_ROUTE,
   LOG_TAG,
   MS_PER_MINUTE,
+  PROXY_CONNECT_ERROR,
   SOLVE_FAILED_STATUS,
   SOLVE_OK,
+  UNREACHABLE_STATUS,
 } from "./src/const.js";
 import { createJar } from "./src/session-jar.js";
 import { looksBlocked, replayFetch, wantsLocation } from "./src/replay.js";
@@ -21,10 +23,8 @@ const _originOf = (url) => {
 
 const _isGet = (options) => !options.method || options.method.toUpperCase() === "GET";
 
-const _jarKey = (origin, context) => `${context.proxyUrl || DIRECT_ROUTE}|${origin}`;
-
-const _direct = (url, options, context) =>
-  context.fetch(url, {
+const _direct = (url, options, doFetch) =>
+  doFetch(url, {
     method: options.method ?? "GET",
     redirect: options.redirect ?? "follow",
     signal: options.signal,
@@ -68,7 +68,7 @@ export default class FlareSolverrTransport {
       type: "toggle",
       default: "true",
       description:
-        "Passes the proxy degoog picked for the search to FlareSolverr, so the solve and every reused request leave from the same IP. Turn off if FlareSolverr can't reach your proxies.",
+        "Passes the proxy degoog picked for the search to FlareSolverr, so the solve and every reused request leave from the same IP. Turn off if FlareSolverr can't reach your proxies. Off, sites see FlareSolverr's own IP, so degoog sends the follow-up requests directly instead of through a proxy.",
     },
     {
       key: "reuseSession",
@@ -76,7 +76,7 @@ export default class FlareSolverrTransport {
       type: "toggle",
       default: "true",
       description:
-        "Keeps the cookies from each solve and sends later requests to the same site as plain requests with them. If the site blocks the plain request, FlareSolverr solves it again. Only works when FlareSolverr and degoog share a public IP.",
+        "Keeps the cookies from each solve and sends later requests to the same site as plain requests with them. If the site blocks the plain request, FlareSolverr solves it again. With \"Solve through the engine's proxy\" off this only works when FlareSolverr and degoog share a public IP.",
     },
     {
       key: "sessionTtl",
@@ -115,19 +115,34 @@ export default class FlareSolverrTransport {
   }
 
   async fetch(url, options, context) {
-    if (!this._url) return _direct(url, options, context);
+    const doFetch = this._siteFetch(context);
+    if (!this._url) return _direct(url, options, doFetch);
 
-    const origin = this._reuseSession && _isGet(options) ? _originOf(url) : "";
-    const key = origin ? _jarKey(origin, context) : "";
+    const egress = this._egress(context);
+    const origin = this._reuseSession && egress && _isGet(options) ? _originOf(url) : "";
+    const key = origin ? `${egress}|${origin}` : "";
     const session = key ? this._jar.find(key) : null;
     if (session) {
-      const replayed = await replayFetch(url, options, session, context.fetch);
+      const replayed = await replayFetch(url, options, session, doFetch);
       if (replayed) return replayed;
       this._jar.drop(key);
     }
 
-    if (wantsLocation(options)) return _direct(url, options, context);
+    if (wantsLocation(options)) return _direct(url, options, doFetch);
     return this._solve(url, options, context, origin, key);
+  }
+
+  get usesContextProxy() {
+    return this._useEngineProxy;
+  }
+
+  _egress(context) {
+    if (!this._useEngineProxy || !context.proxyUrl) return DIRECT_ROUTE;
+    return context.egressKey || "";
+  }
+
+  _siteFetch(context) {
+    return this._useEngineProxy ? context.fetch : fetch;
   }
 
   _payload(url, context) {
@@ -141,16 +156,23 @@ export default class FlareSolverrTransport {
     const payload = this._payload(url, context);
 
     const endpointFetch = this._bypassProxy ? fetch : context.fetch;
-    const res = await endpointFetch(this._url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: payload,
-      redirect: "follow",
-      signal: options.signal,
-    });
+    let res;
+    try {
+      res = await endpointFetch(this._url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: payload,
+        redirect: "follow",
+        signal: options.signal,
+      });
+    } catch (err) {
+      if (options.signal?.aborted || err?.name === PROXY_CONNECT_ERROR) throw err;
+      console.warn(`${LOG_TAG} could not reach FlareSolverr at ${this._url}: ${err?.message || err}`);
+      return new Response("", { status: UNREACHABLE_STATUS });
+    }
 
     if (!res.ok) return new Response("", { status: res.status });
     const data = await res.json();
@@ -163,7 +185,7 @@ export default class FlareSolverrTransport {
     const html = solution?.response ?? "";
     const status = solution?.status ?? 200;
 
-    if (key && !looksBlocked(status, solution?.url, html)) {
+    if (key && !looksBlocked(status, solution?.url, html, options.match)) {
       this._jar.stash(key, origin, solution, this._sessionTtlMs);
     }
 

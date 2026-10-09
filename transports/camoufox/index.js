@@ -153,7 +153,6 @@ export default class CamoufoxTransport {
     const doFetch = this._bypassProxy ? fetch : context.fetch;
     const headers = options?.headers ?? {};
     const cookies = _parseCookies(_pickHeader(headers, "Cookie"), url);
-    const userAgent = _pickHeader(headers, "User-Agent");
     const acceptLanguage = _pickHeader(headers, "Accept-Language");
     const referer = _pickHeader(headers, "Referer");
 
@@ -165,7 +164,6 @@ export default class CamoufoxTransport {
       },
     };
 
-    if (userAgent) payload.userAgent = userAgent;
     const extraHeaders = {};
     if (acceptLanguage) extraHeaders["Accept-Language"] = acceptLanguage;
     if (referer) {

@@ -193,6 +193,7 @@ export class WarmupDriver {
       domMatch: scrape?.domMatch,
       failUrlMatch: scrape?.failUrlMatch,
       timeoutMs: this._timeoutMs(),
+      signal: scrape?.signal,
     });
     await this._acceptConsent?.(tabId);
     await this._inspectPage(origin, containerId, tabId);

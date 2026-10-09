@@ -6,6 +6,7 @@ export class Scheduler {
     containers,
     warmer,
     seenOrigins,
+    warmTargets,
     autoWarmMs,
     useContainer,
     publish,
@@ -15,6 +16,7 @@ export class Scheduler {
     this._containers = containers;
     this._warmer = warmer;
     this._seenOrigins = seenOrigins;
+    this._warmTargets = warmTargets;
     this._autoWarmMs = autoWarmMs;
     this._useContainer = useContainer;
     this._publish = publish;
@@ -62,20 +64,20 @@ export class Scheduler {
 
   async _autoWarmTick() {
     if (!this._session()?.connected() || !this._seenOrigins.size) return;
-    const origins = [...this._seenOrigins];
-    this._warn(`background warmup sweeping ${origins.length} origin(s)`);
-    for (const origin of origins) {
-      await this._autoWarmOrigin(origin).catch(() => {});
+    const targets = this._warmTargets();
+    this._warn(`background warmup sweeping ${targets.length} origin(s)`);
+    for (const target of targets) {
+      await this._autoWarmTarget(target).catch(() => {});
     }
     this._publish();
   }
 
-  async _autoWarmOrigin(origin) {
+  async _autoWarmTarget({ slot, origin, proxy }) {
     await this._containers.sweepRetiredContainers();
-    const useContainer = this._useContainer();
+    const useContainer = Boolean(proxy) || this._useContainer();
     let containerId = null;
     try {
-      if (useContainer) containerId = await this._containers.summonContainer(origin);
+      if (useContainer) containerId = await this._containers.summonContainer(slot, "", proxy);
       await this._warmer.ensureWarm(`${origin}/`, containerId);
     } catch {
     } finally {

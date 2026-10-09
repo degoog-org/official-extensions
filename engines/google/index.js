@@ -40,6 +40,14 @@ export default class GoogleEngine {
     return new Error(message);
   }
 
+  _softCaptchaError(context) {
+    const message = `${this.name} kept returning its soft CAPTCHA page`;
+    if (context?.engineError) {
+      return context.engineError("captcha", message, { engine: this.name });
+    }
+    return new Error(message);
+  }
+
   async _searchHtml(query, page, timeFilter, context) {
     const params = buildHtmlParams(query, page, timeFilter, this.safeSearch, context);
     const url = `${SEARCH_URL}?${params.toString()}`;
@@ -51,6 +59,7 @@ export default class GoogleEngine {
       console.warn("[google] soft captcha hit, retrying with sei");
       await napTime();
       html = await this._fetchHtml(withSei(url, eid), userAgent, context);
+      if (sniffEid(html)) throw this._softCaptchaError(context);
     }
 
     if (isInterstitial(html)) throw this._interstitialError(context);

@@ -178,7 +178,6 @@ export default class CloakBrowserTransport {
     const headers = options?.headers ?? {};
     const cookieHeader = _pickHeader(headers, "Cookie");
     const cookies = _parseCookies(cookieHeader, url);
-    const userAgent = _pickHeader(headers, "User-Agent");
     const acceptLanguage = _pickHeader(headers, "Accept-Language");
     const referer = _pickHeader(headers, "Referer");
 
@@ -190,7 +189,6 @@ export default class CloakBrowserTransport {
       },
     };
 
-    if (userAgent) payload.userAgent = userAgent;
     const extraHeaders = {};
     if (acceptLanguage) extraHeaders["Accept-Language"] = acceptLanguage;
     if (referer) {

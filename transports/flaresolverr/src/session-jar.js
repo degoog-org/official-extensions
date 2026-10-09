@@ -1,8 +1,3 @@
-import { CHROME_USER_AGENT, FIREFOX_MARK } from "./const.js";
-
-const _replayAgent = (userAgent) =>
-  !userAgent || userAgent.includes(FIREFOX_MARK) ? CHROME_USER_AGENT : userAgent;
-
 const _matchesHost = (domain, host) => {
   const bare = String(domain || "").replace(/^\./, "");
   return host === bare || host.endsWith(`.${bare}`);
@@ -22,7 +17,7 @@ export const createJar = () => {
     if (!cookie) return;
     sessions.set(key, {
       cookie,
-      userAgent: _replayAgent(solution.userAgent),
+      userAgent: solution.userAgent || "",
       expires: Date.now() + ttlMs,
     });
   };
