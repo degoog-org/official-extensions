@@ -110,4 +110,4 @@ The first build runs `python -m camoufox fetch` to download the browser, so give
 
 Open `Settings -> Transports -> Camoufox -> Configure` and set **Camoufox URL** to `http://127.0.0.1:53323`, or wherever you exposed the service.
 
-Then open `Settings -> Engines -> Configure -> Advanced` and pick `camoufox` as the outgoing transport for each engine that should use it.
+Then open `Settings -> Engines -> Configure` and pick `camoufox` as the outgoing transport for each engine that should use it.

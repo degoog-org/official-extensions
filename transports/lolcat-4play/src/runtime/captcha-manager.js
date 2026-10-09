@@ -15,6 +15,7 @@ export class CaptchaManager {
     this._originByTab = new Map();
     this._kindByTab = new Map();
     this._missByTab = new Map();
+    this._syncing = null;
   }
 
   clear() {
@@ -140,7 +141,15 @@ export class CaptchaManager {
     return true;
   }
 
-  async syncAllTabs() {
+  syncAllTabs() {
+    if (!this.captchaTabIds.size) return Promise.resolve();
+    this._syncing ??= this._syncEach().finally(() => {
+      this._syncing = null;
+    });
+    return this._syncing;
+  }
+
+  async _syncEach() {
     for (const tabId of [...this.captchaTabIds]) {
       await this.syncTab(tabId);
     }

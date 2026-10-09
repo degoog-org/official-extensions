@@ -57,6 +57,21 @@ const _originOf = (url) => {
   }
 };
 
+const LOG_TAG = "[cloakbrowser]";
+const MANUAL_REDIRECT = "manual";
+
+const _wantsLocation = (options) =>
+  options?.redirect === MANUAL_REDIRECT && !options?.allowlistHop;
+
+const _direct = (url, options, context) =>
+  context.fetch(url, {
+    method: options?.method ?? "GET",
+    redirect: options?.redirect ?? "follow",
+    signal: options?.signal,
+    headers: options?.headers,
+    body: options?.body,
+  });
+
 export default class CloakBrowserTransport {
   isClientExposed = false;
   name = "cloakbrowser";
@@ -142,12 +157,16 @@ export default class CloakBrowserTransport {
     return this._url.length > 0;
   }
 
+  _shouldWarm(origin, url) {
+    return this._warmupEnabled && Boolean(origin) && origin !== url;
+  }
+
   async fetch(url, options, context) {
+    if (_wantsLocation(options)) return _direct(url, options, context);
     const doFetch = this._bypassProxy ? fetch : context.fetch;
     const headers = options?.headers ?? {};
     const cookieHeader = _pickHeader(headers, "Cookie");
     const cookies = _parseCookies(cookieHeader, url);
-    const userAgent = _pickHeader(headers, "User-Agent");
     const acceptLanguage = _pickHeader(headers, "Accept-Language");
     const referer = _pickHeader(headers, "Referer");
 
@@ -159,7 +178,6 @@ export default class CloakBrowserTransport {
       },
     };
 
-    if (userAgent) payload.userAgent = userAgent;
     const extraHeaders = {};
     if (acceptLanguage) extraHeaders["Accept-Language"] = acceptLanguage;
     if (referer) {
@@ -170,15 +188,13 @@ export default class CloakBrowserTransport {
       payload.setExtraHTTPHeaders = extraHeaders;
     if (cookies.length > 0) payload.cookies = cookies;
 
-    if (this._warmupEnabled) {
-      const origin = _originOf(url);
-      if (origin && origin !== url) {
-        payload.warmup = {
-          url: origin,
-          waitUntil: "domcontentloaded",
-          dwellMs: this._warmupDwellMs,
-        };
-      }
+    const origin = _originOf(url);
+    if (this._shouldWarm(origin, url)) {
+      payload.warmup = {
+        url: origin,
+        waitUntil: "domcontentloaded",
+        dwellMs: this._warmupDwellMs,
+      };
     }
 
     let res;
@@ -189,7 +205,9 @@ export default class CloakBrowserTransport {
         body: JSON.stringify(payload),
         signal: options?.signal,
       });
-    } catch {
+    } catch (err) {
+      if (options?.signal?.aborted) throw err;
+      console.warn(`${LOG_TAG} request to ${this._url} failed: ${err?.message || err}`);
       return new Response("", { status: 503 });
     }
 

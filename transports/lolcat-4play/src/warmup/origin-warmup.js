@@ -16,8 +16,6 @@ const BLOCK_PATTERNS = [
   /our systems have detected/i,
   /not a robot/i,
   /access denied/i,
-  /\/httpservice\/retry\/enablejs/i,
-  /Please click\s+<a\s+href=["']\/httpservice/i,
 ];
 
 export class OriginBlockedError extends Error {
@@ -114,10 +112,6 @@ export const looksBlocked = (text, url = "") => {
     !lowerTitle.includes("access denied")
   ) {
     return false;
-  }
-
-  if (/\/httpservice\/retry\/enablejs/i.test(text) || /enablejs\?sei=/i.test(text)) {
-    return true;
   }
 
   const cleanText = text

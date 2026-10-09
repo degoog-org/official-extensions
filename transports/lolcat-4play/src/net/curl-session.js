@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 const STATUS_DELIMITER = randomUUID();
+const LOCATION_DELIMITER = randomUUID();
 const COOKIE_DELIMITER = randomUUID();
 
 export const COOKIE_JAR_HEADER =
@@ -23,9 +24,13 @@ const BINARIES = [
 // Brave and similar origins negotiate br by default; --compressed then fails with
 // curl exit 23 (CURLE_WRITE_ERROR). Restrict to gzip/deflate, which --compressed handles.
 const CURL_ACCEPT_ENCODING = "gzip, deflate";
+const BROWSER_ACCEPT_ENCODING = "gzip, deflate, br, zstd";
+const LIBRARY_TARGET = "firefox135";
 
 const STRIP_HEADERS = new Set([
   "accept-encoding",
+  "available-dictionary",
+  "dictionary-id",
   "authorization",
   "connection",
   "content-length",
@@ -36,21 +41,33 @@ const STRIP_HEADERS = new Set([
   "referer",
 ]);
 
-const run = (cmd, args, stdinText) =>
+const run = (cmd, args, stdinText, signal) =>
   new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve({ exitCode: 130, stdout: "", stderr: "lolcat-4play: request aborted" });
+      return;
+    }
     const proc = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"] });
     const stdout = [];
     const stderr = [];
+    const abort = () => proc.kill("SIGKILL");
+    signal?.addEventListener("abort", abort, { once: true });
     proc.stdout.on("data", (chunk) => stdout.push(chunk));
     proc.stderr.on("data", (chunk) => stderr.push(chunk));
-    proc.on("error", (error) => resolve({ exitCode: 127, stdout: "", stderr: error.message }));
-    proc.on("close", (exitCode) =>
+    proc.on("error", (error) => {
+      signal?.removeEventListener("abort", abort);
+      resolve({ exitCode: 127, stdout: "", stderr: error.message });
+    });
+    proc.on("close", (exitCode) => {
+      signal?.removeEventListener("abort", abort);
       resolve({
-        exitCode,
+        exitCode: signal?.aborted ? 130 : exitCode,
         stdout: Buffer.concat(stdout).toString("utf-8"),
-        stderr: Buffer.concat(stderr).toString("utf-8"),
-      }),
-    );
+        stderr: signal?.aborted
+          ? "lolcat-4play: request aborted"
+          : Buffer.concat(stderr).toString("utf-8"),
+      });
+    });
 
     if (proc.stdin) {
       proc.stdin.on("error", () => { });
@@ -129,6 +146,12 @@ const profileFrom = async (name) => {
   const binary = join(dirname(path), "curl-impersonate");
   if ((await run(binary, ["--version"])).exitCode !== 0) return null;
   return { binary, args };
+};
+
+export const describeReplay = async (impersonate) => {
+  if (impersonate) return { mode: "library", profile: LIBRARY_TARGET };
+  const binary = await resolveCurlBinary();
+  return binary ? { mode: "binary", profile: binary } : { mode: "browser", profile: null };
 };
 
 export const resolveCurlProfile = async () => {
@@ -241,9 +264,16 @@ export const parseCurlStdoutWithCookieJar = (stdout) => {
     cookieJarText = stdout.slice(cookieIdx + COOKIE_DELIMITER.length).replace(/^\n/, "");
   }
 
+  let location = "";
+  const locationIdx = head.lastIndexOf(LOCATION_DELIMITER);
+  if (locationIdx >= 0) {
+    location = head.slice(locationIdx + LOCATION_DELIMITER.length).trim();
+    head = head.slice(0, locationIdx);
+  }
+
   const statusIdx = head.lastIndexOf(STATUS_DELIMITER);
   if (statusIdx < 0) {
-    return { bodyText: head, status: 502, cookieJarText };
+    return { bodyText: head, status: 502, location, cookieJarText };
   }
 
   const bodyText = head.slice(0, statusIdx).replace(/\n$/, "");
@@ -252,6 +282,7 @@ export const parseCurlStdoutWithCookieJar = (stdout) => {
   return {
     bodyText,
     status: status >= 100 ? status : 502,
+    location,
     cookieJarText,
   };
 };
@@ -289,6 +320,53 @@ export const proxyUrlFromSettings = ({ type, host, port, username, password, pro
   return `${scheme}://${auth}${host}:${port || 1080}`;
 };
 
+const headerPair = (line) => {
+  const parsed = parseHeader(line);
+  return parsed ? [parsed.name, parsed.value] : null;
+};
+
+const browserHeader = (headers, name) =>
+  headers
+    .map(parseHeader)
+    .find((header) => header?.name.toLowerCase() === name)
+    ?.value || "";
+
+const fetchViaLibrary = async ({
+  impersonate,
+  egressKey,
+  url,
+  headers,
+  extraHeaders,
+  method,
+  body,
+  timeoutSeconds,
+  cookieJarText,
+  onCookieJarText,
+  proxyUrl,
+  followRedirects,
+  signal,
+}) => {
+  const { response, cookieJar } = await impersonate({
+    url,
+    method: String(method || "GET").toUpperCase(),
+    headers: [...cleanBrowserHeaders(headers), ...extraHeaders].map(headerPair).filter(Boolean),
+    body: body || undefined,
+    proxyUrl,
+    egressKey,
+    followRedirects,
+    timeoutMs: Math.max(5, Math.ceil(timeoutSeconds)) * 1000,
+    target: LIBRARY_TARGET,
+    defaultHeaders: false,
+    acceptEncoding: browserHeader(headers, "accept-encoding") || BROWSER_ACCEPT_ENCODING,
+    cookieJar: cookieJarText || emptyCookieJar(),
+    signal,
+  });
+  if (cookieJar !== undefined && typeof onCookieJarText === "function") {
+    onCookieJarText(`${COOKIE_JAR_HEADER}${cookieJar}`);
+  }
+  return response;
+};
+
 export const curlFetchWithBrowserHeaders = async ({
   url,
   headers = [],
@@ -299,7 +377,28 @@ export const curlFetchWithBrowserHeaders = async ({
   cookieJarText,
   onCookieJarText,
   proxyUrl = "",
+  followRedirects = true,
+  signal,
+  impersonate,
+  egressKey,
 }) => {
+  if (impersonate) {
+    return fetchViaLibrary({
+      impersonate,
+      egressKey,
+      url,
+      headers,
+      extraHeaders,
+      method,
+      body,
+      timeoutSeconds,
+      cookieJarText,
+      onCookieJarText,
+      proxyUrl,
+      followRedirects,
+      signal,
+    });
+  }
   const profile = await resolveCurlProfile();
   if (!profile) {
     throw new Error("lolcat-4play: curl/curl-impersonate binary not found for warmed session fetch");
@@ -308,10 +407,8 @@ export const curlFetchWithBrowserHeaders = async ({
   const args = [
     ...profile.args,
     "-sS",
-    "-L",
+    ...(followRedirects ? ["-L", "--max-redirs", "5"] : []),
     "--compressed",
-    "--max-redirs",
-    "5",
     "--max-time",
     String(Math.max(5, Math.ceil(timeoutSeconds))),
     "-b",
@@ -319,7 +416,7 @@ export const curlFetchWithBrowserHeaders = async ({
     "-c",
     "-",
     "-w",
-    `\n${STATUS_DELIMITER}%{http_code}\n${COOKIE_DELIMITER}\n`,
+    `\n${STATUS_DELIMITER}%{http_code}\n${LOCATION_DELIMITER}%{redirect_url}\n${COOKIE_DELIMITER}\n`,
   ];
 
   if (proxyUrl) {
@@ -345,7 +442,7 @@ export const curlFetchWithBrowserHeaders = async ({
 
   args.push("--", url);
 
-  const result = await run(profile.binary, args, cookieJarText || emptyCookieJar());
+  const result = await run(profile.binary, args, cookieJarText || emptyCookieJar(), signal);
   if (result.exitCode !== 0) {
     const detail = result.stderr.trim();
     const hint =
@@ -360,8 +457,7 @@ export const curlFetchWithBrowserHeaders = async ({
     onCookieJarText(parsed.cookieJarText);
   }
 
-  return new Response(parsed.bodyText, {
-    status: parsed.status,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  });
+  const responseHeaders = { "Content-Type": "text/html; charset=utf-8" };
+  if (!followRedirects && parsed.location) responseHeaders.Location = parsed.location;
+  return new Response(parsed.bodyText, { status: parsed.status, headers: responseHeaders });
 };

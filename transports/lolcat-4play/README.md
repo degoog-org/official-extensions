@@ -33,17 +33,19 @@ Copy the path from your own Degoog settings, since renamed or third-party instal
 - Opens warmup tabs in Firefox for each search origin.
 - Copies the headers and cookies Firefox really sends.
 - Replays requests with that session through curl or curl-impersonate when it can.
+- Keeps one engine search in the same container from the first request to the last, so follow-ups like Google's result link lookups carry the same cookies.
 - Leaves tabs open when a CAPTCHA needs you.
 - Keeps its state across Degoog restarts if `DEGOOG_VALKEY_URL` is set.
 
 ## Settings worth knowing
 
 - **Container isolation** keeps each origin's browser state separate. Leave it on.
-- **Max containers** is how many origins can stay ready at once.
+- **Max containers** is how many origins can stay ready at once. With proxies set in Settings -> Server -> Proxy, every site and proxy pair gets its own container, so set it to at least your number of 4play engines times your number of proxies.
 - **Container TTL** is how long a Firefox container lives before it gets recycled.
 - **Origin warmup query** is the harmless search typed in before the real one.
 - **Background warmup** re-warms only the origins that have already used 4play, not every engine.
-- **Proxy settings** apply per Firefox container, so warmup and the real request take the same route.
+- **Proxies** come from Settings -> Server -> Proxy. Each container is attached to the proxy degoog picked, and warmup, curl replays and FlareSolverr all leave through that same proxy. A CAPTCHA solved in one container belongs to that proxy's IP, so with several proxies you may solve one per proxy. If a site flags a proxy, degoog drops that container's session and cools the proxy down for that site. This only holds if each proxy keeps the same exit IP across connections, so turn on sticky sessions if your provider rotates IPs.
+- **Proxy type, host, port, username and password** here are deprecated. 4play only uses them for engines degoog sends without a proxy.
 
 ## Status plugin
 

@@ -225,4 +225,4 @@ docker compose up -d --build
 
 Open `Settings -> Transports -> CloakBrowser -> Configure` and set **CloakBrowser URL** to `http://127.0.0.1:53322`, or wherever you exposed the service.
 
-Then open `Settings -> Engines -> Configure -> Advanced` and pick `cloakbrowser` as the outgoing transport for each engine that should use it.
+Then open `Settings -> Engines -> Configure` and pick `cloakbrowser` as the outgoing transport for each engine that should use it.

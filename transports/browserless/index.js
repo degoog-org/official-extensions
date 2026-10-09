@@ -39,12 +39,6 @@ const _pickHeader = (headers, name) => {
   return headers[name] ?? headers[name.toLowerCase()];
 };
 
-const _normalizeUserAgent = (value) => {
-  if (typeof value === "string") return value.trim();
-  if (value && typeof value.userAgent === "string") return value.userAgent.trim();
-  return "";
-};
-
 const _originOf = (url) => {
   try {
     const u = new URL(url);
@@ -53,6 +47,21 @@ const _originOf = (url) => {
     return null;
   }
 };
+
+const LOG_TAG = "[browserless]";
+const MANUAL_REDIRECT = "manual";
+
+const _wantsLocation = (options) =>
+  options?.redirect === MANUAL_REDIRECT && !options?.allowlistHop;
+
+const _direct = (url, options, context) =>
+  context.fetch(url, {
+    method: options?.method ?? "GET",
+    redirect: options?.redirect ?? "follow",
+    signal: options?.signal,
+    headers: options?.headers,
+    body: options?.body,
+  });
 
 export default class BrowserlessTransport {
   isClientExposed = false;
@@ -119,6 +128,7 @@ export default class BrowserlessTransport {
   _waitUntil = "networkidle";
   _bypassProxy = true;
   _warmupEnabled = false;
+  _warmed = new Map();
 
   configure(settings) {
     this._url = (settings.url || "").replace(/\/+$/, "").trim();
@@ -138,6 +148,23 @@ export default class BrowserlessTransport {
     return this._url.length > 0;
   }
 
+  _shouldWarm(origin, url, sessionKey) {
+    if (!this._warmupEnabled || !origin || origin === url) return false;
+    if (!sessionKey) return true;
+    return !this._warmed.get(sessionKey)?.has(origin);
+  }
+
+  _markWarm(origin, sessionKey) {
+    if (!sessionKey) return;
+    const warmed = this._warmed.get(sessionKey) ?? new Set();
+    warmed.add(origin);
+    this._warmed.set(sessionKey, warmed);
+  }
+
+  endSession(sessionKey) {
+    this._warmed.delete(sessionKey);
+  }
+
   _buildRequestHeaders() {
     const h = {
       "Content-Type": "application/json",
@@ -150,7 +177,6 @@ export default class BrowserlessTransport {
   _buildPayload(url, options) {
     const headers = options?.headers || {};
     const cookies = _parseCookies(_pickHeader(headers, "Cookie"), url);
-    const userAgent = _normalizeUserAgent(_pickHeader(headers, "User-Agent"));
     const acceptLanguage = _pickHeader(headers, "Accept-Language");
     const referer = _pickHeader(headers, "Referer");
 
@@ -166,7 +192,6 @@ export default class BrowserlessTransport {
       },
     };
 
-    if (userAgent) payload.userAgent = userAgent;
     if (Object.keys(extraHeaders).length > 0)
       payload.setExtraHTTPHeaders = extraHeaders;
     if (cookies.length > 0) payload.cookies = cookies;
@@ -174,26 +199,30 @@ export default class BrowserlessTransport {
   }
 
   async fetch(url, options, context) {
+    if (_wantsLocation(options)) return _direct(url, options, context);
     const doFetch = this._bypassProxy ? fetch : context.fetch;
     const headers = this._buildRequestHeaders();
 
-    if (this._warmupEnabled) {
-      const origin = _originOf(url);
-      if (origin && origin !== url) {
-        try {
-          await doFetch(`${this._url}/content`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              url: origin,
-              gotoOptions: {
-                waitUntil: "domcontentloaded",
-                timeout: this._timeoutMs,
-              },
-            }),
-            signal: options?.signal,
-          });
-        } catch {}
+    const origin = _originOf(url);
+    if (this._shouldWarm(origin, url, context?.sessionKey)) {
+      try {
+        const warm = await doFetch(`${this._url}/content`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            url: origin,
+            gotoOptions: {
+              waitUntil: "domcontentloaded",
+              timeout: this._timeoutMs,
+            },
+          }),
+          signal: options?.signal,
+        });
+        await warm.body?.cancel();
+        if (warm.ok) this._markWarm(origin, context?.sessionKey);
+        else console.warn(`${LOG_TAG} warmup of ${origin} failed: status ${warm.status}`);
+      } catch (err) {
+        console.warn(`${LOG_TAG} warmup of ${origin} failed: ${err?.message || err}`);
       }
     }
 
@@ -205,7 +234,9 @@ export default class BrowserlessTransport {
         body: JSON.stringify(this._buildPayload(url, options)),
         signal: options?.signal,
       });
-    } catch {
+    } catch (err) {
+      if (options?.signal?.aborted) throw err;
+      console.warn(`${LOG_TAG} request to ${this._url} failed: ${err?.message || err}`);
       return new Response("", { status: 503 });
     }
 

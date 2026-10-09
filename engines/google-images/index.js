@@ -1,4 +1,4 @@
-import { parseGoogleImagesHtml, isInterstitial } from "./parse-html.js";
+import { parseGoogleImagesHtml, isInterstitial, isSorryPage } from "./parse-html.js";
 import { parseGoogleImagesJson } from "./parse-json.js";
 import { SETTINGS_SCHEMA } from "./settings.js";
 import {
@@ -77,6 +77,12 @@ export default class GoogleImagesEngine {
 
     context?.sentinel?.(response, this.name);
     const html = await response.text();
+
+    if (isSorryPage(html)) {
+      const message = `${this.name} served its reCAPTCHA page, so it has flagged this IP`;
+      if (context?.engineError) throw context.engineError("captcha", message, { engine: this.name });
+      throw new Error(message);
+    }
 
     if (isInterstitial(html)) {
       if (context?.engineError) {

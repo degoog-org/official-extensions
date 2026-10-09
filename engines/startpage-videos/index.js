@@ -26,7 +26,6 @@ export default class StartpageVideosEngine {
   bangShortcut = "spv";
   safeSearch = "off";
   useAnonymousView = false;
-  _searchSc = null;
 
   settingsSchema = SETTINGS_SCHEMA;
 
@@ -65,8 +64,8 @@ export default class StartpageVideosEngine {
     const doFetch = context?.fetch ?? fetch;
     const p = Math.max(1, page || 1);
     const html =
-      p > 1 && this._searchSc
-        ? await this._postPage(doFetch, buildNextPageBody(query, p, this._searchSc, this.safeSearch, context), context)
+      p > 1 && context?.carried?.sc
+        ? await this._postPage(doFetch, buildNextPageBody(query, p, context.carried.sc, this.safeSearch, context), context)
         : await this._getPage(doFetch, buildFirstPageParams(query, timeFilter, this.safeSearch, context), context);
 
     if (isAnubisGate(html)) {
@@ -98,7 +97,7 @@ export default class StartpageVideosEngine {
       throw this._parseError(context, `${this.name} returned malformed result data`);
     }
 
-    if (data?.render?.search_sc) this._searchSc = data.render.search_sc;
+    if (data?.render?.search_sc) context?.carry?.({ sc: data.render.search_sc });
 
     const mainline = data?.render?.presenter?.regions?.mainline;
     if (!Array.isArray(mainline)) {

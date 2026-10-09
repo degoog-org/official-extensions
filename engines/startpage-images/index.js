@@ -26,7 +26,6 @@ export default class StartpageImagesEngine {
   name = "Startpage Images";
   bangShortcut = "spi";
   safeSearch = "off";
-  _searchSc = null;
 
   settingsSchema = SETTINGS_SCHEMA;
 
@@ -72,8 +71,8 @@ export default class StartpageImagesEngine {
     const p = Math.max(1, page || 1);
     const safe = this._resolveSafe(context);
     const html =
-      p > 1 && this._searchSc
-        ? await this._postPage(doFetch, buildNextPageBody(query, p, this._searchSc, safe, context), context, safe)
+      p > 1 && context?.carried?.sc
+        ? await this._postPage(doFetch, buildNextPageBody(query, p, context.carried.sc, safe, context), context, safe)
         : await this._getPage(doFetch, buildFirstPageParams(query, safe, context), context, safe);
 
     if (isAnubisGate(html)) {
@@ -105,7 +104,7 @@ export default class StartpageImagesEngine {
       throw this._parseError(context, `${this.name} returned malformed result data`);
     }
 
-    if (data?.render?.search_sc) this._searchSc = data.render.search_sc;
+    if (data?.render?.search_sc) context?.carry?.({ sc: data.render.search_sc });
 
     const mainline = data?.render?.presenter?.regions?.mainline;
     if (!Array.isArray(mainline)) {

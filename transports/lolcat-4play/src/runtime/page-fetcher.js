@@ -1,6 +1,6 @@
 import { tabSpell } from "../browser/browser.js";
+import * as cheerio from "cheerio";
 import {
-  cookieJarFromCookieHeader,
   curlFetchWithBrowserHeaders,
   emptyCookieJar,
   engineHeaders,
@@ -15,7 +15,19 @@ import {
   looksConsent,
   sleep,
 } from "../warmup/origin-warmup.js";
-import { wrapResponse } from "../net/response.js";
+import { wantsLocation, wrapResponse } from "../net/response.js";
+
+const isRedirect = (status) => status >= 300 && status < 400;
+
+const missesReadyMarker = (text, options) => {
+  const selector = options.match?.domMatch;
+  if (!selector || options.body) return false;
+  try {
+    return cheerio.load(text)(selector).length === 0;
+  } catch {
+    return false;
+  }
+};
 
 const BLOCK_WORDS = [
   "captcha",
@@ -28,7 +40,6 @@ const BLOCK_WORDS = [
   "access denied",
   "suspicious (?:activity|behaviour|behavior)",
   "our systems have detected",
-  "enablejs",
   "before you continue",
 ];
 
@@ -41,7 +52,6 @@ export class PageFetcher {
     markBlocked,
     flaresolverrUrl,
     flaresolverrTimeoutMs,
-    curlProxyUrl,
     timeoutMs,
     warn,
   }) {
@@ -52,7 +62,6 @@ export class PageFetcher {
     this._markBlocked = markBlocked;
     this._flaresolverrUrl = flaresolverrUrl;
     this._flaresolverrTimeoutMs = flaresolverrTimeoutMs;
-    this._curlProxyUrl = curlProxyUrl;
     this._timeoutMs = timeoutMs;
     this._warn = warn;
   }
@@ -83,7 +92,7 @@ export class PageFetcher {
     return wrapResponse(text);
   }
 
-  async solveWithFlare(url, origin, containerId) {
+  async solveWithFlare(url, origin, containerId, proxyUrl) {
     if (!this._flaresolverrUrl()) return null;
 
     try {
@@ -91,7 +100,7 @@ export class PageFetcher {
         endpoint: this._flaresolverrUrl(),
         url,
         timeoutMs: this._flaresolverrTimeoutMs(),
-        proxyUrl: this._curlProxyUrl(),
+        proxyUrl,
       });
 
       if (
@@ -105,17 +114,6 @@ export class PageFetcher {
         return null;
       }
 
-      if (solution.cookieHeader) {
-        const jar = cookieJarFromCookieHeader(origin, solution.cookieHeader);
-        const session = this._store.headerSession(origin, containerId);
-        if (session) session.cookieJarText = jar;
-        this._store.persistCookieJar(
-          origin,
-          containerId,
-          jar,
-          session?.headers || null,
-        );
-      }
       this._store.setWarmupState(origin, containerId, { warmedAt: Date.now() });
 
       this._warn(`FlareSolverr cleared the challenge for ${origin}`);
@@ -128,38 +126,56 @@ export class PageFetcher {
     }
   }
 
-  async curlFetchWarmed(url, origin, containerId, options = {}) {
-    const session = this._store.usableHeaderSession(origin, containerId);
-    if (!session || !(await resolveCurlBinary())) return null;
-
+  async _sessionCurl(url, origin, containerId, session, options, followRedirects, route) {
     const jar =
       (await this._store.loadCookieJar(origin, containerId)) ||
       session.cookieJarText ||
       emptyCookieJar();
     const wanted = options.headers || {};
-    const cookieJarText = fillCookieGaps(origin, jar, wanted.Cookie || wanted.cookie);
 
+    return curlFetchWithBrowserHeaders({
+      url,
+      headers: session.headers,
+      extraHeaders: engineHeaders(wanted),
+      method: options.method || "",
+      body: options.body || "",
+      timeoutSeconds: this._timeoutMs() / 1000,
+      cookieJarText: fillCookieGaps(origin, jar, wanted.Cookie || wanted.cookie),
+      onCookieJarText: (updated) => {
+        session.cookieJarText = updated;
+        this._store.persistCookieJar(origin, containerId, updated);
+      },
+      proxyUrl: route.curlProxyUrl,
+      followRedirects,
+      signal: options.signal,
+      impersonate: route.impersonate,
+      egressKey: route.libraryEgress,
+    });
+  }
+
+  async curlFetchWarmed(url, origin, containerId, options = {}, route = {}) {
+    const session = this._store.usableHeaderSession(origin, containerId);
+    if (!session || (!route.impersonate && !(await resolveCurlBinary()))) return null;
+    const proxyUrl = route.curlProxyUrl || "";
+
+    const followRedirects = !wantsLocation(options);
     try {
-      const response = await curlFetchWithBrowserHeaders({
+      const response = await this._sessionCurl(
         url,
-        headers: session.headers,
-        extraHeaders: engineHeaders(wanted),
-        method: options.method || "",
-        body: options.body || "",
-        timeoutSeconds: this._timeoutMs() / 1000,
-        cookieJarText,
-        onCookieJarText: (updated) => {
-          session.cookieJarText = updated;
-          this._store.persistCookieJar(origin, containerId, updated);
-        },
-        proxyUrl: this._curlProxyUrl(),
-      });
+        origin,
+        containerId,
+        session,
+        options,
+        followRedirects,
+        route,
+      );
+      if (!followRedirects && isRedirect(response.status)) return response;
       const text = await response.clone().text();
 
       if (origin && (looksConsent(text, url) || looksBlocked(text, url))) {
         this._describe(text, response.status, origin);
         if (looksBlocked(text, url)) {
-          const solved = await this.solveWithFlare(url, origin, containerId);
+          const solved = await this.solveWithFlare(url, origin, containerId, proxyUrl);
           if (solved) return solved;
         }
         this._warn(
@@ -167,8 +183,15 @@ export class PageFetcher {
         );
         return null;
       }
+      if (missesReadyMarker(text, options)) {
+        this._warn(
+          `warmed curl fetch for ${origin} came back without the page the engine waits for; falling back to a browser tab`,
+        );
+        return null;
+      }
       return response;
     } catch (error) {
+      if (options.signal?.aborted) throw error;
       this._warn(
         `warmed curl fetch failed for ${origin}: ${error?.message || error}; falling back to browser tab`,
       );
@@ -176,7 +199,7 @@ export class PageFetcher {
     }
   }
 
-  async browserFetch(url, origin, containerId, options = {}) {
+  async browserFetch(url, origin, containerId, options = {}, proxyUrl = "") {
     if (options.body) {
       throw new Error(
         `lolcat-4play: cannot replay a ${String(options.method || "POST").toUpperCase()} to ${url} through a browser tab; a tab can only navigate with GET`,
@@ -204,6 +227,7 @@ export class PageFetcher {
         domMatch: options.match?.domMatch,
         failUrlMatch: options.match?.failUrlMatch,
         timeoutMs: this._timeoutMs(),
+        signal: options.signal,
       });
       await sleep(1000);
       await this._tabs.acceptConsent(tabId);
@@ -234,7 +258,7 @@ export class PageFetcher {
           this._markBlocked(origin, containerId, "consent (needs manual accept)", tabId);
         }
 
-        const solved = await this.solveWithFlare(url, origin, containerId);
+        const solved = await this.solveWithFlare(url, origin, containerId, proxyUrl);
         if (solved) return solved;
 
         keepTabOpen = true;

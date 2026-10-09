@@ -8,7 +8,7 @@
       "path": "plugins/4play-status",
       "name": "4play status",
       "description": "!4play shows live 4play transport status. Access can be admin-only, open, or locked.",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "type": "command",
       "minDegoogVersion": "1.1.0"
     },
@@ -244,26 +244,26 @@
       "path": "transports/flaresolverr",
       "name": "FlareSolverr",
       "description": "Sends requests through FlareSolverr to get past Cloudflare. Engines pick it as their outgoing transport once it is set up.",
-      "version": "1.1.1"
+      "version": "1.2.0"
     },
     {
       "path": "transports/browserless",
       "name": "Browserless",
       "description": "Fetches pages through Browserless or any headless browser that accepts POST /content. It runs JavaScript and returns HTML, which is what you want for engines like Google Images that ignore a normal HTTP request. Works with browserless/chromium and CloakBrowser wrappers.",
-      "version": "1.1.2"
+      "version": "1.2.0"
     },
     {
       "path": "transports/cloakbrowser",
       "name": "CloakBrowser",
       "description": "Fetches pages through CloakBrowser, a stealth Chromium that patches navigator.webdriver, canvas, and CDP leaks in C++. Gets past Google and Cloudflare. Docker setup lives in homelab/cloakbrowser.",
-      "version": "1.0.2",
+      "version": "1.1.0",
       "minDegoogVersion": "1.1.0"
     },
     {
       "path": "transports/camoufox",
       "name": "Camoufox",
       "description": "Fetches pages through Camoufox, a stealth Firefox that patches bot-detection signals in C++. Gets past Google and Cloudflare. Docker setup lives at Korosys/camoufox-degoog.",
-      "version": "1.0.3",
+      "version": "1.1.0",
       "minDegoogVersion": "1.1.0"
     },
     {
@@ -271,15 +271,15 @@
       "name": "4play (lolcat)",
       "minDegoogVersion": "1.1.0",
       "description": "Fetches pages with a real Firefox session through the official lolcat 4play browser extension.",
-      "version": "1.9.0"
+      "version": "1.10.0"
     }
   ],
   "engines": [
     {
       "path": "engines/google",
       "name": "Google",
-      "description": "Google web search. Lite results work over plain HTTP, but Google rate-limits them per IP. 4play is still the recommended transport, and HTML results need it.",
-      "version": "1.4.0",
+      "description": "Google web search. Only works through the 4play or FlareSolverr transport for now.",
+      "version": "1.5.0",
       "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "google",
@@ -312,7 +312,7 @@
       "path": "engines/google-videos",
       "name": "Google Videos",
       "description": "Google video search.",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "google-videos",

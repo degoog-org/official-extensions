@@ -1,9 +1,5 @@
-import { NOKIA_USER_AGENTS } from "./const/user-agents.js";
 import { regions } from "./const/regions.js";
 import { TBS_MAP, UDM_WEB_ONLY } from "./const/serp.js";
-
-export const nokiaAgent = () =>
-  NOKIA_USER_AGENTS[Math.floor(Math.random() * NOKIA_USER_AGENTS.length)];
 
 const _resolveTbs = (timeFilter) => {
   if (!timeFilter || timeFilter === "any" || timeFilter === "custom")
@@ -55,22 +51,6 @@ export const buildHtmlParams = (query, page, timeFilter, safeSearch, context) =>
     filter: "0",
     udm: UDM_WEB_ONLY,
   });
-  _applyFilters(params, timeFilter, safeSearch, context);
-  return params;
-};
-
-export const buildLiteParams = (query, page, timeFilter, safeSearch, context) => {
-  const start = (page - 1) * 10;
-  const lang = context?.lang || "en";
-  const params = new URLSearchParams({
-    q: query,
-    sca_esv: "1",
-    hl: lang,
-    lr: `lang_${lang}`,
-    ie: "utf8",
-    oe: "utf8",
-  });
-  if (start) params.set("start", String(start));
   _applyFilters(params, timeFilter, safeSearch, context);
   return params;
 };

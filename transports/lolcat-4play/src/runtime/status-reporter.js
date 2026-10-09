@@ -1,4 +1,5 @@
 export const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
+const PUBLISH_DEBOUNCE_MS = 1000;
 
 const asList = (res) =>
   Array.isArray(res) ? res : res?.containers || res?.tabs || res?.list || res?.data || [];
@@ -12,6 +13,8 @@ export class StatusReporter {
     tabs,
     captcha,
     seenOrigins,
+    routeFor,
+    replay,
     maxPoolSize,
     autoWarmMs,
     timeoutMs,
@@ -24,11 +27,14 @@ export class StatusReporter {
     this._tabs = tabs;
     this._captcha = captcha;
     this._seenOrigins = seenOrigins;
+    this._routeFor = routeFor;
+    this._replay = replay;
     this._maxPoolSize = maxPoolSize;
     this._autoWarmMs = autoWarmMs;
     this._timeoutMs = timeoutMs;
     this._warn = warn;
     this._cache = null;
+    this._publishTimer = null;
   }
 
   bindCache(cache) {
@@ -61,6 +67,7 @@ export class StatusReporter {
       .map((session) => ({
         ...session,
         containerLabel: this._tabs.containerLabel(session.container),
+        route: this._routeFor(session.container),
       }))
       .sort((a, b) => a.origin.localeCompare(b.origin));
 
@@ -91,6 +98,7 @@ export class StatusReporter {
         max: this._maxPoolSize(),
       },
       captchaTabs,
+      replay: this._replay(),
       autoWarm: {
         intervalMs: this._autoWarmMs(),
         tracked: [...this._seenOrigins],
@@ -99,9 +107,19 @@ export class StatusReporter {
     };
   }
 
-  async publish() {
+  publish() {
+    if (!this._cache || this._publishTimer) return;
+    this._publishTimer = setTimeout(() => {
+      this._publishTimer = null;
+      this._publishNow().catch((error) => {
+        this._warn(`status publish failed: ${error?.message || error}`);
+      });
+    }, PUBLISH_DEBOUNCE_MS);
+  }
+
+  async _publishNow() {
     if (!this._cache) return;
     await this._refreshBrowserState();
-    this._cache.set("current", this.build(), STATUS_TTL_MS).catch(() => {});
+    await this._cache.set("current", this.build(), STATUS_TTL_MS);
   }
 }
