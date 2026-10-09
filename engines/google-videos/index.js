@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import { SETTINGS_SCHEMA } from "./settings.js";
 import { buildHeaders, buildSearchUrl, gsaAgent } from "./request.js";
-import { isInterstitial, parseDesktop, parseLite } from "./parse.js";
+import { isInterstitial, isSorryPage, parseDesktop, parseLite } from "./parse.js";
 import { resolveGotos } from "./gotos.js";
 import { napTime, sniffEid, withSei } from "./soft-captcha.js";
 
@@ -39,6 +39,17 @@ export default class GoogleVideosEngine {
       console.warn("[google-videos] soft captcha hit, retrying with sei");
       await napTime();
       html = await this._fetchHtml(withSei(url, eid), userAgent, context);
+      if (sniffEid(html)) {
+        const message = `${this.name} kept returning its soft CAPTCHA page`;
+        if (context?.engineError) throw context.engineError("captcha", message, { engine: this.name });
+        throw new Error(message);
+      }
+    }
+
+    if (isSorryPage(html)) {
+      const message = `${this.name} served its reCAPTCHA page, so it has flagged this IP`;
+      if (context?.engineError) throw context.engineError("captcha", message, { engine: this.name });
+      throw new Error(message);
     }
 
     if (isInterstitial(html)) {

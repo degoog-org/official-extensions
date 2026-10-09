@@ -2,6 +2,7 @@ import {
   GOTO_ORIGIN,
   GOTO_PREFIX,
   MUTANT_SIGNATURES,
+  SORRY_SIGNATURES,
 } from "./const/serp.js";
 
 const _resolveHref = (href) => {
@@ -16,9 +17,16 @@ const _resolveHref = (href) => {
   }
 };
 
+const HEAD_BYTES = 4000;
+
 export const isInterstitial = (html) => {
-  const head = html.slice(0, 4000);
+  const head = html.slice(0, HEAD_BYTES);
   return MUTANT_SIGNATURES.some((m) => head.includes(m));
+};
+
+export const isSorryPage = (html) => {
+  const head = html.slice(0, HEAD_BYTES);
+  return SORRY_SIGNATURES.some((m) => head.includes(m));
 };
 
 export const isExternal = (url) =>

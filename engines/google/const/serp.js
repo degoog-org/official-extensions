@@ -11,6 +11,10 @@ export const TBS_MAP = {
 export const MUTANT_SIGNATURES = [
   "/httpservice/retry/enablejs",
   'Please click <a href="/httpservice',
+];
+
+export const SORRY_SIGNATURES = [
+  'id="captcha-form"',
   "unusual traffic from your computer network",
   "/sorry/index?continue=",
 ];

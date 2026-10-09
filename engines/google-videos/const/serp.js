@@ -7,6 +7,10 @@ export const DURATION_RE = /^\d{1,3}:\d{2}$|^\d{1,3}:\d{2}:\d{2}$/;
 export const MUTANT_SIGNATURES = [
   "/httpservice/retry/enablejs",
   'Please click <a href="/httpservice',
+];
+
+export const SORRY_SIGNATURES = [
+  'id="captcha-form"',
   "unusual traffic from your computer network",
   "/sorry/index?continue=",
 ];

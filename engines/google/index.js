@@ -7,7 +7,7 @@ import {
 } from "./const/serp.js";
 import { DESKTOP_USER_AGENT } from "./const/user-agents.js";
 import { acceptLanguage, buildHtmlParams } from "./request.js";
-import { isInterstitial, parseDesktop } from "./parse.js";
+import { isInterstitial, isSorryPage, parseDesktop } from "./parse.js";
 import { resolveGotos } from "./gotos.js";
 import { napTime, sniffEid, withSei } from "./soft-captcha.js";
 
@@ -40,6 +40,14 @@ export default class GoogleEngine {
     return new Error(message);
   }
 
+  _sorryError(context) {
+    const message = `${this.name} served its reCAPTCHA page, so it has flagged this IP`;
+    if (context?.engineError) {
+      return context.engineError("captcha", message, { engine: this.name });
+    }
+    return new Error(message);
+  }
+
   _softCaptchaError(context) {
     const message = `${this.name} kept returning its soft CAPTCHA page`;
     if (context?.engineError) {
@@ -62,6 +70,7 @@ export default class GoogleEngine {
       if (sniffEid(html)) throw this._softCaptchaError(context);
     }
 
+    if (isSorryPage(html)) throw this._sorryError(context);
     if (isInterstitial(html)) throw this._interstitialError(context);
 
     const links = parseDesktop(cheerio.load(html), this.name);
