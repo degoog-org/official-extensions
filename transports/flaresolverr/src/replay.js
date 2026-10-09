@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { cookieHeaderFor } from "./session-jar.js";
 import {
   BLOCKED_STATUSES,
   CHALLENGE_MARKERS,
@@ -30,18 +31,13 @@ export const wantsLocation = (options) =>
 
 const _joinCookies = (...parts) => parts.filter(Boolean).join("; ");
 
-const _pickHeader = (headers, name) => {
-  const hit = Object.entries(headers ?? {}).find(([key]) => key.toLowerCase() === name);
-  return hit ? hit[1] : "";
-};
-
-const _replayHeaders = (options, session) => {
-  const headers = {};
-  for (const [key, value] of Object.entries(options.headers ?? {})) {
-    if (!REPLACED_HEADERS.includes(key.toLowerCase())) headers[key] = value;
-  }
-  if (session.userAgent) headers["User-Agent"] = session.userAgent;
-  headers.Cookie = _joinCookies(session.cookie, _pickHeader(options.headers, "cookie"));
+const _replayHeaders = (url, options, session) => {
+  const headers = new Headers(options.headers ?? {});
+  const callerCookie = headers.get("cookie") || "";
+  for (const name of REPLACED_HEADERS) headers.delete(name);
+  if (session.userAgent) headers.set("User-Agent", session.userAgent);
+  const cookie = _joinCookies(cookieHeaderFor(session, url), callerCookie);
+  if (cookie) headers.set("Cookie", cookie);
   return headers;
 };
 
@@ -50,18 +46,18 @@ export const replayFetch = async (url, options, session, doFetch) => {
   try {
     const res = await doFetch(url, {
       method: "GET",
-      headers: _replayHeaders(options, session),
+      headers: _replayHeaders(url, options, session),
       redirect: manual ? MANUAL_REDIRECT : FOLLOW_REDIRECT,
       signal: options.signal,
     });
     if (manual && isRedirect(res.status)) return res;
 
-    const html = await res.text();
-    if (looksBlocked(res.status, res.url, html, options.match)) return null;
-    return new Response(html, {
-      status: res.status,
-      headers: { "Content-Type": res.headers.get("content-type") || "text/html" },
-    });
+    const html = await res.clone().text();
+    if (looksBlocked(res.status, res.url, html, options.match)) {
+      await res.body?.cancel();
+      return null;
+    }
+    return res;
   } catch (err) {
     if (options.signal?.aborted || err?.name === PROXY_CONNECT_ERROR) throw err;
     console.warn(`${LOG_TAG} session replay failed: ${err?.message || err}`);

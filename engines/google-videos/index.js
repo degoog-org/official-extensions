@@ -29,28 +29,35 @@ export default class GoogleVideosEngine {
     return this._searchLite(query, page, timeFilter, context);
   }
 
-  async _searchHtml(query, page, timeFilter, context) {
-    const url = buildSearchUrl(query, page, timeFilter, this.safeSearch, context);
-    const userAgent = context?.userAgent?.() || gsaAgent();
-    let html = await this._fetchHtml(url, userAgent, context);
+  _sorryError(context) {
+    const message = `${this.name} served its reCAPTCHA page, so it has flagged this IP`;
+    if (context?.engineError) return context.engineError("captcha", message, { engine: this.name });
+    return new Error(message);
+  }
 
+  _softCaptchaError(context) {
+    const message = `${this.name} kept returning its soft CAPTCHA page`;
+    if (context?.engineError) return context.engineError("captcha", message, { engine: this.name });
+    return new Error(message);
+  }
+
+  async _fetchChecked(url, userAgent, context) {
+    let html = await this._fetchHtml(url, userAgent, context);
     const eid = sniffEid(html);
     if (eid) {
       console.warn("[google-videos] soft captcha hit, retrying with sei");
       await napTime();
       html = await this._fetchHtml(withSei(url, eid), userAgent, context);
-      if (sniffEid(html)) {
-        const message = `${this.name} kept returning its soft CAPTCHA page`;
-        if (context?.engineError) throw context.engineError("captcha", message, { engine: this.name });
-        throw new Error(message);
-      }
+      if (sniffEid(html)) throw this._softCaptchaError(context);
     }
+    if (isSorryPage(html)) throw this._sorryError(context);
+    return html;
+  }
 
-    if (isSorryPage(html)) {
-      const message = `${this.name} served its reCAPTCHA page, so it has flagged this IP`;
-      if (context?.engineError) throw context.engineError("captcha", message, { engine: this.name });
-      throw new Error(message);
-    }
+  async _searchHtml(query, page, timeFilter, context) {
+    const url = buildSearchUrl(query, page, timeFilter, this.safeSearch, context);
+    const userAgent = context?.userAgent?.() || gsaAgent();
+    const html = await this._fetchChecked(url, userAgent, context);
 
     if (isInterstitial(html)) {
       if (context?.engineError) {
@@ -80,13 +87,7 @@ export default class GoogleVideosEngine {
 
   async _searchLite(query, page = 1, timeFilter, context) {
     const url = buildSearchUrl(query, page, timeFilter, this.safeSearch, context);
-    const doFetch = context?.fetch ?? fetch;
-    const response = await doFetch(url, {
-      headers: buildHeaders(gsaAgent(), context),
-      redirect: "follow",
-    });
-
-    context?.sentinel?.(response, this.name);
-    return parseLite(cheerio.load(await response.text()), this.name);
+    const html = await this._fetchChecked(url, gsaAgent(), context);
+    return parseLite(cheerio.load(html), this.name);
   }
 }

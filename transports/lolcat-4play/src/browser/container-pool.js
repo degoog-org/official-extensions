@@ -179,7 +179,7 @@ export class ContainerPool {
     const leases = this._leases.get(sessionKey);
     const lease = leases?.get(origin);
     if (!lease) return null;
-    if (!this.retired.has(lease.id)) {
+    if (this._usable(lease.id)) {
       lease.at = Date.now();
       return lease.id;
     }

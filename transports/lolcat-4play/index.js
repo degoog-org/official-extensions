@@ -387,6 +387,9 @@ export default class FourPlayTransport {
 
   _browserFallback(url, origin, containerId, options, proxyUrl) {
     options.signal?.throwIfAborted();
+    if (wantsLocation(options)) {
+      throw new Error(`lolcat-4play: no warmed session to resolve the redirect for ${url}, a browser tab would follow it`);
+    }
     return this._fetcher.browserFetch(url, origin, containerId, options, proxyUrl);
   }
 

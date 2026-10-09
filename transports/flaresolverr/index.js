@@ -2,11 +2,13 @@ import {
   DEFAULT_SESSION_TTL_MIN,
   DEFAULT_TIMEOUT_MS,
   DIRECT_ROUTE,
+  ENDPOINT_GRACE_MS,
   LOG_TAG,
   MS_PER_MINUTE,
   PROXY_CONNECT_ERROR,
   SOLVE_FAILED_STATUS,
   SOLVE_OK,
+  TIMEOUT_ERROR,
   UNREACHABLE_STATUS,
 } from "./src/const.js";
 import { createJar } from "./src/session-jar.js";
@@ -152,6 +154,11 @@ export default class FlareSolverrTransport {
     return JSON.stringify(payload);
   }
 
+  _deadline(signal) {
+    const timeout = AbortSignal.timeout(this.timeoutMs + ENDPOINT_GRACE_MS);
+    return signal ? AbortSignal.any([signal, timeout]) : timeout;
+  }
+
   async _solve(url, options, context, origin, key) {
     const payload = this._payload(url, context);
 
@@ -166,11 +173,14 @@ export default class FlareSolverrTransport {
         },
         body: payload,
         redirect: "follow",
-        signal: options.signal,
+        signal: this._deadline(options.signal),
       });
     } catch (err) {
       if (options.signal?.aborted || err?.name === PROXY_CONNECT_ERROR) throw err;
-      console.warn(`${LOG_TAG} could not reach FlareSolverr at ${this._url}: ${err?.message || err}`);
+      const reason = err?.name === TIMEOUT_ERROR
+        ? `did not answer within ${this.timeoutMs + ENDPOINT_GRACE_MS}ms`
+        : err?.message || err;
+      console.warn(`${LOG_TAG} could not reach FlareSolverr at ${this._url}: ${reason}`);
       return new Response("", { status: UNREACHABLE_STATUS });
     }
 

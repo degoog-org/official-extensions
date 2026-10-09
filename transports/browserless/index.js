@@ -151,11 +151,14 @@ export default class BrowserlessTransport {
   _shouldWarm(origin, url, sessionKey) {
     if (!this._warmupEnabled || !origin || origin === url) return false;
     if (!sessionKey) return true;
+    return !this._warmed.get(sessionKey)?.has(origin);
+  }
+
+  _markWarm(origin, sessionKey) {
+    if (!sessionKey) return;
     const warmed = this._warmed.get(sessionKey) ?? new Set();
-    if (warmed.has(origin)) return false;
     warmed.add(origin);
     this._warmed.set(sessionKey, warmed);
-    return true;
   }
 
   endSession(sessionKey) {
@@ -203,7 +206,7 @@ export default class BrowserlessTransport {
     const origin = _originOf(url);
     if (this._shouldWarm(origin, url, context?.sessionKey)) {
       try {
-        await doFetch(`${this._url}/content`, {
+        const warm = await doFetch(`${this._url}/content`, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -215,6 +218,9 @@ export default class BrowserlessTransport {
           }),
           signal: options?.signal,
         });
+        await warm.body?.cancel();
+        if (warm.ok) this._markWarm(origin, context?.sessionKey);
+        else console.warn(`${LOG_TAG} warmup of ${origin} failed: status ${warm.status}`);
       } catch (err) {
         console.warn(`${LOG_TAG} warmup of ${origin} failed: ${err?.message || err}`);
       }

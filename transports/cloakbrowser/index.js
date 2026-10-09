@@ -134,7 +134,6 @@ export default class CloakBrowserTransport {
   _waitUntil = "networkidle";
   _bypassProxy = true;
   _warmupEnabled = false;
-  _warmed = new Map();
   _warmupDwellMs = 1500;
 
   configure(settings) {
@@ -158,18 +157,8 @@ export default class CloakBrowserTransport {
     return this._url.length > 0;
   }
 
-  _shouldWarm(origin, url, sessionKey) {
-    if (!this._warmupEnabled || !origin || origin === url) return false;
-    if (!sessionKey) return true;
-    const warmed = this._warmed.get(sessionKey) ?? new Set();
-    if (warmed.has(origin)) return false;
-    warmed.add(origin);
-    this._warmed.set(sessionKey, warmed);
-    return true;
-  }
-
-  endSession(sessionKey) {
-    this._warmed.delete(sessionKey);
+  _shouldWarm(origin, url) {
+    return this._warmupEnabled && Boolean(origin) && origin !== url;
   }
 
   async fetch(url, options, context) {
@@ -200,7 +189,7 @@ export default class CloakBrowserTransport {
     if (cookies.length > 0) payload.cookies = cookies;
 
     const origin = _originOf(url);
-    if (this._shouldWarm(origin, url, context?.sessionKey)) {
+    if (this._shouldWarm(origin, url)) {
       payload.warmup = {
         url: origin,
         waitUntil: "domcontentloaded",
