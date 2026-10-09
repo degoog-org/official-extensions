@@ -17,19 +17,26 @@ export const MIN_FLARE_TIMEOUT_MS = 10000;
 export const MAX_FLARE_TIMEOUT_MS = 180000;
 
 export const clampTimeout = (value) =>
-  Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, Number(value) || DEFAULT_TIMEOUT_MS));
+  Math.max(
+    MIN_TIMEOUT_MS,
+    Math.min(MAX_TIMEOUT_MS, Number(value) || DEFAULT_TIMEOUT_MS),
+  );
 
 export const clampPoolSize = (value) =>
   Math.max(MIN_POOL_SIZE, parseInt(value, 10) || DEFAULT_POOL_SIZE);
 
 export const toContainerTtlMs = (value) => {
   const h = parseFloat(value);
-  return !isNaN(h) && h > 0 ? h * 60 * 60 * 1000 : DEFAULT_CONTAINER_TTL_H * 60 * 60 * 1000;
+  return !isNaN(h) && h > 0
+    ? h * 60 * 60 * 1000
+    : DEFAULT_CONTAINER_TTL_H * 60 * 60 * 1000;
 };
 
 export const toMinutesMs = (value, fallbackMinutes) => {
   const minutes = parseFloat(value);
-  return !isNaN(minutes) && minutes > 0 ? minutes * 60 * 1000 : fallbackMinutes * 60 * 1000;
+  return !isNaN(minutes) && minutes > 0
+    ? minutes * 60 * 1000
+    : fallbackMinutes * 60 * 1000;
 };
 
 export const clampSettleMs = (value) =>
@@ -41,23 +48,34 @@ export const toAutoWarmMs = (value) => {
 };
 
 export const clampFlareMs = (value) =>
-  Math.max(MIN_FLARE_TIMEOUT_MS, Math.min(MAX_FLARE_TIMEOUT_MS, Number(value) || DEFAULT_FLARE_TIMEOUT_MS));
+  Math.max(
+    MIN_FLARE_TIMEOUT_MS,
+    Math.min(MAX_FLARE_TIMEOUT_MS, Number(value) || DEFAULT_FLARE_TIMEOUT_MS),
+  );
 
 export const normaliseSettings = (settings = {}) => ({
   timeoutMs: clampTimeout(settings.timeout),
   maxPoolSize: clampPoolSize(settings.maxPoolSize),
   containerTtlMs: toContainerTtlMs(settings.containerTtl),
-  useContainer: settings.useContainer !== false && settings.useContainer !== "false",
-  proxyType: PROXY_TYPES.includes(settings.proxyType) ? settings.proxyType : "none",
+  useContainer:
+    settings.useContainer !== false && settings.useContainer !== "false",
+  proxyType: PROXY_TYPES.includes(settings.proxyType)
+    ? settings.proxyType
+    : "none",
   proxyHost: (settings.proxyHost || "").trim(),
   proxyPort: parseInt(settings.proxyPort, 10) || 1080,
   proxyUsername: (settings.proxyUsername || "").trim(),
   proxyPassword: (settings.proxyPassword || "").trim(),
   proxyDns: settings.proxyDns !== false && settings.proxyDns !== "false",
   password: typeof settings.password === "string" ? settings.password : "",
-  warmupQuery: String(settings.warmupQuery || DEFAULT_WARMUP_QUERY).trim() || DEFAULT_WARMUP_QUERY,
+  warmupQuery:
+    String(settings.warmupQuery || DEFAULT_WARMUP_QUERY).trim() ||
+    DEFAULT_WARMUP_QUERY,
   warmupTtlMs: toMinutesMs(settings.warmupTtl, DEFAULT_WARMUP_TTL_M),
-  blockCooldownMs: toMinutesMs(settings.blockCooldown, DEFAULT_BLOCK_COOLDOWN_M),
+  blockCooldownMs: toMinutesMs(
+    settings.blockCooldown,
+    DEFAULT_BLOCK_COOLDOWN_M,
+  ),
   warmupSettleMs: clampSettleMs(settings.warmupSettle),
   autoWarmMs: toAutoWarmMs(settings.autoWarmInterval),
   flaresolverrUrl: (settings.flaresolverrUrl || "").trim(),
@@ -81,6 +99,16 @@ export const proxyChanged = (before, after) =>
   proxyCredentials(before) !== proxyCredentials(after);
 
 export const settingsSchemaFor = (transportName) => [
+  {
+    key: "containerMath",
+    label: "How many containers you need",
+    type: "info",
+    description: [
+      "Every site gets its own Firefox container per proxy, so cookies never move between IPs. **Containers needed = sites x proxies.** Google web, images and videos count as one site, and no proxies in Settings -> Server -> Proxy counts as one. 5 proxies and 4 sites need 20.",
+      "",
+      "Below that, 4play recycles the idle container used least recently and warms it again on its next search. You can raise the limit, it'll use a bit more ram but tabs closes after warmup and an idle container should only count for cookies and storage. The background warmup will re-warm every container each interval.",
+    ].join("\n"),
+  },
   {
     key: "wsUrl",
     label: "WebSocket path",
@@ -112,10 +140,10 @@ export const settingsSchemaFor = (transportName) => [
   },
   {
     key: "maxPoolSize",
-    label: "Max containers (one per origin)",
+    label: "Max containers",
     type: "number",
     placeholder: String(DEFAULT_POOL_SIZE),
-    description: `How many origins can have a container at once, minimum ${MIN_POOL_SIZE}. At the limit, the transport recycles the idle origin used least recently. Set it to at least the number of engines you route through 4play.`,
+    description: `How many containers can exist at once, minimum ${MIN_POOL_SIZE}. Set it to at least sites x proxies, see "How many containers you need" at the top. At the limit, the transport recycles the idle container used least recently.`,
     visibleWhen: {
       anyOf: [
         { key: "useContainer", equals: "true" },
@@ -128,7 +156,8 @@ export const settingsSchemaFor = (transportName) => [
     label: "Container TTL (hours)",
     type: "number",
     placeholder: String(DEFAULT_CONTAINER_TTL_H),
-    description: "Hours a container lives before the transport recycles it. Longer helps avoid detection. Default 24.",
+    description:
+      "Hours a container lives before the transport recycles it. Longer helps avoid detection. Default 24.",
     visibleWhen: {
       anyOf: [
         { key: "useContainer", equals: "true" },
@@ -236,7 +265,8 @@ export const settingsSchemaFor = (transportName) => [
     label: "Proxy DNS",
     type: "toggle",
     default: "true",
-    description: "Sends DNS lookups through the proxy. Keep it on for SOCKS so DNS doesn't leak.",
+    description:
+      "Sends DNS lookups through the proxy. Keep it on for SOCKS so DNS doesn't leak.",
     visibleWhen: { key: "proxyType", equals: ["socks5", "socks4"] },
   },
 ];

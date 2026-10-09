@@ -564,6 +564,7 @@
           clearInterval(refreshTimer);
           return;
         }
+        if (document.hidden) return;
         await fetchStatus();
       }, REFRESH_MS);
     };
@@ -619,43 +620,81 @@
     };
 
     let backoff = RECONNECT_MIN_MS;
+    let live$ = null;
+    let retryTimer = null;
+
+    const asleep = () => document.hidden || gone();
 
     const stream = async () => {
-      if (gone()) return;
+      retryTimer = null;
+      if (asleep() || live$) return;
+      const controller = new AbortController();
+      live$ = controller;
       let locked = false;
       try {
         const res = await authFetch(`${apiBase}/stream`, {
           headers: { Accept: "text/event-stream" },
+          signal: controller.signal,
         });
         if (res.status === 401 || res.status === 403) {
+          locked = true;
           await fetchStatus();
-          return;
+        } else {
+          if (!res.ok || !res.body) throw new Error(`status ${res.status}`);
+          stopPolling();
+          setLive("stream");
+          backoff = RECONNECT_MIN_MS;
+          await readEvents(res, (event, data) => {
+            if (event === "locked") {
+              locked = true;
+              renderLocked();
+              return;
+            }
+            try {
+              apply(JSON.parse(data));
+            } catch (error) {
+              console.warn(`[4play-status] bad stream payload: ${error?.message || error}`);
+            }
+          });
         }
-        if (!res.ok || !res.body) throw new Error(`status ${res.status}`);
-        stopPolling();
-        setLive("stream");
-        backoff = RECONNECT_MIN_MS;
-        await readEvents(res, (event, data) => {
-          if (event === "locked") {
-            locked = true;
-            renderLocked();
-            return;
-          }
-          try {
-            apply(JSON.parse(data));
-          } catch (error) {
-            console.warn(`[4play-status] bad stream payload: ${error?.message || error}`);
-          }
-        });
       } catch (error) {
-        console.warn(`[4play-status] live updates dropped: ${error?.message || error}`);
+        if (!controller.signal.aborted) {
+          console.warn(`[4play-status] live updates dropped: ${error?.message || error}`);
+        }
+      } finally {
+        if (live$ === controller) live$ = null;
       }
-      if (gone() || locked) return;
+      if (asleep() || locked || controller.signal.aborted) return;
       setLive("polling");
       startPolling();
-      setTimeout(stream, backoff);
+      retryTimer = setTimeout(stream, backoff);
       backoff = Math.min(backoff * 2, RECONNECT_MAX_MS);
     };
+
+    const nap = () => {
+      live$?.abort();
+      live$ = null;
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = null;
+      stopPolling();
+    };
+
+    const onVisibility = () => {
+      if (gone()) {
+        nap();
+        document.removeEventListener("visibilitychange", onVisibility);
+        return;
+      }
+      if (document.hidden) {
+        nap();
+        return;
+      }
+      fetchStatus().then((unlocked) => {
+        if (unlocked) stream();
+      });
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
 
     fetchStatus().then((unlocked) => {
       if (unlocked) stream();

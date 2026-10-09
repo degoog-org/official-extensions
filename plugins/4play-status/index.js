@@ -25,6 +25,14 @@ const log = (msg) => {
   console.warn(`[4play-status] ${msg}`);
 };
 
+let lastGripe = "";
+
+const logOnce = (msg) => {
+  if (msg === lastGripe) return;
+  lastGripe = msg;
+  log(msg);
+};
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const statusCacheFor = (name) =>
@@ -177,8 +185,9 @@ const publishedStatus = async (name) => {
 const resolveTransport = async () => {
   const candidates = await discoveredTransports();
   const name = transportChoice || candidates[0] || "";
+  if (name) lastGripe = "";
   if (!name) {
-    log("no transport selected and no 4play transport has announced itself yet");
+    logOnce("no transport selected and no 4play transport has announced itself yet");
     return { name: null, status: null, candidates };
   }
   return { name, status: await publishedStatus(name), candidates };
