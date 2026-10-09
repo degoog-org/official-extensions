@@ -126,7 +126,7 @@ export class PageFetcher {
     }
   }
 
-  async _sessionCurl(url, origin, containerId, session, options, followRedirects, proxyUrl) {
+  async _sessionCurl(url, origin, containerId, session, options, followRedirects, route) {
     const jar =
       (await this._store.loadCookieJar(origin, containerId)) ||
       session.cookieJarText ||
@@ -145,15 +145,18 @@ export class PageFetcher {
         session.cookieJarText = updated;
         this._store.persistCookieJar(origin, containerId, updated);
       },
-      proxyUrl,
+      proxyUrl: route.curlProxyUrl,
       followRedirects,
       signal: options.signal,
+      impersonate: route.impersonate,
+      egressKey: route.libraryEgress,
     });
   }
 
-  async curlFetchWarmed(url, origin, containerId, options = {}, proxyUrl = "") {
+  async curlFetchWarmed(url, origin, containerId, options = {}, route = {}) {
     const session = this._store.usableHeaderSession(origin, containerId);
-    if (!session || !(await resolveCurlBinary())) return null;
+    if (!session || (!route.impersonate && !(await resolveCurlBinary()))) return null;
+    const proxyUrl = route.curlProxyUrl || "";
 
     const followRedirects = !wantsLocation(options);
     try {
@@ -164,7 +167,7 @@ export class PageFetcher {
         session,
         options,
         followRedirects,
-        proxyUrl,
+        route,
       );
       if (!followRedirects && isRedirect(response.status)) return response;
       const text = await response.clone().text();

@@ -24,6 +24,7 @@ import {
   settingsSchemaFor,
 } from "./src/config/settings.js";
 
+const OWN_ROUTE = "4play-own";
 const DISCOVERY_NAMESPACE = "transport:4play:discovery";
 const DISCOVERY_KEY = "names";
 const DISCOVERY_TTL_MS = 24 * 60 * 60 * 1000;
@@ -359,7 +360,7 @@ export default class FourPlayTransport {
       );
       const res =
         (html && wrapResponse(html)) ??
-        (await this._fetcher.curlFetchWarmed(url, warmedOrigin, containerId, options, route.curlProxyUrl)) ??
+        (await this._fetcher.curlFetchWarmed(url, warmedOrigin, containerId, options, route)) ??
         (await this._browserFallback(url, warmedOrigin, containerId, options, route.curlProxyUrl));
       await this._captcha.clearTabsForOrigin(warmedOrigin);
       return res;
@@ -387,6 +388,8 @@ export default class FourPlayTransport {
         container: true,
         proxy: extensionProxyFromUrl(context.proxyUrl),
         curlProxyUrl: context.proxyUrl,
+        impersonate: context.impersonate,
+        libraryEgress: context.egressKey,
       };
     }
     return {
@@ -394,6 +397,8 @@ export default class FourPlayTransport {
       container: this._useContainer(),
       proxy: undefined,
       curlProxyUrl: curlProxyUrlFor(this._settings),
+      impersonate: context.impersonate,
+      libraryEgress: `${OWN_ROUTE}|${this._containerConfigKey}`,
     };
   }
 

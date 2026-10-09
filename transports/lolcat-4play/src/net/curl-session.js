@@ -24,9 +24,13 @@ const BINARIES = [
 // Brave and similar origins negotiate br by default; --compressed then fails with
 // curl exit 23 (CURLE_WRITE_ERROR). Restrict to gzip/deflate, which --compressed handles.
 const CURL_ACCEPT_ENCODING = "gzip, deflate";
+const BROWSER_ACCEPT_ENCODING = "gzip, deflate, br, zstd";
+const LIBRARY_TARGET = "firefox135";
 
 const STRIP_HEADERS = new Set([
   "accept-encoding",
+  "available-dictionary",
+  "dictionary-id",
   "authorization",
   "connection",
   "content-length",
@@ -310,6 +314,53 @@ export const proxyUrlFromSettings = ({ type, host, port, username, password, pro
   return `${scheme}://${auth}${host}:${port || 1080}`;
 };
 
+const headerPair = (line) => {
+  const parsed = parseHeader(line);
+  return parsed ? [parsed.name, parsed.value] : null;
+};
+
+const browserHeader = (headers, name) =>
+  headers
+    .map(parseHeader)
+    .find((header) => header?.name.toLowerCase() === name)
+    ?.value || "";
+
+const fetchViaLibrary = async ({
+  impersonate,
+  egressKey,
+  url,
+  headers,
+  extraHeaders,
+  method,
+  body,
+  timeoutSeconds,
+  cookieJarText,
+  onCookieJarText,
+  proxyUrl,
+  followRedirects,
+  signal,
+}) => {
+  const { response, cookieJar } = await impersonate({
+    url,
+    method: String(method || "GET").toUpperCase(),
+    headers: [...cleanBrowserHeaders(headers), ...extraHeaders].map(headerPair).filter(Boolean),
+    body: body || undefined,
+    proxyUrl,
+    egressKey,
+    followRedirects,
+    timeoutMs: Math.max(5, Math.ceil(timeoutSeconds)) * 1000,
+    target: LIBRARY_TARGET,
+    defaultHeaders: false,
+    acceptEncoding: browserHeader(headers, "accept-encoding") || BROWSER_ACCEPT_ENCODING,
+    cookieJar: cookieJarText || emptyCookieJar(),
+    signal,
+  });
+  if (cookieJar !== undefined && typeof onCookieJarText === "function") {
+    onCookieJarText(`${COOKIE_JAR_HEADER}${cookieJar}`);
+  }
+  return response;
+};
+
 export const curlFetchWithBrowserHeaders = async ({
   url,
   headers = [],
@@ -322,7 +373,26 @@ export const curlFetchWithBrowserHeaders = async ({
   proxyUrl = "",
   followRedirects = true,
   signal,
+  impersonate,
+  egressKey,
 }) => {
+  if (impersonate) {
+    return fetchViaLibrary({
+      impersonate,
+      egressKey,
+      url,
+      headers,
+      extraHeaders,
+      method,
+      body,
+      timeoutSeconds,
+      cookieJarText,
+      onCookieJarText,
+      proxyUrl,
+      followRedirects,
+      signal,
+    });
+  }
   const profile = await resolveCurlProfile();
   if (!profile) {
     throw new Error("lolcat-4play: curl/curl-impersonate binary not found for warmed session fetch");
