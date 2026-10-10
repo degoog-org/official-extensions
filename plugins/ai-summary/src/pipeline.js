@@ -39,7 +39,7 @@ const pump = async (iter, controller) => {
   return { finishReason, errored, text };
 };
 
-export const runStream = (messages, maxTokens, cacheKey, settings, cache, sessionSeed = "") => {
+export const runStream = (messages, maxTokens, cacheKey, settings, cache, sessionSeed = "", language = "") => {
   const adapter = pickAdapter(settings.provider, settings.openAICompatProvider);
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), settings.timeoutMs);
@@ -74,7 +74,10 @@ export const runStream = (messages, maxTokens, cacheKey, settings, cache, sessio
           {
             maxTokens,
             enableThinking: settings.enableThinking,
+            reasoningEffort: settings.reasoningEffort,
             tokenParam: settings.tokenParam,
+            sendBrowserLanguage: settings.sendBrowserLanguage,
+            language,
             signal: abort.signal,
           },
         );

@@ -1,27 +1,27 @@
 {
-  "plugin-romm": {
+  "romm-command": {
     "name": "RomM",
-    "description": "Search your RomM game library",
+    "description": "Search your RomM game library.",
     "settings": {
       "url": {
         "label": "RomM URL",
         "placeholder": "https://your-romm-server.com",
-        "description": "Base URL of your RomM instance"
+        "description": "The base URL of your RomM instance."
       },
       "apiToken": {
-        "label": "API Token",
+        "label": "API token",
         "placeholder": "rmm_...",
-        "description": "RomM client API token. Preferred over username/password."
+        "description": "A RomM client API token. Use it instead of a username and password when you can."
       },
       "username": {
         "label": "Username",
         "placeholder": "RomM login username",
-        "description": "Legacy fallback if no API token is configured."
+        "description": "Older login, only used when no API token is set."
       },
       "password": {
         "label": "Password",
         "placeholder": "RomM login password",
-        "description": "Legacy fallback if no API token is configured."
+        "description": "Older login, only used when no API token is set."
       }
     }
   }

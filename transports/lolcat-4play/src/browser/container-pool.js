@@ -1,3 +1,5 @@
+const LEASE_TTL_MS = 11 * 60 * 1000;
+
 export class ContainerPool {
   constructor({
     command,
@@ -26,6 +28,8 @@ export class ContainerPool {
     this._inUse = new Map();
     this.retired = new Set();
     this._born = new Map();
+    this._hatching = new Map();
+    this._leases = new Map();
   }
 
   _isExpired(id) {
@@ -62,12 +66,13 @@ export class ContainerPool {
     this._inUse.clear();
     this.retired.clear();
     this._born.clear();
+    this._hatching.clear();
+    this._leases.clear();
   }
 
   yerOldGetOuttaHere() {
     for (const id of this._byOrigin.values()) this.retired.add(id);
     this._byOrigin.clear();
-    this._inUse.clear();
   }
 
   retireContainer(id) {
@@ -95,7 +100,11 @@ export class ContainerPool {
     }
   }
 
-  async hatchContainer() {
+  _ownProxy() {
+    return this.proxyType() !== "none" ? this.buildProxy() : null;
+  }
+
+  async hatchContainer(proxy = this._ownProxy()) {
     const cr = await this.command("container_create");
     if (!cr?.id) {
       throw new Error("lolcat-4play: container_create did not return a container id");
@@ -104,11 +113,8 @@ export class ContainerPool {
     this._born.set(cr.id, Date.now());
     this.rememberContainer?.(cr);
 
-    if (this.proxyType() !== "none") {
-      await this.command("container_attach_proxy", {
-        id: cr.id,
-        proxy: this.buildProxy(),
-      });
+    if (proxy) {
+      await this.command("container_attach_proxy", { id: cr.id, proxy });
     }
 
     return cr.id;
@@ -134,25 +140,75 @@ export class ContainerPool {
     }
   }
 
-  async summonContainer(origin) {
-    await this.sweepRetiredContainers();
+  _hold(id) {
+    this._inUse.set(id, (this._inUse.get(id) || 0) + 1);
+    return id;
+  }
 
+  _usable(id) {
+    return Boolean(id) && !this.retired.has(id) && !this._isExpired(id);
+  }
+
+  async _reserve(origin, proxy) {
     const reserved = origin ? this._byOrigin.get(origin) : null;
-    if (reserved && !this.retired.has(reserved) && !this._isExpired(reserved)) {
-      this._inUse.set(reserved, (this._inUse.get(reserved) || 0) + 1);
-      return reserved;
-    }
+    if (this._usable(reserved)) return reserved;
     if (reserved) {
       this.retireContainer(reserved);
       await this.sweepRetiredContainers();
     }
 
     await this._evictForCapacity(origin);
-
-    const id = await this.hatchContainer();
+    const id = await this.hatchContainer(proxy);
     if (origin) this._byOrigin.set(origin, id);
-    this._inUse.set(id, 1);
     return id;
+  }
+
+  async _reserveOnce(origin, proxy) {
+    if (!origin) return this._reserve(origin, proxy);
+    const pending = this._hatching.get(origin);
+    if (pending) return pending;
+
+    const hatching = this._reserve(origin, proxy).finally(() => {
+      this._hatching.delete(origin);
+    });
+    this._hatching.set(origin, hatching);
+    return hatching;
+  }
+
+  async _leaseFor(sessionKey, origin) {
+    const leases = this._leases.get(sessionKey);
+    const lease = leases?.get(origin);
+    if (!lease) return null;
+    if (this._usable(lease.id)) {
+      lease.at = Date.now();
+      return lease.id;
+    }
+    leases.delete(origin);
+    await this.tuckContainerIn(lease.id);
+    return null;
+  }
+
+  async _recordLease(sessionKey, origin, id) {
+    if (!this._leases.has(sessionKey)) this._leases.set(sessionKey, new Map());
+    const leases = this._leases.get(sessionKey);
+    const previous = leases.get(origin);
+    if (previous?.id === id) return;
+
+    leases.set(origin, { id, at: Date.now() });
+    this._hold(id);
+    if (previous) await this.tuckContainerIn(previous.id);
+  }
+
+  async summonContainer(origin, sessionKey = "", proxy = undefined) {
+    await this.sweepRetiredContainers();
+    this._expireLeases();
+
+    const leased = sessionKey && origin ? await this._leaseFor(sessionKey, origin) : null;
+    if (leased) return this._hold(leased);
+
+    const id = await this._reserveOnce(origin, proxy);
+    if (sessionKey && origin) await this._recordLease(sessionKey, origin, id);
+    return this._hold(id);
   }
 
   async tuckContainerIn(containerId) {
@@ -163,6 +219,27 @@ export class ContainerPool {
     if (!this._busy(containerId) && this._isExpired(containerId)) {
       this.retireContainer(containerId);
       await this.sweepRetiredContainers();
+    }
+  }
+
+  async endSession(sessionKey) {
+    const leases = this._leases.get(sessionKey);
+    if (!leases) return;
+    this._leases.delete(sessionKey);
+    for (const { id } of leases.values()) {
+      await this.tuckContainerIn(id);
+    }
+  }
+
+  _expireLeases() {
+    const cutoff = Date.now() - LEASE_TTL_MS;
+    for (const [sessionKey, leases] of this._leases) {
+      const stale = [...leases.values()].every((lease) => lease.at < cutoff);
+      if (!stale) continue;
+      this._warn(`releasing containers for session ${sessionKey.slice(0, 8)}; it never ended`);
+      this.endSession(sessionKey).catch((error) => {
+        this._warn(`failed to release stale session lease: ${error?.message || error}`);
+      });
     }
   }
 }

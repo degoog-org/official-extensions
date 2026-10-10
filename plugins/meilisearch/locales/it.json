@@ -1,5 +1,5 @@
 {
-  "plugin-meilisearch": {
+  "meilisearch-command": {
     "name": "Meilisearch",
     "description": "Cerca nei tuoi indici Meilisearch",
     "settings": {

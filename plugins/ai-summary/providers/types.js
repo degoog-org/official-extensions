@@ -23,6 +23,12 @@ export const TokenParam = Object.freeze({
   MaxCompletionTokens: "max_completion_tokens",
 });
 
+export const ReasoningEffort = Object.freeze({
+  Low: "low",
+  Medium: "medium",
+  High: "high",
+});
+
 export const SESSION_PLACEHOLDER = "{{session}}";
 
 export const ChatRole = Object.freeze({
@@ -40,4 +46,5 @@ export const LMSTUDIO_DEFAULT_BASE = "http://localhost:1234/v1";
 export const GEMINI_DEFAULT_BASE = "https://generativelanguage.googleapis.com/v1beta";
 export const ANTHROPIC_DEFAULT_BASE = "https://api.anthropic.com/v1";
 export const ANTHROPIC_VERSION = "2023-06-01";
+export const PERPLEXITY_DEFAULT_BASE = "https://api.perplexity.ai/v1/agent";
 export const PERPLEXITY_PRESETS = Object.freeze(["fast", "low", "medium", "high", "xhigh"]);

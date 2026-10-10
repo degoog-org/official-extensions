@@ -1,23 +1,62 @@
 {
-  "plugin-jellyfin": {
+  "jellyfin-command": {
     "name": "Jellyfin",
-    "description": "Cerca nella tua libreria multimediale Jellyfin",
+    "description": "Cerca nella tua libreria multimediale Jellyfin.",
     "settings": {
       "url": {
-        "label": "URL Jellyfin",
+        "label": "URL di Jellyfin",
         "placeholder": "https://tuo-server-jellyfin.com",
-        "description": "URL base del server Jellyfin"
+        "description": "L'URL base del tuo server Jellyfin."
       },
       "apiKey": {
         "label": "Chiave API",
-        "placeholder": "Inserisci la chiave API Jellyfin",
-        "description": "Si trova in Jellyfin Dashboard → Chiavi API"
+        "placeholder": "La tua chiave API di Jellyfin",
+        "description": "Creane una in Jellyfin da Dashboard > Chiavi API."
+      },
+      "authMethod": {
+        "label": "Metodo di autenticazione",
+        "description": "I server Jellyfin più recenti accettano solo l'header Authorization. Automatico li manda entrambi, così funziona con server vecchi e nuovi."
       },
       "headerName": {
-        "label": "Header di autenticazione",
+        "label": "Header di autenticazione legacy",
         "placeholder": "X-Emby-Token",
-        "description": "Header HTTP per le richieste proxy delle immagini. Modifica solo se il server richiede un header diverso."
+        "description": "L'header che manda il metodo legacy. Cambialo solo se il tuo server ne vuole uno diverso."
+      },
+      "thumbHeight": {
+        "label": "Altezza delle miniature in pixel",
+        "description": "Jellyfin ridimensiona le miniature dei risultati a questa altezza."
+      },
+      "previewHeight": {
+        "label": "Altezza dell'anteprima in pixel",
+        "description": "Jellyfin ridimensiona l'immagine del pannello di anteprima a questa altezza."
+      },
+      "searchType": {
+        "label": "Mostra i risultati in",
+        "description": "La scheda dei risultati su cui si apre !jellyfin."
       }
+    },
+    "options": {
+      "authMethod": {
+        "auto": "Automatico, li manda entrambi",
+        "modern": "Solo moderno, header Authorization",
+        "legacy": "Solo legacy, l'header qui sotto"
+      },
+      "loadTabs": "Carica schede"
+    },
+    "notices": {
+      "tabs": "{count} schede su questa istanza"
+    },
+    "messages": {
+      "title": "Jellyfin",
+      "notConfigured": "Jellyfin non è ancora configurato. Aggiungi URL e chiave API di Jellyfin in",
+      "settingsLink": "Impostazioni > Plugin",
+      "usage": "Uso:",
+      "noResults": "Nessun risultato per",
+      "failed": "Impossibile raggiungere Jellyfin. Controlla URL e chiave API nelle impostazioni.",
+      "resultsTitle": "Jellyfin: {term}, {count} risultati",
+      "with": "Con {people}",
+      "episode": "Episodio {n}",
+      "cast": "Cast"
     }
   }
 }

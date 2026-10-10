@@ -1,0 +1,37 @@
+{
+  "immich-engine": {
+    "name": "Immich",
+    "settings": {
+      "url": {
+        "label": "URL di Immich",
+        "placeholder": "http://192.168.1.10:2283",
+        "description": "L'indirizzo che questo server usa per raggiungere Immich."
+      },
+      "apiKey": {
+        "label": "Chiave API",
+        "placeholder": "Chiave API di Immich",
+        "description": "Creane una in Immich da Impostazioni account > Chiavi API, con i permessi asset.read e asset.view."
+      },
+      "publicUrl": {
+        "label": "URL pubblico di Immich",
+        "placeholder": "https://photos.example.com",
+        "description": "Facoltativo. I link che aprono una foto in Immich usano questo indirizzo. Lascialo vuoto per usare l'URL di Immich qui sopra."
+      },
+      "pageSize": {
+        "label": "Risultati per pagina"
+      },
+      "thumbSize": {
+        "label": "Dimensione delle miniature"
+      }
+    },
+    "options": {
+      "thumbSize": {
+        "thumbnail": "Piccola, si carica prima",
+        "preview": "Anteprima, più nitida"
+      }
+    },
+    "result": {
+      "photo": "Foto"
+    }
+  }
+}

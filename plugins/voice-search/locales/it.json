@@ -1,0 +1,149 @@
+{
+  "voice-search-command": {
+    "name": "Ricerca vocale",
+    "description": "Cerca parlando. Premi il microfono, di' cosa cerchi e chiudi con la parola di attivazione. Whisper gira nel browser, quindi l'audio resta sul dispositivo.",
+    "settings": {
+      "transparency": {
+        "label": "Dove va la tua voce",
+        "description": "Il browser registra il microfono e Whisper trasforma l'audio in testo sul dispositivo del visitatore. Questo server non riceve mai audio, solo la ricerca finita. Scarica modello e runtime una volta sola dagli host qui sotto, e i browser li caricano da questa istanza."
+      },
+      "triggerWord": {
+        "label": "Parola di attivazione",
+        "placeholder": "search",
+        "description": "Dilla per ultima per avviare la ricerca, per esempio \"adam sandler cerca\". La ricerca vocale la toglie dalla query. Può essere anche più di una parola."
+      },
+      "language": {
+        "label": "Lingua",
+        "placeholder": "it",
+        "description": "Codice di due lettere come en, it o de. Lascia vuoto per usare la lingua della pagina. I modelli solo inglese come whisper-base.en la ignorano."
+      },
+      "silenceSeconds": {
+        "label": "Secondi di silenzio prima di fermarsi",
+        "description": "Con 0 resta in ascolto finché qualcuno non preme di nuovo il microfono."
+      },
+      "searchOnSilence": {
+        "label": "Cerca quando smette di ascoltare",
+        "description": "Quando l'ascolto si ferma per il silenzio, cerca quello che ha sentito anche senza la parola di attivazione."
+      },
+      "livePreview": {
+        "label": "Mostra le parole mentre parli",
+        "description": "Trascrive la frase mentre il visitatore sta ancora parlando. Sui dispositivi lenti pesa di più."
+      },
+      "previewMs": {
+        "label": "Millisecondi tra un aggiornamento e l'altro"
+      },
+      "pauseMs": {
+        "label": "Millisecondi di silenzio che chiudono una frase",
+        "description": "Dopo questa pausa Whisper trascrive la frase e la ricerca vocale cerca la parola di attivazione."
+      },
+      "maxPhraseSeconds": {
+        "label": "Frase più lunga in secondi",
+        "description": "La ricerca vocale taglia qui il parlato più lungo. Whisper ascolta al massimo 30 secondi alla volta."
+      },
+      "vadThreshold": {
+        "label": "Soglia del parlato",
+        "description": "Quante volte più forte del rumore di fondo conta come parlato. Alzala nelle stanze rumorose."
+      },
+      "model": {
+        "label": "Modello vocale",
+        "placeholder": "proprietario/repo",
+        "description": "Un modello Whisper in formato ONNX per transformers.js. whisper-tiny è il più veloce, whisper-base è quello predefinito, whisper-small è il più preciso e il più pesante. I modelli che finiscono in .en capiscono solo l'inglese. Trova modelli li elenca."
+      },
+      "revision": {
+        "label": "Revisione del modello",
+        "placeholder": "main",
+        "description": "Branch, tag o commit. Quella predefinita blocca il modello predefinito. Se la lasci vuota o scegli un altro modello, la ricerca vocale usa l'ultimo commit su main."
+      },
+      "device": {
+        "label": "Esegui su"
+      },
+      "gpuEncoderDtype": {
+        "label": "Precisione encoder WebGPU",
+        "description": "Il modello deve avere questo file, per esempio onnx/encoder_model.onnx per fp32. Su WebGPU l'encoder di Whisper perde precisione sotto fp32."
+      },
+      "gpuDecoderDtype": {
+        "label": "Precisione decoder WebGPU",
+        "description": "Per esempio onnx/decoder_model_merged_q4.onnx per q4."
+      },
+      "wasmEncoderDtype": {
+        "label": "Precisione encoder WebAssembly",
+        "description": "Per esempio onnx/encoder_model_quantized.onnx per q8."
+      },
+      "wasmDecoderDtype": {
+        "label": "Precisione decoder WebAssembly",
+        "description": "Per esempio onnx/decoder_model_merged_quantized.onnx per q8."
+      },
+      "modelHost": {
+        "label": "Host di download del modello",
+        "description": "Questo server scarica il modello da qui, una volta sola. Va bene qualsiasi host con la struttura di Hugging Face, anche un mirror."
+      },
+      "runtimeHost": {
+        "label": "Host di download del runtime",
+        "description": "Una CDN npm che serve pacchetto@versione/percorso, come cdn.jsdelivr.net/npm o unpkg.com."
+      },
+      "transformersVersion": {
+        "label": "Versione di transformers.js"
+      },
+      "ortVersion": {
+        "label": "Versione di onnxruntime-web",
+        "placeholder": "Come transformers.js",
+        "description": "Lascia vuoto per usare la versione da cui dipende transformers.js."
+      },
+      "checksums": {
+        "label": "Checksum del runtime",
+        "description": "Un nome di file e uno SHA-256 per riga. Il server rifiuta i download che non corrispondono. Quelli predefiniti valgono per le versioni predefinite, quindi aggiornali o cancellali quando cambi versione. Il server non controlla i file che non sono nella lista."
+      },
+      "waveColors": {
+        "label": "Colori dell'onda",
+        "description": "Fino a 6 colori o variabili CSS, separati da virgole. Lascia vuoto per usare i colori del tema."
+      }
+    },
+    "fieldsets": {
+      "listening": "Ascolto",
+      "model": "Modello vocale, gira nel browser",
+      "runtime": "Runtime vocale",
+      "look": "Aspetto"
+    },
+    "options": {
+      "device": {
+        "auto": "WebGPU se disponibile, altrimenti WebAssembly",
+        "webgpu": "Solo WebGPU",
+        "wasm": "Solo WebAssembly"
+      },
+      "dtype": {
+        "fp32": "fp32, il più grande ed esatto",
+        "fp16": "fp16, metà dimensione",
+        "q8": "q8, un quarto della dimensione",
+        "int8": "int8",
+        "uint8": "uint8",
+        "q4": "q4",
+        "q4f16": "q4f16",
+        "bnb4": "bnb4"
+      },
+      "findModels": "Trova modelli"
+    },
+    "notices": {
+      "foundModels": "Trovati {count} modelli Whisper",
+      "noModels": "Nessun modello trovato. Scrivi proprietario/repo."
+    },
+    "command": {
+      "title": "Ricerca vocale",
+      "start": "Inizia ad ascoltare",
+      "hint": "Oppure premi il microfono nella barra di ricerca. Di' cosa cerchi e chiudi con"
+    },
+    "script": {
+      "listening": "In ascolto…",
+      "loading": "Caricamento del modello vocale…",
+      "loadingPct": "Caricamento del modello vocale… {pct}%",
+      "hint": "Chiudi con {word} per cercare",
+      "stop": "Ferma",
+      "insecure": "La ricerca vocale richiede HTTPS e un browser recente.",
+      "unavailable": "La ricerca vocale non è disponibile al momento.",
+      "modelFailed": "Il modello vocale non si è caricato in questo browser.",
+      "workerFailed": "Questo browser non riesce a eseguire il modello vocale.",
+      "micBlocked": "L'accesso al microfono è bloccato. Consentilo nel browser per cercare con la voce.",
+      "noMic": "Nessun microfono trovato.",
+      "micFailed": "Impossibile aprire il microfono."
+    }
+  }
+}

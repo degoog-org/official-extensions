@@ -1,5 +1,5 @@
 {
-  "plugin-time": {
+  "time-command": {
     "name": "Ora",
     "description": "Mostra l'ora corrente in un fuso orario o in una città."
   }

@@ -1,0 +1,10 @@
+export const SETTINGS_SCHEMA = [
+  {
+    key: "safeSearch",
+    label: "Safe Search",
+    type: "select",
+    options: ["off", "moderate", "on"],
+    default: "moderate",
+    description: "Filter explicit content from video results.",
+  },
+];

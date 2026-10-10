@@ -48,6 +48,21 @@ const _originOf = (url) => {
   }
 };
 
+const LOG_TAG = "[camoufox]";
+const MANUAL_REDIRECT = "manual";
+
+const _wantsLocation = (options) =>
+  options?.redirect === MANUAL_REDIRECT && !options?.allowlistHop;
+
+const _direct = (url, options, context) =>
+  context.fetch(url, {
+    method: options?.method ?? "GET",
+    redirect: options?.redirect ?? "follow",
+    signal: options?.signal,
+    headers: options?.headers,
+    body: options?.body,
+  });
+
 export default class CamoufoxTransport {
   isClientExposed = false;
   name = "camoufox";
@@ -70,21 +85,22 @@ export default class CamoufoxTransport {
       type: "toggle",
       default: "false",
       description:
-        "Visit the target origin first before scraping. Helps with sites that flag cold sessions.",
+        "Visits the target origin before scraping. Helps on sites that flag cold sessions.",
     },
     {
       key: "warmupDwellMs",
       label: "Warmup dwell (ms)",
       type: "number",
       placeholder: "1500",
-      description: "How long to dwell on the warmup page before continuing.",
+      description: "How long to stay on the warmup page before moving on.",
+      visibleWhen: { key: "warmupEnabled", equals: "true" },
     },
     {
       key: "timeout",
       label: "Timeout (ms)",
       type: "number",
       placeholder: "15000",
-      description: "Maximum time to wait for the page to load (3000–60000 ms).",
+      description: "How long to wait for the page to load, 3000 to 60000 ms.",
     },
     {
       key: "waitUntil",
@@ -92,7 +108,7 @@ export default class CamoufoxTransport {
       type: "select",
       options: ["load", "domcontentloaded", "networkidle"],
       default: "networkidle",
-      description: "When to consider the page fully loaded.",
+      description: "Which page event counts as loaded.",
     },
     {
       key: "bypassProxy",
@@ -100,7 +116,7 @@ export default class CamoufoxTransport {
       type: "toggle",
       default: "true",
       description:
-        "Connect directly to the Camoufox service instead of routing through the degoog proxy.",
+        "Connects straight to the Camoufox service instead of going through the degoog proxy.",
     },
   ];
 
@@ -133,10 +149,10 @@ export default class CamoufoxTransport {
   }
 
   async fetch(url, options, context) {
+    if (_wantsLocation(options)) return _direct(url, options, context);
     const doFetch = this._bypassProxy ? fetch : context.fetch;
     const headers = options?.headers ?? {};
     const cookies = _parseCookies(_pickHeader(headers, "Cookie"), url);
-    const userAgent = _pickHeader(headers, "User-Agent");
     const acceptLanguage = _pickHeader(headers, "Accept-Language");
     const referer = _pickHeader(headers, "Referer");
 
@@ -148,7 +164,6 @@ export default class CamoufoxTransport {
       },
     };
 
-    if (userAgent) payload.userAgent = userAgent;
     const extraHeaders = {};
     if (acceptLanguage) extraHeaders["Accept-Language"] = acceptLanguage;
     if (referer) {
@@ -178,7 +193,9 @@ export default class CamoufoxTransport {
         body: JSON.stringify(payload),
         signal: options?.signal,
       });
-    } catch {
+    } catch (err) {
+      if (options?.signal?.aborted) throw err;
+      console.warn(`${LOG_TAG} request to ${this._url} failed: ${err?.message || err}`);
       return new Response("", { status: 503 });
     }
 

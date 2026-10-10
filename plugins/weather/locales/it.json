@@ -1,5 +1,5 @@
 {
-  "plugin-weather": {
+  "weather-command": {
     "name": "Meteo",
     "description": "Mostra le informazioni meteo con Open-Meteo.",
     "settings": {

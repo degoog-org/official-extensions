@@ -98,4 +98,11 @@ export const streamAnthropic = async function* (config, messages, opts) {
 export const anthropicAdapter = {
   id: ProviderId.Anthropic,
   stream: streamAnthropic,
+  settings: {
+    label: "Anthropic Claude",
+    requires: { baseUrl: false, apiKey: true },
+    notes:
+      "Needs a key from [Anthropic](https://console.anthropic.com/settings/keys). A blank base URL uses `https://api.anthropic.com/v1`. Thinking spends a 1024 token budget, so keep **Max tokens** well above that.",
+    fields: [],
+  },
 };

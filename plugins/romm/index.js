@@ -83,7 +83,7 @@ function buildSnippet(item) {
     const fsName = String(item.fs_name || "").trim();
     if (fsName) parts.push(fsName);
   }
-  return parts.join(" — ");
+  return parts.join(" · ");
 }
 
 function _coverUrl(item) {
@@ -152,7 +152,7 @@ function renderCard(item, index, thumbSrc) {
 export default {
   isClientExposed: false,
   name: "RomM",
-  description: "Search your RomM game library",
+  description: "Search your RomM game library.",
   trigger: "romm",
   aliases: ["rom"],
   settingsSchema: [
@@ -162,16 +162,16 @@ export default {
       type: "url",
       required: true,
       placeholder: "https://your-romm-server.com",
-      description: "Base URL of your RomM instance",
+      description: "The base URL of your RomM instance.",
     },
     {
       key: "apiToken",
-      label: "API Token",
+      label: "API token",
       type: "password",
       secret: true,
       required: false,
       placeholder: "rmm_...",
-      description: "RomM client API token. Preferred over username/password.",
+      description: "A RomM client API token. Use it instead of a username and password when you can.",
     },
     {
       key: "username",
@@ -179,7 +179,8 @@ export default {
       type: "text",
       required: false,
       placeholder: "RomM login username",
-      description: "Legacy fallback if no API token is configured.",
+      description: "Older login, only used when no API token is set.",
+      visibleWhen: { key: "apiToken", equals: "" },
     },
     {
       key: "password",
@@ -188,7 +189,8 @@ export default {
       secret: true,
       required: false,
       placeholder: "RomM login password",
-      description: "Legacy fallback if no API token is configured.",
+      description: "Older login, only used when no API token is set.",
+      visibleWhen: { key: "apiToken", equals: "" },
     },
   ],
 
@@ -217,7 +219,7 @@ export default {
     if (!rommUrl || (!apiToken && (!username || !password))) {
       return {
         title: "RomM Search",
-        html: `<div class="command-result"><p>RomM is not configured. Go to <a href="/settings">Settings → Plugins</a> and set your RomM URL plus an API token, or username and password for legacy login.</p></div>`,
+        html: `<div class="command-result"><p>RomM isn't set up yet. Go to <a href="/settings">Settings -> Plugins</a> and add your RomM URL with an API token, or a username and password for the older login.</p></div>`,
       };
     }
 
@@ -268,9 +270,9 @@ export default {
 
       const totalHints = totalRecordCount || allItems.length;
       const totalPages = Math.ceil(totalHints / perPage);
-      const pageInfo = totalPages > 1 ? ` — Page ${page} of ${totalPages}` : "";
+      const pageInfo = totalPages > 1 ? `, page ${page} of ${totalPages}` : "";
       return {
-        title: `RomM: ${term} — ${totalHints} results${pageInfo}`,
+        title: `RomM: ${term}, ${totalHints} results${pageInfo}`,
         html: _renderMain({ content: results }),
         totalPages,
       };

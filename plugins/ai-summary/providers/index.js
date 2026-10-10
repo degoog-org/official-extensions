@@ -11,11 +11,25 @@ import { vllmAdapter } from "./vllm.js";
 import { ProviderId } from "./types.js";
 
 export * from "./types.js";
+export * from "./fields.js";
 export * from "./detect.js";
 export * from "./session.js";
 export { listModels } from "./models.js";
 
-export const ADAPTERS = {
+export const PROVIDER_ORDER = Object.freeze([
+  ProviderId.OpenAICompat,
+  ProviderId.OpenAI,
+  ProviderId.OpenRouter,
+  ProviderId.Ollama,
+  ProviderId.LlamaCpp,
+  ProviderId.Vllm,
+  ProviderId.LmStudio,
+  ProviderId.Gemini,
+  ProviderId.Anthropic,
+  ProviderId.Perplexity,
+]);
+
+export const ADAPTERS = Object.freeze({
   [ProviderId.OpenAICompat]: openAICompatAdapter,
   [ProviderId.OpenAI]: openAIAdapter,
   [ProviderId.OpenRouter]: openRouterAdapter,
@@ -26,20 +40,11 @@ export const ADAPTERS = {
   [ProviderId.Gemini]: geminiAdapter,
   [ProviderId.Anthropic]: anthropicAdapter,
   [ProviderId.Perplexity]: perplexityAdapter,
-};
+});
 
-export const ADAPTER_REQUIREMENTS = {
-  [ProviderId.OpenAICompat]: { baseUrl: true, apiKey: false },
-  [ProviderId.OpenAI]: { baseUrl: false, apiKey: true },
-  [ProviderId.OpenRouter]: { baseUrl: false, apiKey: true },
-  [ProviderId.Ollama]: { baseUrl: false, apiKey: false },
-  [ProviderId.LlamaCpp]: { baseUrl: false, apiKey: false },
-  [ProviderId.Vllm]: { baseUrl: false, apiKey: false },
-  [ProviderId.LmStudio]: { baseUrl: false, apiKey: false },
-  [ProviderId.Gemini]: { baseUrl: false, apiKey: true },
-  [ProviderId.Anthropic]: { baseUrl: false, apiKey: true },
-  [ProviderId.Perplexity]: { baseUrl: true, apiKey: true },
-};
+export const PROVIDER_LABELS = Object.freeze(
+  Object.fromEntries(PROVIDER_ORDER.map((id) => [id, ADAPTERS[id].settings.label])),
+);
 
 const COMPAT_PROVIDER_IDS = new Set([
   ProviderId.OpenAI,
@@ -57,6 +62,4 @@ export const effectiveProviderId = (provider, compatProvider = "") => {
 
 export const pickAdapter = (id, compatProvider = "") => ADAPTERS[effectiveProviderId(id, compatProvider)] ?? openAICompatAdapter;
 
-export const adapterRequirements = (id, compatProvider = "") => (
-  ADAPTER_REQUIREMENTS[effectiveProviderId(id, compatProvider)] ?? ADAPTER_REQUIREMENTS[ProviderId.OpenAICompat]
-);
+export const adapterRequirements = (id, compatProvider = "") => pickAdapter(id, compatProvider).settings.requires;

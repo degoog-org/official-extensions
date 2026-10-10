@@ -1,5 +1,5 @@
 {
-  "plugin-search-history": {
+  "search-history-command": {
     "name": "Cronologia ricerche",
     "description": "Salva la cronologia in data/history.json con timestamp; !history mostra un elenco paginato e cancellabile.",
     "settings": {

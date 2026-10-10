@@ -17,32 +17,6 @@ export const DetectSource = Object.freeze({
   Fallback: "fallback",
 });
 
-export const PROVIDER_ORDER = Object.freeze([
-  ProviderId.OpenAICompat,
-  ProviderId.OpenAI,
-  ProviderId.OpenRouter,
-  ProviderId.Ollama,
-  ProviderId.LlamaCpp,
-  ProviderId.Vllm,
-  ProviderId.LmStudio,
-  ProviderId.Gemini,
-  ProviderId.Anthropic,
-  ProviderId.Perplexity,
-]);
-
-export const PROVIDER_LABELS = Object.freeze({
-  [ProviderId.OpenAICompat]: "OpenAI-compatible",
-  [ProviderId.OpenAI]: "OpenAI",
-  [ProviderId.OpenRouter]: "OpenRouter",
-  [ProviderId.Ollama]: "Ollama",
-  [ProviderId.LlamaCpp]: "llama.cpp",
-  [ProviderId.Vllm]: "vLLM",
-  [ProviderId.LmStudio]: "LM Studio",
-  [ProviderId.Gemini]: "Google Gemini",
-  [ProviderId.Anthropic]: "Anthropic Claude",
-  [ProviderId.Perplexity]: "Perplexity",
-});
-
 const HOSTED = [
   { id: ProviderId.OpenAI, host: new URL(OPENAI_DEFAULT_BASE).host },
   { id: ProviderId.OpenRouter, host: "openrouter.ai" },

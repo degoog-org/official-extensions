@@ -1,0 +1,25 @@
+{
+  "yandex-visual-engine": {
+    "name": "Yandex Visual Search",
+    "settings": {
+      "privacy": {
+        "label": "Where the image goes",
+        "description": "This engine uploads every image searched with it to Yandex, a third party, together with any words typed next to it. Yandex sees this server's IP address, not the visitor's, and keeps the image under its own terms. Leave the engine off if visitors shouldn't send their pictures to Yandex."
+      },
+      "domain": {
+        "label": "Yandex domain"
+      },
+      "include": {
+        "label": "Results",
+        "description": "Pages that contain the image, images that look like it, or both. Pages come first."
+      }
+    },
+    "options": {
+      "include": {
+        "both": "Pages and similar images",
+        "pages": "Pages that contain the image",
+        "similar": "Similar images"
+      }
+    }
+  }
+}

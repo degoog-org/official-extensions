@@ -1,49 +1,45 @@
-import { readdir } from "fs/promises";
-import { dirname, join } from "path";
-
 const AUTH_PATH = "/api/settings/auth";
 const TRANSPORT_TEST_PATH = "/api/extensions/transports";
-const TRANSPORT_LIST_PATH = "/api/extensions?type=transport";
 const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
 const CONTROL_TTL_MS = 60 * 1000;
-const KNOWN_NAMESPACE = "4play-status:transports";
-const KNOWN_KEY = "list";
-const KNOWN_TTL_MS = 24 * 60 * 60 * 1000;
-const KNOWN_REFRESH_MS = 60 * 1000;
-const TRANSPORT_SUFFIX = "-transport";
+const DISCOVERY_NAMESPACE = "transport:4play:discovery";
+const DISCOVERY_KEY = "names";
+const DISCOVERY_TTL_MS = 24 * 60 * 60 * 1000;
 const TRIGGER = "4play";
 const CLEAR_SCOPES = ["all", "session", "captcha"];
+const ACK_WAIT_MS = 10_000;
+const ACK_POLL_MS = 250;
+const STREAM_TICK_MS = 1500;
+const STREAM_HEARTBEAT_MS = 5000;
+const STREAM_RECHECK_MS = 60_000;
 
 let template = "";
 let useCacheFn = null;
+let proxies = null;
 let firefoxUrl = "";
 let accessMode = "admin";
 let pluginApiBase = "";
-let pluginDir = "";
 let transportChoice = "";
-let knownTransports = [];
-let knownCheckedAt = 0;
 
 const log = (msg) => {
   console.warn(`[4play-status] ${msg}`);
 };
 
-let lastRefreshGripe = "";
+let lastGripe = "";
 
 const logOnce = (msg) => {
-  if (msg === lastRefreshGripe) return;
-  lastRefreshGripe = msg;
+  if (msg === lastGripe) return;
+  lastGripe = msg;
   log(msg);
 };
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const statusCacheFor = (name) =>
   useCacheFn ? useCacheFn(`transport:${name}:status`, STATUS_TTL_MS) : null;
 
 const controlCacheFor = (name) =>
   useCacheFn ? useCacheFn(`transport:${name}:control`, CONTROL_TTL_MS) : null;
-
-const knownCache = () =>
-  useCacheFn ? useCacheFn(KNOWN_NAMESPACE, KNOWN_TTL_MS) : null;
 
 const DEFAULT_PORT = 4444;
 
@@ -153,115 +149,25 @@ const accessDecision = async (req) => {
   return { ok: false, status: 401, error: "You shall not pass!" };
 };
 
-const transportIdFor = (folderName) => {
-  const lower = folderName.toLowerCase();
-  return lower.endsWith(TRANSPORT_SUFFIX) ? lower : `${lower}${TRANSPORT_SUFFIX}`;
-};
-
-const rememberTransports = async (items) => {
-  knownTransports = items;
-  knownCheckedAt = Date.now();
+const discoveredTransports = async () => {
+  if (!useCacheFn) return [];
   try {
-    await knownCache()?.set(KNOWN_KEY, items, KNOWN_TTL_MS);
+    const names = await useCacheFn(DISCOVERY_NAMESPACE, DISCOVERY_TTL_MS).get(DISCOVERY_KEY);
+    return Array.isArray(names) ? names.filter((name) => typeof name === "string") : [];
   } catch (error) {
-    log(`failed to cache transport list: ${error?.message || error}`);
+    log(`failed to read the 4play discovery entry: ${error?.message || error}`);
+    return [];
   }
 };
 
-const loadKnownList = async () => {
-  try {
-    const cached = await knownCache()?.get(KNOWN_KEY);
-    if (Array.isArray(cached) && cached.length > 0) {
-      knownTransports = cached;
-      return;
-    }
-  } catch (error) {
-    log(`failed to read cached transport list: ${error?.message || error}`);
-  }
-  await scanTransports();
-};
-
-const scanTransports = async () => {
-  if (!pluginDir) return;
-  try {
-    const dir = join(dirname(dirname(pluginDir)), "transports");
-    const entries = await readdir(dir, { withFileTypes: true });
-    const items = entries
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => ({ id: transportIdFor(entry.name), label: entry.name }));
-    if (items.length > 0) knownTransports = items;
-  } catch (error) {
-    log(`could not scan the transports folder: ${error?.message || error}`);
-  }
-};
-
-const pullList = async (base, headers = {}) => {
-  const res = await fetch(`${base}${TRANSPORT_LIST_PATH}`, {
-    headers: { Accept: "application/json", ...headers },
-  });
-  if (!res.ok) throw new Error(`status ${res.status}`);
-  const data = await res.json().catch(() => null);
-  const items = Array.isArray(data?.transports) ? data.transports : [];
-  return items
-    .filter((item) => typeof item?.id === "string")
-    .map((item) => ({ id: item.id, label: item.displayName || item.id }));
-};
-
-const refreshKnown = async (req) => {
-  if (Date.now() - knownCheckedAt < KNOWN_REFRESH_MS) return;
-  knownCheckedAt = Date.now();
-  try {
-    await rememberTransports(
-      await overSelf(req, (base) => pullList(base, authHeaders(req))),
-    );
-    lastRefreshGripe = "";
-  } catch (error) {
-    logOnce(`transport list refresh failed: ${error?.message || error}`);
-  }
-};
-
-const defaultTransport = () => {
-  const match = knownTransports.find(
-    (item) =>
-      item.id.toLowerCase().includes(TRIGGER) ||
-      item.label.toLowerCase().includes(TRIGGER),
-  );
-  return match?.id || "";
-};
-
-const transportField = () => {
-  if (knownTransports.length === 0) {
-    return {
-      key: "transportName",
-      label: "4play transport",
-      type: "info",
-      description:
-        "The transport list is not loaded yet. Reopen this dialog in a few seconds, or run !4play once, and this becomes a dropdown of your installed transports.",
-    };
-  }
-  return transportSelect();
-};
-
-const orderedTransports = () => {
-  const preferred = defaultTransport();
-  if (!preferred) return knownTransports;
-  return [
-    ...knownTransports.filter((item) => item.id === preferred),
-    ...knownTransports.filter((item) => item.id !== preferred),
-  ];
-};
-
-const transportSelect = () => {
-  const ordered = orderedTransports();
+const transportOptions = async () => {
+  const names = await discoveredTransports();
   return {
-    key: "transportName",
-    label: "4play transport",
-    type: "select",
-    options: ordered.map((item) => item.id),
-    optionLabels: ordered.map((item) => `${item.label} (${item.id})`),
-    default: defaultTransport(),
-    description:
-      "Which installed transport this card reports on. It defaults to the first installed transport whose name mentions 4play. Change it if you run a renamed or third-party 4play transport.",
+    options: names.map((name) => ({ value: name })),
+    value: transportChoice || names[0] || "",
+    notice: names.length
+      ? undefined
+      : "No 4play transport has announced itself yet. Run one search through it, then refresh this list.",
   };
 };
 
@@ -277,10 +183,11 @@ const publishedStatus = async (name) => {
 };
 
 const resolveTransport = async () => {
-  const candidates = knownTransports.map((item) => item.id);
-  const name = transportChoice || defaultTransport();
+  const candidates = await discoveredTransports();
+  const name = transportChoice || candidates[0] || "";
+  if (name) lastGripe = "";
   if (!name) {
-    log("no transport selected and no installed transport mentions 4play");
+    logOnce("no transport selected and no 4play transport has announced itself yet");
     return { name: null, status: null, candidates };
   }
   return { name, status: await publishedStatus(name), candidates };
@@ -292,56 +199,165 @@ const jsonResponse = (payload, status) =>
     headers: { "Content-Type": "application/json" },
   });
 
-const statusHandler = async (req) => {
-  const access = await accessDecision(req);
-  if (!access.ok) {
-    return jsonResponse({ error: access.error }, access.status);
+const hostOf = (origin) => {
+  try {
+    return new URL(origin).hostname;
+  } catch {
+    return "";
   }
-  if (!useCacheFn) {
-    log("useCache was never provided by the app; cannot read transport status");
-    return jsonResponse({ error: "cache unavailable" }, 503);
+};
+
+const scoutRoute = async (session) => {
+  const route = session.route;
+  if (route?.kind !== "core" || !proxies?.scout) return session;
+  const host = hostOf(session.origin);
+  if (!host) return session;
+  try {
+    const scouted = await proxies.scout(route.egress, host);
+    const { egress: _egress, ...rest } = route;
+    return { ...session, route: { ...rest, ...scouted } };
+  } catch (error) {
+    log(`proxy lookup failed for ${session.origin}: ${error?.message || error}`);
+    return session;
   }
+};
 
-  await refreshKnown(req);
+const withoutEgress = (session) => {
+  if (session.route?.kind !== "core") return session;
+  const { egress: _egress, ...route } = session.route;
+  return { ...session, route };
+};
 
+const scoutedStatus = async (status) => {
+  if (!status) return status;
+  const sessions = Array.isArray(status.sessions) ? status.sessions : [];
+  const taggedAlong = Array.isArray(status.taggedAlong) ? status.taggedAlong : [];
+  return {
+    ...status,
+    sessions: (await Promise.all(sessions.map(scoutRoute))).map(withoutEgress),
+    taggedAlong: (await Promise.all(taggedAlong.map(scoutRoute))).map(withoutEgress),
+  };
+};
+
+const lineup = async () => {
+  if (!proxies?.lineup) return null;
+  try {
+    return await proxies.lineup();
+  } catch (error) {
+    log(`proxy lineup failed: ${error?.message || error}`);
+    return null;
+  }
+};
+
+const snapshot = async () => {
   const resolved = await resolveTransport();
   if (!resolved.name) {
-    return jsonResponse(
-      {
-        ok: true,
-        transport: null,
-        status: null,
-        candidates: resolved.candidates,
-        firefoxUrl,
-        hint: "No 4play transport picked yet. Choose one in this plugin's settings.",
-      },
-      200,
-    );
-  }
-
-  const hint = resolved.status
-    ? null
-    : "Transport found but it has not published a status yet. The app only hands transports a cache handle on their first fetch; run the test below or search through it once.";
-
-  return jsonResponse(
-    {
+    return {
       ok: true,
-      transport: resolved.name,
-      status: resolved.status,
+      transport: null,
+      status: null,
       candidates: resolved.candidates,
       firefoxUrl,
-      hint,
+      proxies: await lineup(),
+      hint: "No 4play transport has announced itself yet. Run one search through it, or pick it in this plugin's settings.",
+    };
+  }
+  return {
+    ok: true,
+    transport: resolved.name,
+    status: await scoutedStatus(resolved.status),
+    candidates: resolved.candidates,
+    firefoxUrl,
+    proxies: await lineup(),
+    hint: resolved.status
+      ? null
+      : "Transport found but it has not published a status yet. The app only hands transports a cache handle on their first fetch; run the test below or search through it once.",
+  };
+};
+
+const guarded = (handler) => async (req) => {
+  const access = await accessDecision(req);
+  if (!access.ok) return jsonResponse({ error: access.error }, access.status);
+  if (!useCacheFn) {
+    log("useCache was never provided by the app; cannot reach the transport");
+    return jsonResponse({ error: "cache unavailable" }, 503);
+  }
+  return handler(req);
+};
+
+const statusHandler = async () => jsonResponse(await snapshot(), 200);
+
+const streamHandler = async (req) => {
+  const encoder = new TextEncoder();
+  let timer = null;
+  let beat = null;
+  let last = "";
+  let closed = false;
+  let checkedAt = Date.now();
+
+  const stop = () => {
+    closed = true;
+    if (timer) clearTimeout(timer);
+    if (beat) clearInterval(beat);
+  };
+
+  const body = new ReadableStream({
+    start(controller) {
+      const send = (text) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(text));
+        } catch {
+          stop();
+        }
+      };
+      const tick = async () => {
+        if (closed) return;
+        if (Date.now() - checkedAt > STREAM_RECHECK_MS) {
+          checkedAt = Date.now();
+          if (!(await accessDecision(req)).ok) {
+            send("event: locked\ndata: {}\n\n");
+            stop();
+            try {
+              controller.close();
+            } catch {}
+            return;
+          }
+        }
+        try {
+          const payload = JSON.stringify(await snapshot());
+          if (payload !== last) {
+            last = payload;
+            send(`data: ${payload}\n\n`);
+          }
+        } catch (error) {
+          log(`status stream tick failed: ${error?.message || error}`);
+        }
+        if (!closed) timer = setTimeout(tick, STREAM_TICK_MS);
+      };
+      beat = setInterval(() => send(": keepalive\n\n"), STREAM_HEARTBEAT_MS);
+      req.signal?.addEventListener("abort", () => {
+        stop();
+        try {
+          controller.close();
+        } catch {}
+      });
+      tick();
     },
-    200,
-  );
+    cancel: stop,
+  });
+
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
 };
 
 const pingHandler = async (req) => {
-  const access = await accessDecision(req);
-  if (!access.ok) {
-    return jsonResponse({ error: access.error }, access.status);
-  }
-
   const resolved = await resolveTransport();
   if (!resolved.name) {
     return jsonResponse({ error: "no 4play transport found" }, 404);
@@ -368,15 +384,17 @@ const pingHandler = async (req) => {
   }
 };
 
-const clearHandler = async (req) => {
-  const access = await accessDecision(req);
-  if (!access.ok) {
-    return jsonResponse({ error: access.error }, access.status);
+const awaitAck = async (cache, id) => {
+  const deadline = Date.now() + ACK_WAIT_MS;
+  while (Date.now() < deadline) {
+    const result = await cache.get("result").catch(() => null);
+    if (result?.id === id) return result;
+    await sleep(ACK_POLL_MS);
   }
-  if (!useCacheFn) {
-    return jsonResponse({ error: "cache unavailable" }, 503);
-  }
+  return null;
+};
 
+const clearHandler = async (req) => {
   let body;
   try {
     body = await req.json();
@@ -399,66 +417,96 @@ const clearHandler = async (req) => {
     return jsonResponse({ error: "no 4play transport found" }, 404);
   }
 
-  const request = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    scope,
-  };
+  const request = { id: crypto.randomUUID(), scope };
   if (key) request.key = key;
   if (scope === "captcha" && tabId !== null) request.tabId = tabId;
 
+  const control = controlCacheFor(resolved.name);
   try {
-    await controlCacheFor(resolved.name).set("request", request, CONTROL_TTL_MS);
+    await control.set("request", request, CONTROL_TTL_MS);
     log(`queued clear (${scope}) for ${resolved.name}`);
   } catch (error) {
     log(`failed to queue clear request: ${error?.message || error}`);
     return jsonResponse({ error: "failed to queue clear request" }, 500);
   }
-  return jsonResponse({ ok: true, transport: resolved.name }, 200);
+
+  const ack = await awaitAck(control, request.id);
+  if (!ack) {
+    return jsonResponse(
+      {
+        ok: false,
+        pending: true,
+        transport: resolved.name,
+        message: "4play didn't answer within 10s. Is the browser extension connected?",
+      },
+      202,
+    );
+  }
+  return jsonResponse(
+    { ok: ack.ok === true, transport: resolved.name, message: ack.message || null },
+    200,
+  );
 };
 
 export default {
   isClientExposed: false,
   name: "4play status",
   description:
-    "Shows the live status of the 4play transport (connection, warmed origins, blocked sessions, open captchas). Admin only.",
+    "Live status of the 4play transport, with its connection, warmed origins, the proxy each one rides, blocked sessions and open captchas. Admin only.",
   trigger: TRIGGER,
   aliases: ["fourplay"],
 
-  get settingsSchema() {
-    return [
-      {
-        key: "accessMode",
-        label: "Status view access",
-        type: "select",
-        options: ["admin", "open", "locked"],
-        default: "admin",
-        description:
-          "admin requires a valid settings/admin session, open lets anyone who can run the bang view and clear 4play status, and locked disables the status API for everyone.",
+  settingsSchema: [
+    {
+      key: "accessMode",
+      label: "Status view access",
+      type: "select",
+      options: ["admin", "open", "locked"],
+      default: "admin",
+      description:
+        "admin needs a valid settings session. open lets anyone who can run the bang view and clear 4play status. locked turns the status API off for everyone.",
+    },
+    {
+      key: "transportName",
+      label: "4play transport",
+      type: "select",
+      optionsFrom: {
+        auto: true,
+        refreshLabel: "Refresh",
+        emptyHint: "Run one search through 4play, then refresh.",
       },
-      transportField(),
-      {
-        key: "firefoxUrl",
-        label: "Firefox browser link",
-        type: "text",
-        default: "",
-        description:
-          "Link to the Firefox instance running the 4play extension (e.g. a remote-desktop/VNC/noVNC URL like http://192.168.86.233:6080, or any URL that opens that browser). When set, the status card shows an 'Open Firefox' button and a jump link next to every captcha that needs attention, so you can hop straight over to solve it. Firefox cannot be deep-linked to a specific tab from outside, so this opens the browser and you pick the flagged tab.",
-      },
-    ];
+      description:
+        "The transport this card reports on. 4play transports announce themselves on their first fetch, so the list fills up once you've searched through one. Leave it on the first entry unless you run more than one.",
+      visibleWhen: { key: "accessMode", equals: ["admin", "open"] },
+    },
+    {
+      key: "firefoxUrl",
+      label: "Firefox browser link",
+      type: "text",
+      default: "",
+      description:
+        "A URL that opens the Firefox running the 4play extension, such as a noVNC address like http://192.168.86.233:6080. The card then shows an 'Open Firefox' button and a link next to each captcha that needs you. It can't open a specific tab, so you pick the flagged one yourself.",
+      visibleWhen: { key: "accessMode", equals: ["admin", "open"] },
+    },
+  ],
+
+  async getFieldOptions(key) {
+    if (key !== "transportName") return { options: [] };
+    return transportOptions();
   },
 
   routes: [
-    { method: "get", path: "/status", handler: statusHandler },
-    { method: "post", path: "/ping", handler: pingHandler },
-    { method: "post", path: "/clear", handler: clearHandler },
+    { method: "get", path: "/status", handler: guarded(statusHandler), rateLimit: true },
+    { method: "get", path: "/stream", handler: guarded(streamHandler), rateLimit: true },
+    { method: "post", path: "/ping", handler: guarded(pingHandler), rateLimit: true },
+    { method: "post", path: "/clear", handler: guarded(clearHandler), rateLimit: true },
   ],
 
   init(ctx) {
     template = ctx.template;
     useCacheFn = ctx.useCache;
+    proxies = ctx.proxies || null;
     pluginApiBase = ctx.apiBase || "";
-    pluginDir = ctx.dir || "";
-    loadKnownList();
   },
 
   configure(settings) {

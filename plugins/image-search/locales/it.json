@@ -1,0 +1,197 @@
+{
+  "image-search-command": {
+    "name": "Ricerca per immagine",
+    "description": "Una ricerca per immagini migliore. Il tuo modello di visione trasforma l'immagine in una query per i tuoi normali motori di immagini, e il browser del visitatore riordina i risultati in base a quanto somigliano all'immagine. Ogni parte si può disattivare da sola.",
+    "settings": {
+      "transparency": {
+        "label": "Dove va l'immagine",
+        "description": "degoog invia l'immagine dal browser del visitatore a questo server. Con Trasforma le immagini in una query attivo, il server la passa direttamente al modello di visione qui sotto e non la conserva. I motori testuali vedono solo la query scritta dal modello. I motori che cercano per immagine ricevono l'immagine stessa, e ognuno lo dice nelle sue impostazioni. Il riordinamento avviene nel browser del visitatore. Questo server scarica una volta il modello e il runtime dagli host qui sotto, e i browser li caricano da questa istanza."
+      },
+      "describe": {
+        "label": "Trasforma le immagini in una query",
+        "description": "Il tuo modello di visione scrive una query per ogni immagine, e degoog la usa con i tuoi normali motori di immagini insieme ai motori che cercano per immagine."
+      },
+      "rank": {
+        "label": "Riordina i risultati in base all'aspetto",
+        "description": "Il browser del visitatore confronta ogni risultato con l'immagine e li riordina."
+      },
+      "baseUrl": {
+        "label": "URL del modello di visione",
+        "placeholder": "http://localhost:11434",
+        "description": "Ollama, llama.cpp, LM Studio, vLLM o qualsiasi server compatibile con OpenAI."
+      },
+      "provider": {
+        "label": "Provider"
+      },
+      "model": {
+        "label": "Modello",
+        "description": "Deve accettare immagini, per esempio qwen3.5:4b o gemma4:e4b."
+      },
+      "apiKey": {
+        "label": "Chiave API",
+        "placeholder": "Lascia vuoto per i server locali"
+      },
+      "prompt": {
+        "label": "Prompt",
+        "description": "Il server lo manda con ogni immagine. Tieni l'ultima frase, fa rispondere il modello con un campo query."
+      },
+      "refinePrompt": {
+        "label": "Prompt quando il visitatore aggiunge parole",
+        "description": "Il server lo aggiunge quando il visitatore scrive parole accanto all'immagine. {text} diventa quelle parole."
+      },
+      "timeoutSeconds": {
+        "label": "Timeout in secondi"
+      },
+      "maxImageMb": {
+        "label": "Immagine più grande accettata, in MB"
+      },
+      "maxConcurrent": {
+        "label": "Immagini descritte insieme",
+        "description": "Mentre ne sono in corso così tante, le nuove ricerche per immagine saltano la query e dicono che il modello è occupato."
+      },
+      "rankModel": {
+        "label": "Modello di riordino",
+        "placeholder": "proprietario/repo",
+        "description": "Un modello CLIP in formato ONNX per transformers.js. I modelli più grandi sono più precisi, ma più lenti da scaricare e da eseguire. Trova modelli li elenca."
+      },
+      "rankRevision": {
+        "label": "Revisione del modello di riordino",
+        "placeholder": "main",
+        "description": "Branch, tag o commit. Quella predefinita blocca il modello predefinito. Se la lasci vuota o scegli un altro modello, il plugin usa l'ultimo commit su main."
+      },
+      "weakMatches": {
+        "label": "Risultati che non somigliano all'immagine"
+      },
+      "matchThreshold": {
+        "label": "Soglia di somiglianza, in percentuale",
+        "description": "I risultati sotto questa somiglianza non contano come corrispondenze."
+      },
+      "sameThreshold": {
+        "label": "Soglia per stessa immagine, in percentuale",
+        "description": "Quanto l'impronta di un risultato deve somigliare alla tua immagine per avere il badge Stessa immagine. Riconosce copie ridimensionate o ricompresse, non i ritagli."
+      },
+      "textWeight": {
+        "label": "Peso delle parole scritte",
+        "description": "Quanto contano le parole scritte accanto all'immagine nell'ordinare i risultati. Con 0 vengono ignorate."
+      },
+      "device": {
+        "label": "Esegui su"
+      },
+      "gpuDtype": {
+        "label": "Precisione WebGPU",
+        "description": "Il modello deve avere questo file, per esempio onnx/vision_model_fp16.onnx."
+      },
+      "wasmDtype": {
+        "label": "Precisione WebAssembly",
+        "description": "Il modello deve avere questo file, per esempio onnx/vision_model_quantized.onnx."
+      },
+      "batchSize": {
+        "label": "Immagini riordinate per gruppo"
+      },
+      "fetchConcurrency": {
+        "label": "Miniature scaricate insieme"
+      },
+      "modelHost": {
+        "label": "Host di download del modello di riordino",
+        "description": "Questo server scarica il modello di riordino da qui, una volta sola. Va bene qualsiasi host con la struttura di Hugging Face, anche un mirror."
+      },
+      "runtimeHost": {
+        "label": "Host di download del runtime",
+        "description": "Una CDN npm che serve pacchetto@versione/percorso, come cdn.jsdelivr.net/npm o unpkg.com."
+      },
+      "transformersVersion": {
+        "label": "Versione di transformers.js"
+      },
+      "ortVersion": {
+        "label": "Versione di onnxruntime-web",
+        "placeholder": "Come transformers.js",
+        "description": "Lascia vuoto per usare la versione da cui dipende transformers.js."
+      },
+      "checksums": {
+        "label": "Checksum del runtime",
+        "description": "Un nome di file e uno SHA-256 per riga. Il server rifiuta i download che non corrispondono. Quelli predefiniti valgono per le versioni predefinite, quindi aggiornali o cancellali quando cambi versione. Il server non controlla i file che non sono nella lista."
+      }
+    },
+    "fieldsets": {
+      "vision": "Modello di visione, trasforma l'immagine in una query",
+      "ranking": "Riordino, gira nel browser del visitatore",
+      "runtime": "Runtime del riordino"
+    },
+    "options": {
+      "provider": {
+        "auto": "Rileva automaticamente",
+        "openai-compat": "Compatibile con OpenAI"
+      },
+      "weakMatches": {
+        "bottom": "Sposta in fondo",
+        "hide": "Nascondi",
+        "keep": "Lascia dove sono"
+      },
+      "device": {
+        "auto": "WebGPU se disponibile, altrimenti WebAssembly",
+        "webgpu": "Solo WebGPU",
+        "wasm": "Solo WebAssembly"
+      },
+      "dtype": {
+        "fp32": "fp32, il più grande ed esatto",
+        "fp16": "fp16, metà dimensione",
+        "q8": "q8, un quarto della dimensione",
+        "int8": "int8",
+        "uint8": "uint8",
+        "q4": "q4",
+        "q4f16": "q4f16",
+        "bnb4": "bnb4"
+      },
+      "detect": "Rileva",
+      "fetchModels": "Carica modelli",
+      "findModels": "Trova modelli"
+    },
+    "notices": {
+      "detected": "Rilevato {provider}",
+      "foundModels": "Trovati {count} modelli su {provider}",
+      "noModels": "Nessun modello trovato",
+      "foundClip": "Trovati {count} modelli CLIP",
+      "noClip": "Nessun modello trovato. Scrivi proprietario/repo."
+    },
+    "command": {
+      "title": "Ricerca per immagine",
+      "pick": "Scegli un'immagine",
+      "hint": "Oppure trascina o incolla un'immagine nella barra di ricerca. Aggiungi delle parole accanto per restringere la ricerca."
+    },
+    "script": {
+      "searchedFor": "Cercato {query}",
+      "yourWords": "le tue parole: \"{text}\"",
+      "stages": {
+        "runtime": "Carico il runtime di riordino…",
+        "model": "Carico il modello di riordino…",
+        "modelPct": "Carico il modello di riordino da questo browser… {pct}%",
+        "download": "Recupero il modello di riordino da questa istanza…",
+        "downloadPct": "Download del modello di riordino… {loaded} di {total} MB",
+        "device": "Avvio {device}…",
+        "source": "Leggo la tua immagine con {device}…",
+        "ready": "Modello di riordino pronto, aspetto i risultati…",
+        "readyResults": "Modello pronto, confronto {count} risultati…"
+      },
+      "ranked": "Riordinati {done} su {total} su questo dispositivo con {device}",
+      "rankedSoFar": "Riordinati {done} finora con {device}, stanno arrivando altri risultati…",
+      "copies": "{count} copie di questa immagine",
+      "hidden": "{count} nascosti",
+      "shown": "{count} risultati poco simili mostrati",
+      "moved": "{count} risultati poco simili spostati in fondo",
+      "weak": "{count} risultati poco simili",
+      "hideWeak": "Nascondi i risultati poco simili",
+      "showHidden": "Mostra {count} nascosti",
+      "ranking": "Riordino su questo dispositivo con {device}… {done}/{total}",
+      "rankFailed": "Impossibile caricare il modello di riordino. I risultati restano nell'ordine normale di degoog.",
+      "same": "Stessa immagine",
+      "errors": {
+        "busy": "Il modello di visione è occupato. Riprova tra un attimo.",
+        "tooLarge": "Questa immagine è troppo grande.",
+        "invalid": "L'immagine non è arrivata. Riprova.",
+        "noQuery": "Il modello di visione non ha restituito una query.",
+        "describeFailed": "Il modello di visione non è riuscito a descrivere questa immagine."
+      },
+      "searchedWithImage": "Cercato con la tua immagine"
+    }
+  }
+}

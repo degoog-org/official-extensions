@@ -1,212 +1,25 @@
 import * as cheerio from "cheerio";
+import { SETTINGS_SCHEMA } from "./settings.js";
+import { buildHeaders, buildSearchUrl, gsaAgent } from "./request.js";
+import { isInterstitial, isSorryPage, parseDesktop, parseLite } from "./parse.js";
+import { resolveGotos } from "./gotos.js";
+import { napTime, sniffEid, withSei } from "./soft-captcha.js";
+
+export { regions } from "./const/regions.js";
 
 export const type = "videos";
-
-const OPERA_MINI_VARIANTS = [
-  { version: "6.1", presto: "2.8.119", release: "11.10", platforms: ["J2ME/MIDP"] },
-  { version: "7.0", presto: "2.8.119", release: "11.10", platforms: ["J2ME/MIDP"] },
-  { version: "7.1", presto: "2.8.119", release: "11.10", platforms: ["J2ME/MIDP"] },
-  { version: "4.2", presto: "2.5.25", release: "10.54", platforms: ["S60"] },
-];
-
-const _pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const _randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
-
-const _gsaAgent = () => {
-  const v = _pick(OPERA_MINI_VARIANTS);
-  const platform = _pick(v.platforms);
-  const build = _randInt(10000, 49999);
-  const subMajor = _randInt(20, 49);
-  const subMinor = _randInt(100, 3999);
-  return `Opera/9.80 (${platform}; Opera Mini/${v.version}.${build}/${subMajor}.${subMinor}; U; en) Presto/${v.presto} Version/${v.release}`;
-};
-
-const TBS_MAP = { hour: "qdr:h", day: "qdr:d", week: "qdr:w", month: "qdr:m", year: "qdr:y" };
-
-const _resolveTbs = (timeFilter) => {
-  if (!timeFilter || timeFilter === "any" || timeFilter === "custom") return null;
-  return TBS_MAP[timeFilter] ?? null;
-};
-
-const _resolveCustomTbs = (dateFrom, dateTo) => {
-  if (!dateFrom && !dateTo) return null;
-  const parts = ["cdr:1"];
-  if (dateFrom) {
-    const d = new Date(dateFrom);
-    if (!isNaN(d.getTime())) parts.push(`cd_min:${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`);
-  }
-  if (dateTo) {
-    const d = new Date(dateTo);
-    if (!isNaN(d.getTime())) parts.push(`cd_max:${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`);
-  }
-  return parts.length > 1 ? parts.join(",") : null;
-};
-
-const _resolveHref = (href) => {
-  if (!href.startsWith("/url?")) return href;
-  try {
-    const parsed = new URL(href, "https://www.google.com");
-    return parsed.searchParams.get("q") || parsed.searchParams.get("url") || href;
-  } catch {
-    return href;
-  }
-};
-
-const DURATION_RE = /^\d{1,3}:\d{2}$|^\d{1,3}:\d{2}:\d{2}$/;
-
-const _ytThumbnail = (href) => {
-  const match = href.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
-  return match ? `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg` : "";
-};
-
-const _durationFromScope = ($, $scope) => {
-  let found = "";
-  $scope.find("span").each((_, node) => {
-    if (found) return;
-    const t = $(node).text().trim();
-    if (DURATION_RE.test(t)) found = t;
-  });
-  return found;
-};
-
-const MUTANT_SIGNATURES = [
-  "/httpservice/retry/enablejs",
-  'Please click <a href="/httpservice',
-  "unusual traffic from your computer network",
-  "/sorry/index?continue=",
-];
-
-const _isInterstitial = (html) => {
-  const head = html.slice(0, 4000);
-  return MUTANT_SIGNATURES.some((m) => head.includes(m));
-};
-
-const GOTO_PREFIX = "/goto?";
-const GOTO_ORIGIN = "https://www.google.com";
-const GOTO_TIMEOUT_MS = 5000;
-
-const _isExternal = (url) => url.startsWith("http") && !url.includes("google.com");
-
-const _parseDesktop = ($, name) => {
-  const results = [];
-  const seen = new Set();
-  $("a:has(h3)").each((_, el) => {
-    const linkEl = $(el);
-    const href = linkEl.attr("href") || "";
-    const goto = href.startsWith(GOTO_PREFIX) ? `${GOTO_ORIGIN}${href}` : "";
-    const url = goto || _resolveHref(href);
-    if (!goto && !_isExternal(url)) return;
-    const title = linkEl.find("h3").first().text().trim();
-    if (!title || seen.has(url)) return;
-    seen.add(url);
-    const block = linkEl.closest("[data-hveid]");
-    const snippet =
-      block.find("[data-sncf]").first().text().trim() ||
-      block.find(".VwiC3b").first().text().trim() ||
-      "";
-    results.push({
-      title,
-      url,
-      snippet,
-      source: name,
-      thumbnail: goto ? "" : _ytThumbnail(url),
-      duration: block.length ? _durationFromScope($, block) : "",
-    });
-  });
-  return results;
-};
-
-const _followGoto = async (url, userAgent) => {
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      redirect: "manual",
-      headers: { "User-Agent": userAgent },
-      signal: AbortSignal.timeout(GOTO_TIMEOUT_MS),
-    });
-    await response.body?.cancel();
-    const location = response.headers.get("location") || "";
-    return _isExternal(location) ? location : "";
-  } catch {
-    return "";
-  }
-};
-
-const _resolveGotos = async (results, userAgent) => {
-  const resolved = await Promise.all(
-    results.map(async (result) => {
-      if (!result.url.startsWith(GOTO_ORIGIN)) return result;
-      const url = await _followGoto(result.url, userAgent);
-      return { ...result, url, thumbnail: _ytThumbnail(url) };
-    }),
-  );
-  const seen = new Set();
-  return resolved.filter((result) => {
-    if (!result.url || seen.has(result.url)) return false;
-    seen.add(result.url);
-    return true;
-  });
-};
 
 export default class GoogleVideosEngine {
   isClientExposed = false;
   name = "Google Videos";
   safeSearch = "off";
   resultsFormat = "lite";
-  settingsSchema = [
-    {
-      key: "outgoingTransport",
-      label: "Outgoing HTTP client transport",
-      type: "select",
-      options: ["fetch", "curl", "curl-fallback"],
-      default: "curl",
-      advanced: true,
-    },
-    {
-      key: "resultsFormat",
-      label: "Results format",
-      type: "select",
-      options: ["lite", "html"],
-      optionLabels: ["Lite results", "HTML results"],
-      default: "lite",
-      description:
-        "Lite results use a lightweight mobile page that works over any transport. HTML results fetch the full desktop results page for higher-quality results with proper titles, snippets and thumbnails, but require a real browser session; install [4play (lolcat)](https://github.com/degoog-org/official-extensions/tree/main/transports/lolcat-4play) from the Store tab and select it as this engine's transport.",
-    },
-    {
-      key: "safeSearch",
-      label: "Safe Search",
-      type: "select",
-      options: ["off", "on"],
-      description: "Filter explicit content from video results.",
-    },
-  ];
+  settingsSchema = SETTINGS_SCHEMA;
 
   configure(settings) {
     if (typeof settings.safeSearch === "string") this.safeSearch = settings.safeSearch;
     if (settings.resultsFormat === "lite" || settings.resultsFormat === "html")
       this.resultsFormat = settings.resultsFormat;
-  }
-
-  _buildParams(query, page, timeFilter, context) {
-    const start = (page - 1) * 10;
-    const lang = context?.lang || "en";
-    const params = new URLSearchParams({
-      q: query,
-      tbm: "vid",
-      hl: lang,
-      lr: `lang_${lang}`,
-      ie: "utf8",
-      oe: "utf8",
-      start: String(start),
-      filter: "0",
-    });
-
-    const tbs = timeFilter === "custom"
-      ? _resolveCustomTbs(context?.dateFrom, context?.dateTo)
-      : _resolveTbs(timeFilter);
-    if (tbs) params.set("tbs", tbs);
-    if (this.safeSearch === "on") params.set("safe", "active");
-    return params;
   }
 
   async executeSearch(query, page = 1, timeFilter, context) {
@@ -216,24 +29,37 @@ export default class GoogleVideosEngine {
     return this._searchLite(query, page, timeFilter, context);
   }
 
+  _sorryError(context) {
+    const message = `${this.name} served its reCAPTCHA page, so it has flagged this IP`;
+    if (context?.engineError) return context.engineError("captcha", message, { engine: this.name });
+    return new Error(message);
+  }
+
+  _softCaptchaError(context) {
+    const message = `${this.name} kept returning its soft CAPTCHA page`;
+    if (context?.engineError) return context.engineError("captcha", message, { engine: this.name });
+    return new Error(message);
+  }
+
+  async _fetchChecked(url, userAgent, context) {
+    let html = await this._fetchHtml(url, userAgent, context);
+    const eid = sniffEid(html);
+    if (eid) {
+      console.warn("[google-videos] soft captcha hit, retrying with sei");
+      await napTime();
+      html = await this._fetchHtml(withSei(url, eid), userAgent, context);
+      if (sniffEid(html)) throw this._softCaptchaError(context);
+    }
+    if (isSorryPage(html)) throw this._sorryError(context);
+    return html;
+  }
+
   async _searchHtml(query, page, timeFilter, context) {
-    const params = this._buildParams(query, page, timeFilter, context);
-    const userAgent = context?.userAgent?.() || _gsaAgent();
-    const doFetch = context?.fetch ?? fetch;
-    const response = await doFetch(`https://www.google.com/search?${params.toString()}`, {
-      headers: {
-        "User-Agent": userAgent,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": context?.buildAcceptLanguage?.() || "en-US,en;q=0.9",
-        Cookie: "CONSENT=YES+",
-      },
-      redirect: "follow",
-    });
+    const url = buildSearchUrl(query, page, timeFilter, this.safeSearch, context);
+    const userAgent = context?.userAgent?.() || gsaAgent();
+    const html = await this._fetchChecked(url, userAgent, context);
 
-    context?.sentinel?.(response, this.name);
-    const html = await response.text();
-
-    if (_isInterstitial(html)) {
+    if (isInterstitial(html)) {
       if (context?.engineError) {
         throw context.engineError(
           "interstitial",
@@ -244,84 +70,24 @@ export default class GoogleVideosEngine {
       throw new Error(`${this.name} returned a JavaScript/consent interstitial`);
     }
 
-    return _resolveGotos(_parseDesktop(cheerio.load(html), this.name), userAgent);
+    const links = parseDesktop(cheerio.load(html), this.name);
+    return resolveGotos(links, userAgent, context?.fetch ?? fetch);
   }
 
-  async _searchLite(query, page = 1, timeFilter, context) {
-    const start = (page - 1) * 10;
-    const lang = context?.lang || "en";
-    const params = new URLSearchParams({
-      q: query,
-      tbm: "vid",
-      hl: lang,
-      lr: `lang_${lang}`,
-      ie: "utf8",
-      oe: "utf8",
-      start: String(start),
-      filter: "0",
-    });
-
-    const tbs = timeFilter === "custom"
-      ? _resolveCustomTbs(context?.dateFrom, context?.dateTo)
-      : _resolveTbs(timeFilter);
-    if (tbs) params.set("tbs", tbs);
-    if (this.safeSearch === "on") params.set("safe", "active");
-
+  async _fetchHtml(url, userAgent, context) {
     const doFetch = context?.fetch ?? fetch;
-    const response = await doFetch(`https://www.google.com/search?${params.toString()}`, {
-      headers: {
-        "User-Agent": _gsaAgent(),
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": context?.buildAcceptLanguage?.() || "en-US,en;q=0.9",
-        Cookie: "CONSENT=YES+",
-      },
+    const response = await doFetch(url, {
+      headers: buildHeaders(userAgent, context),
       redirect: "follow",
     });
 
     context?.sentinel?.(response, this.name);
-    const html = await response.text();
-    const $ = cheerio.load(html);
-    const results = [];
-    const seen = new Set();
+    return response.text();
+  }
 
-    const pushVideo = (title, href, snippet, $scope) => {
-      const url = _resolveHref(href);
-      if (!title || !url || !url.startsWith("http") || url.includes("google.com/search") || seen.has(url)) return;
-      seen.add(url);
-      results.push({
-        title,
-        url,
-        snippet,
-        source: this.name,
-        thumbnail: _ytThumbnail(url),
-        duration: $scope?.length ? _durationFromScope($, $scope) : "",
-      });
-    };
-
-    $('a[href^="/url?q="]').each((_, el) => {
-      const linkEl = $(el);
-      const title =
-        linkEl.find("h3").first().text().trim() ||
-        linkEl.find("span").first().text().trim();
-      const href = linkEl.attr("href") || "";
-      const snippet = linkEl.parent().next("div").text().trim();
-      const block = linkEl.closest("[data-hveid]");
-      pushVideo(title, href, snippet, block.length ? block : linkEl.parent());
-    });
-
-    if (results.length === 0) {
-      $("[data-hveid] a[href]").each((_, el) => {
-        const linkEl = $(el);
-        const block = linkEl.closest("[data-hveid]");
-        const title =
-          linkEl.find("h3").first().text().trim() ||
-          block.find("[role='link']").first().text().trim();
-        const href = linkEl.attr("href") || "";
-        const snippet = block.find("[data-sncf]").first().text().trim();
-        pushVideo(title, href, snippet, block);
-      });
-    }
-
-    return results;
+  async _searchLite(query, page = 1, timeFilter, context) {
+    const url = buildSearchUrl(query, page, timeFilter, this.safeSearch, context);
+    const html = await this._fetchChecked(url, gsaAgent(), context);
+    return parseLite(cheerio.load(html), this.name);
   }
 }

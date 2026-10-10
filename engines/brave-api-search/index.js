@@ -1,29 +1,14 @@
-const API_URL = "https://api.search.brave.com/res/v1/web/search";
+import { SETTINGS_SCHEMA } from "./settings.js";
+import { buildHeaders, buildSearchUrl } from "./request.js";
+import { parseResults } from "./parse.js";
+
+export { regions } from "./const/regions.js";
 
 export default class BraveApiSearchEngine {
   isClientExposed = false;
   name = "Brave Search";
   bangShortcut = "brave";
-
-  settingsSchema = [
-    {
-      key: "apiKey",
-      label: "API Key",
-      type: "password",
-      secret: true,
-      required: true,
-      placeholder: "Enter your API key",
-      description: "Get an API key at brave.com/search/api",
-    },
-    {
-      key: "safeSearch",
-      label: "Safe Search",
-      type: "select",
-      options: ["off", "moderate", "strict"],
-      default: "moderate",
-      description: "Filter explicit content from results.",
-    },
-  ];
+  settingsSchema = SETTINGS_SCHEMA;
 
   apiKey = "";
   safeSearch = "moderate";
@@ -37,43 +22,12 @@ export default class BraveApiSearchEngine {
     if (!this.apiKey) return [];
 
     const doFetch = context?.fetch ?? fetch;
-    const offset = ((page || 1) - 1) * 20;
-
-    const params = new URLSearchParams({
-      q: query,
-      count: "20",
-      offset: String(offset),
-      safesearch: this.safeSearch,
-    });
-
-    if (context?.lang) params.set("search_lang", context.lang);
-
-    const timeMap = { hour: "ph", day: "pd", week: "pw", month: "pm", year: "py" };
-    if (timeFilter && timeFilter !== "any" && timeFilter !== "custom" && timeMap[timeFilter]) {
-      params.set("freshness", timeMap[timeFilter]);
-    }
+    const url = buildSearchUrl(query, page, timeFilter, this.safeSearch, context);
 
     try {
-      const response = await doFetch(`${API_URL}?${params}`, {
-        headers: {
-          Accept: "application/json",
-          "Accept-Encoding": "gzip",
-          "X-Subscription-Token": this.apiKey,
-        },
-      });
-
+      const response = await doFetch(url, { headers: buildHeaders(this.apiKey) });
       context?.sentinel?.(response, this.name);
-
-      const data = await response.json();
-      const items = data?.web?.results ?? [];
-
-      return items.map((item) => ({
-        title: item.title ?? "",
-        url: item.url ?? "",
-        snippet: item.description ?? "",
-        source: this.name,
-        thumbnail: item.thumbnail?.src ?? "",
-      }));
+      return parseResults(await response.json(), this.name);
     } catch (e) {
       if (e?.name === "SentinelBreach") throw e;
       return [];

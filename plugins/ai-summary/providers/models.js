@@ -9,6 +9,7 @@ import {
   LMSTUDIO_DEFAULT_BASE,
   OPENAI_DEFAULT_BASE,
   OPENROUTER_DEFAULT_BASE,
+  PERPLEXITY_DEFAULT_BASE,
   PERPLEXITY_PRESETS,
   ProviderId,
   VLLM_DEFAULT_BASE,
@@ -105,8 +106,7 @@ const fromAnthropic = async (providerId, config) => {
 };
 
 const perplexityModels = async (config) => {
-  const endpoint = (config.baseUrl ?? "").trim().replace(/\/+$/, "");
-  if (!endpoint) return [];
+  const endpoint = resolveProviderBaseUrl(config.baseUrl ?? "", PERPLEXITY_DEFAULT_BASE);
   const data = await askJson(new URL("models", endpoint).href, bearer(config.apiKey), config);
   return (data?.data ?? [])
     .filter((entry) => typeof entry?.id === "string")

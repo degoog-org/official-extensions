@@ -1,0 +1,25 @@
+{
+  "yandex-visual-engine": {
+    "name": "Yandex Visual Search",
+    "settings": {
+      "privacy": {
+        "label": "Dove va l'immagine",
+        "description": "Questo motore carica su Yandex, un servizio esterno, ogni immagine cercata con lui, insieme alle parole scritte accanto. Yandex vede l'indirizzo IP di questo server, non quello del visitatore, e conserva l'immagine secondo le sue condizioni. Lascia il motore spento se i visitatori non devono mandare le loro foto a Yandex."
+      },
+      "domain": {
+        "label": "Dominio Yandex"
+      },
+      "include": {
+        "label": "Risultati",
+        "description": "Pagine che contengono l'immagine, immagini simili, o entrambe. Le pagine vengono prima."
+      }
+    },
+    "options": {
+      "include": {
+        "both": "Pagine e immagini simili",
+        "pages": "Pagine che contengono l'immagine",
+        "similar": "Immagini simili"
+      }
+    }
+  }
+}

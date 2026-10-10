@@ -1,5 +1,5 @@
 {
-  "plugin-meilisearch": {
+  "meilisearch-command": {
     "name": "Meilisearch",
     "description": "Search across your Meilisearch indexes",
     "settings": {

@@ -1,4 +1,17 @@
 import * as cheerio from "cheerio";
+import { MUTANT_SIGNATURES, SORRY_SIGNATURES } from "./const/serp.js";
+
+const HEAD_BYTES = 4000;
+
+export const isInterstitial = (html) => {
+  const head = html.slice(0, HEAD_BYTES);
+  return MUTANT_SIGNATURES.some((m) => head.includes(m));
+};
+
+export const isSorryPage = (html) => {
+  const head = html.slice(0, HEAD_BYTES);
+  return SORRY_SIGNATURES.some((m) => head.includes(m));
+};
 
 const _decodeJsUrl = (value) =>
   String(value ?? "")

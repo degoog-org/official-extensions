@@ -124,7 +124,7 @@ export default {
   isClientExposed: false,
   name: "Custom Bangs",
   description:
-    "Define your own bang shortcuts that redirect to any site, optionally injecting your query into a URL template. Type !<shortcut> terms (leading or trailing).",
+    "Make your own bang shortcuts that send you to any site, with your query dropped into a URL template if you want. Type !<shortcut> terms, with the bang at the start or the end.",
   trigger: "custom-bangs",
   aliases: ["bangs", "cb"],
 
@@ -134,7 +134,7 @@ export default {
       label: "How it works",
       type: "info",
       description:
-        "Each bang has a shortcut (e.g. gh) and a URL template. " +
+        "Each bang has a shortcut, like gh, and a URL template. " +
         PLACEHOLDER_HELP +
         " Then type `!gh degoog` or `degoog !gh` in the search bar.",
     },
@@ -144,7 +144,7 @@ export default {
       type: "list",
       addLabel: "+ Add bang",
       description:
-        "Snap domain, regex and the toggles are optional. With no query, Open base path or Open snap domain control where a bare bang goes.",
+        "Snap domain, regex and the toggles are optional. When a bang has no query, Open base path or Open snap domain decides where it goes.",
       itemSchema: [
         { key: "name", label: "Bang name", type: "text", placeholder: "GitHub" },
         { key: "shortcut", label: "Shortcut", type: "text", placeholder: "gh" },
@@ -171,7 +171,7 @@ export default {
           label: "Natural language",
           type: "toggle",
           description:
-            "When on, the phrases below can trigger this bang without typing !.",
+            "Lets the phrases below fire this bang without typing !.",
         },
         {
           key: "naturalLanguagePhrases",
@@ -179,13 +179,14 @@ export default {
           type: "text",
           placeholder: "github, search github, find repo",
           description:
-            "Comma-separated phrases. Exact phrase or phrase plus trailing query terms will redirect through this bang.",
+            "Comma-separated. A search that is one of these phrases, alone or followed by query terms, goes through this bang.",
+          visibleWhen: { key: "naturalLanguage", equals: "true" },
         },
         { key: "openSnap", label: "Open snap domain when no query", type: "toggle" },
         { key: "openBase", label: "Open base path when no query", type: "toggle" },
         {
           key: "encodeQuery",
-          label: "URL encode query",
+          label: "URL-encode the query",
           type: "toggle",
           default: "true",
         },

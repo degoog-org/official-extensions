@@ -1,5 +1,5 @@
 {
-  "plugin-colors": {
+  "colors-command": {
     "description": "Generate a five-color palette. Space to shuffle, click to lock.",
     "title": "Colors",
     "hint": "Space to shuffle · click swatch to lock · click hex to copy"

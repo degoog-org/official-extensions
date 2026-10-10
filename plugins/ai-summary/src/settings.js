@@ -1,4 +1,13 @@
-import { PROVIDER_LABELS, PROVIDER_ORDER, ProviderId, TokenParam } from "../providers/index.js";
+import {
+  ADAPTERS,
+  EFFORT_ORDER,
+  PROVIDER_LABELS,
+  PROVIDER_ORDER,
+  ProviderId,
+  ReasoningEffort,
+  TOKEN_PARAM_ORDER,
+  TokenParam,
+} from "../providers/index.js";
 import { DEFAULT_SYSTEM_PROMPT } from "./prompt.js";
 
 export const DEFAULT_TIMEOUT_S = 180;
@@ -7,16 +16,20 @@ export const FOLLOWUP_MIN_TOKENS = 512;
 
 const asStr = (v) => (typeof v === "string" ? v : String(v ?? ""));
 const asBool = (v) => v === "true" || v === true;
+const asBoolOr = (v, fallback) =>
+  v === true || v === "true" ? true : v === false || v === "false" ? false : fallback;
 
 const normaliseProvider = (raw) => {
   const all = Object.values(ProviderId);
   return all.includes(raw) ? raw : ProviderId.OpenAICompat;
 };
 
-const TOKEN_PARAM_ORDER = [TokenParam.MaxTokens, TokenParam.MaxCompletionTokens];
-
 const normaliseTokenParam = (raw) => (
   TOKEN_PARAM_ORDER.includes(raw) ? raw : TokenParam.MaxTokens
+);
+
+const normaliseEffort = (raw) => (
+  EFFORT_ORDER.includes(raw) ? raw : ReasoningEffort.Medium
 );
 
 const normaliseCompatProvider = (raw) => {
@@ -48,49 +61,47 @@ export const parseSettings = (raw) => {
     maxTokens: Math.max(16, maxTokens),
     questionMarkOnly: asBool(raw["questionMarkOnly"]),
     enableThinking: asBool(raw["enableThinking"]),
+    reasoningEffort: normaliseEffort(asStr(raw["reasoningEffort"])),
     hideOnError: asBool(raw["hideOnError"]),
     enableInputStyling: asBool(raw["enableInputStyling"]),
+    openLinksInNewTab: asBool(raw["openLinksInNewTab"]),
+    sendBrowserLanguage: asBoolOr(raw["sendBrowserLanguage"], true),
   };
+};
+
+const PROVIDER_KEY = "provider";
+
+const asRules = (visibleWhen) => {
+  if (!visibleWhen) return [];
+  return Array.isArray(visibleWhen) ? visibleWhen : [visibleWhen];
+};
+
+const providerNotes = PROVIDER_ORDER.map((id) => ({
+  key: `providerNotes-${id}`,
+  label: `About ${PROVIDER_LABELS[id]}`,
+  type: "info",
+  description: ADAPTERS[id].settings.notes,
+  visibleWhen: { key: PROVIDER_KEY, equals: id },
+}));
+
+const providerFields = () => {
+  const byKey = new Map();
+  for (const id of PROVIDER_ORDER) {
+    for (const field of ADAPTERS[id].settings.fields) {
+      const entry = byKey.get(field.key) ?? { field, ids: [] };
+      entry.ids.push(id);
+      byKey.set(field.key, entry);
+    }
+  }
+  return [...byKey.values()].map(({ field, ids }) => ({
+    ...field,
+    visibleWhen: [{ key: PROVIDER_KEY, equals: ids }, ...asRules(field.visibleWhen)],
+  }));
 };
 
 export const settingsSchema = [
   {
-    key: "questionMarkOnly",
-    label: "Only trigger on questions (?)",
-    type: "toggle",
-    description: "Only show summaries when the query ends with `?`.",
-  },
-  {
-    key: "hideOnError",
-    label: "Hide summary on error or timeout",
-    type: "toggle",
-    description: "Hide the summary box instead of showing an error message when the provider fails or times out.",
-  },
-  {
-    key: "enableInputStyling",
-    label: "Enable input styling",
-    type: "toggle",
-    description: "Adds a rainbow rotating border on the follow-up input when focused. Just flexing.",
-  },
-  {
-    key: "baseUrl",
-    label: "API Base URL",
-    type: "url",
-    placeholder: "https://api.openai.com/v1",
-    description:
-      "Provider base URL. Examples: `https://api.openai.com/v1`, `https://openrouter.ai/api/v1`, `http://localhost:11434` for Ollama, `http://localhost:8080/v1` for llama.cpp, `http://localhost:8000/v1` for vLLM, `http://localhost:1234/v1` for LM Studio, or the full endpoint `https://api.perplexity.ai/v1/responses` for Perplexity. Native providers fill the standard default when blank, except Perplexity, which needs it set.",
-  },
-  {
-    key: "apiKey",
-    label: "API Key",
-    type: "password",
-    secret: true,
-    placeholder: "Leave blank for local models (Ollama)",
-    description:
-      "Get one from [OpenAI](https://platform.openai.com/api-keys), [Google AI Studio](https://aistudio.google.com/apikey), [Anthropic](https://console.anthropic.com/settings/keys), or [Perplexity](https://console.perplexity.ai). Not needed for local Ollama.",
-  },
-  {
-    key: "provider",
+    key: PROVIDER_KEY,
     label: "Provider",
     type: "select",
     options: [...PROVIDER_ORDER],
@@ -99,70 +110,105 @@ export const settingsSchema = [
     optionsFrom: {
       dependsOn: ["baseUrl"],
       refreshLabel: "Detect",
-      emptyHint: "Hit Detect and degoog will ask your endpoint what it is.",
+      emptyHint: "Pick one, or fill in the base URL below and hit Detect.",
     },
     description:
-      "Which API degoog talks. **Detect** sets this for you; pick one by hand if it cannot tell. **OpenAI compatible** sends no thinking flags, so your server decides whether the model reasons.",
+      "Which API degoog talks. The fields below change to match it. **Detect** asks the base URL what it is and picks for you.",
+  },
+  ...providerNotes,
+  {
+    key: "baseUrl",
+    label: "API base URL",
+    type: "url",
+    placeholder: "Blank uses the provider default",
+    description:
+      "Blank uses the default for the provider above. A bare origin gets the standard path added.",
+  },
+  {
+    key: "apiKey",
+    label: "API key",
+    type: "password",
+    secret: true,
+    placeholder: "Leave blank for local servers",
+    description: "Sent only from this server, never to the browser.",
   },
   {
     key: "model",
     label: "Model",
     type: "text",
     required: true,
-    placeholder: "gpt-4o-mini / gemini-2.5-flash / claude-haiku-4-5",
+    placeholder: "gpt-4o-mini / gemini-flash-latest / claude-haiku-4-5",
     optionsFrom: {
       dependsOn: ["provider"],
       refreshLabel: "Fetch models",
       emptyHint: "Fetch models to list what this endpoint serves, or type any model id.",
     },
     description:
-      "Model id. Lists: [OpenAI](https://platform.openai.com/docs/models), [Gemini](https://ai.google.dev/gemini-api/docs/models), [Anthropic](https://docs.anthropic.com/en/docs/about-claude/models). Perplexity takes `provider/model` ids like `openai/gpt-5.6-sol`, or a preset: `fast`, `low`, `medium`, `high`, `xhigh`. For Ollama/vLLM use whatever you have served. Reasoning models work; their thoughts stream live and clear when the answer starts.",
-  },
-  {
-    key: "tokenLimitParam",
-    label: "Token limit parameter",
-    type: "select",
-    options: [...TOKEN_PARAM_ORDER],
-    optionLabels: ["max_tokens (default)", "max_completion_tokens (newer OpenAI models)"],
-    default: TokenParam.MaxTokens,
-    description:
-      "Which field carries the token cap on OpenAI-style APIs. Newer OpenAI reasoning models reject `max_tokens` and answer with *Unsupported parameter*; switch to `max_completion_tokens` for those. Ignored by Gemini, Anthropic, Perplexity and Ollama, which have their own field.",
-  },
-  {
-    key: "extraHeaders",
-    label: "Extra request headers",
-    type: "textarea",
-    placeholder: "x-opencode-session: {{session}}",
-    description:
-      "One `Name: value` per line, sent with every request to your provider. `{{session}}` becomes a stable id for the conversation, which is what OpenCode Go wants in `x-opencode-session`. Lines starting with `#` are ignored, and `Content-Type` and `Accept` cannot be overridden.",
+      "Model id. Reasoning models work; their thoughts stream live and clear when the answer starts.",
   },
   {
     key: "enableThinking",
     label: "Let reasoning models think",
     type: "toggle",
     description:
-      "Off by default. Native provider adapters translate this to their own supported thinking controls; generic OpenAI-compatible sends no provider-specific thinking flags.",
+      "Off by default. Native providers map this to their own thinking controls. OpenAI compatible sends no thinking flags.",
+  },
+  ...providerFields(),
+  {
+    key: "maxTokens",
+    label: "Max tokens",
+    type: "text",
+    placeholder: "2048",
+    description:
+      "Cap on the response length. Default `2048`. Reasoning models spend tokens on thinking too, so give them `4096` or more.",
+  },
+  {
+    key: "questionMarkOnly",
+    label: "Only trigger on questions (?)",
+    type: "toggle",
+    description: "Only summarize when the query ends with `?`.",
+  },
+  {
+    key: "hideOnError",
+    label: "Hide summary on error or timeout",
+    type: "toggle",
+    description: "Removes the summary box instead of showing an error when the provider fails or times out.",
+  },
+  {
+    key: "openLinksInNewTab",
+    label: "Open links in a new tab",
+    type: "toggle",
+    description: "Opens citations, sources and links in the answer in a new tab.",
+  },
+  {
+    key: "enableInputStyling",
+    label: "Enable input styling",
+    type: "toggle",
+    description: "Adds a rotating rainbow border to the follow-up input while it has focus. Purely for show.",
+  },
+  {
+    key: "extraHeaders",
+    label: "Extra request headers",
+    type: "textarea",
+    advanced: true,
+    placeholder: "x-opencode-session: {{session}}",
+    description:
+      "One `Name: value` per line, sent with every request to your provider. `{{session}}` becomes a stable id for the conversation, which is what OpenCode Go wants in `x-opencode-session`. Lines starting with `#` are ignored, and `Content-Type` and `Accept` cannot be overridden.",
   },
   {
     key: "timeoutSeconds",
     label: "Timeout (seconds)",
     type: "text",
+    advanced: true,
     placeholder: "180",
-    description: "Max seconds before giving up. Default `180`.",
-  },
-  {
-    key: "maxTokens",
-    label: "Max Tokens",
-    type: "text",
-    placeholder: "2048",
-    description:
-      "Max tokens for the response. Default `2048`. Reasoning models need budget for thinking *and* answer; bump to `4096`+ for deep models.",
+    description: "Seconds to wait before giving up. Default `180`.",
   },
   {
     key: "systemPrompt",
-    label: "Custom System Prompt",
+    label: "Custom system prompt",
     type: "textarea",
+    advanced: true,
     placeholder: DEFAULT_SYSTEM_PROMPT,
-    description: "Override the default system prompt. Blank uses the default.",
+    description: "Replaces the built-in system prompt. Leave blank to keep it.",
   },
 ];

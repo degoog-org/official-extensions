@@ -69,4 +69,11 @@ export const streamOllama = async function* (config, messages, opts) {
 export const ollamaAdapter = {
   id: ProviderId.Ollama,
   stream: streamOllama,
+  settings: {
+    label: "Ollama",
+    requires: { baseUrl: false, apiKey: false },
+    notes:
+      "A blank base URL uses `http://localhost:11434`. Only set a key if a proxy in front of Ollama asks for one.",
+    fields: [],
+  },
 };

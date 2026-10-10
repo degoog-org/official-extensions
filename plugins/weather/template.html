@@ -4,7 +4,7 @@
     <span class="weather-hero-icon"><i class="ti fa-solid {{mainIcon}}"></i></span>
     <div class="weather-hero-text">
       <p class="weather-temp">{{temp}} <span class="weather-desc">{{desc}}</span></p>
-      <p class="weather-feels">{{ t:plugin-weather.template.feelsPrefix }} {{feels}} &middot; {{ t:plugin-weather.template.highLabel }} {{high}} / {{ t:plugin-weather.template.lowLabel }} {{low}}</p>
+      <p class="weather-feels">{{ t:weather-command.template.feelsPrefix }} {{feels}} &middot; {{ t:weather-command.template.highLabel }} {{high}} / {{ t:weather-command.template.lowLabel }} {{low}}</p>
     </div>
   </div>
   <div class="weather-now-grid">
@@ -13,19 +13,19 @@
     <div class="weather-now-item"><i class="ti fa-solid fa-gauge weather-now-icon"></i><span class="weather-value">{{pressure}}</span></div>
     <div class="weather-now-item"><i class="ti fa-solid fa-cloud weather-now-icon"></i><span class="weather-value">{{cloudCover}}</span></div>
     <div class="weather-now-item"><i class="ti fa-solid fa-eye weather-now-icon"></i><span class="weather-value">{{visibility}}</span></div>
-    <div class="weather-now-item"><i class="ti fa-solid fa-sun weather-now-icon"></i><span class="weather-value">{{uv}} {{ t:plugin-weather.template.uvSuffix }}</span></div>
+    <div class="weather-now-item"><i class="ti fa-solid fa-sun weather-now-icon"></i><span class="weather-value">{{uv}} {{ t:weather-command.template.uvSuffix }}</span></div>
     <div class="weather-now-item"><i class="ti fa-solid fa-cloud-sun weather-now-icon"></i><span class="weather-value">{{todaySunrise}}</span></div>
     <div class="weather-now-item"><i class="ti fa-solid fa-moon weather-now-icon"></i><span class="weather-value">{{todaySunset}}</span></div>
   </div>
-  <h4 class="weather-week-heading">{{ t:plugin-weather.template.weekTitle }} <span class="weather-week-hint">{{ t:plugin-weather.template.weekHint }}</span></h4>
+  <h4 class="weather-week-heading">{{ t:weather-command.template.weekTitle }} <span class="weather-week-hint">{{ t:weather-command.template.weekHint }}</span></h4>
   <div class="weather-week-wrap">
     <table class="weather-week">
       <thead>
         <tr>
-          <th>{{ t:plugin-weather.template.colDay }}</th>
+          <th>{{ t:weather-command.template.colDay }}</th>
           <th></th>
-          <th>{{ t:plugin-weather.template.colHighLow }}</th>
-          <th>{{ t:plugin-weather.template.colPrecip }}</th>
+          <th>{{ t:weather-command.template.colHighLow }}</th>
+          <th>{{ t:weather-command.template.colPrecip }}</th>
         </tr>
       </thead>
       <tbody>{{weekRows}}</tbody>

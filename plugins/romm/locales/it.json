@@ -1,5 +1,5 @@
 {
-  "plugin-romm": {
+  "romm-command": {
     "name": "RomM",
     "description": "Cerca nella tua libreria giochi RomM",
     "settings": {

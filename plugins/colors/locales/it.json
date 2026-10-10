@@ -1,5 +1,5 @@
 {
-  "plugin-colors": {
+  "colors-command": {
     "description": "Genera una palette di cinque colori. Spazio per mescolare, clic per bloccare.",
     "title": "Colori",
     "hint": "Spazio per mescolare · clic per bloccare · clic hex per copiare"

@@ -1,5 +1,5 @@
 {
-  "freshrss": {
+  "freshrss-slot": {
     "name": "FreshRSS",
     "description": "FreshRSS integration — aggregated news feed via the Google Reader API",
     "settings": {

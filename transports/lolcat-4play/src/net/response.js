@@ -1,3 +1,8 @@
+const MANUAL_REDIRECT = "manual";
+
+export const wantsLocation = (options = {}) =>
+  options.redirect === MANUAL_REDIRECT && !options.allowlistHop;
+
 export const wrapResponse = (text) => {
   const trimmed = String(text ?? "").trimStart();
   const isJson =

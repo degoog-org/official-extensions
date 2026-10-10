@@ -113,7 +113,7 @@ export default {
       required: true,
       placeholder: "http://dynacat:8080",
       description:
-        "Base URL of your Dynacat instance. The API must be enabled in its config with `api.enabled: true`.",
+        "Base URL of your Dynacat instance. Its config needs `api.enabled: true`.",
     },
     {
       key: "apiToken",
@@ -147,6 +147,7 @@ export default {
       label: "Show on mobile",
       type: "toggle",
       default: "true",
+      visibleWhen: { key: "showOnHome", equals: "true" },
     },
     {
       key: "refreshSeconds",
@@ -154,7 +155,7 @@ export default {
       type: "number",
       default: "60",
       advanced: true,
-      description: "How long widget data is cached before Dynacat is asked again.",
+      description: "How long degoog caches widget data before asking Dynacat again.",
     },
     {
       key: "username",

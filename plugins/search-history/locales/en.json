@@ -1,5 +1,5 @@
 {
-  "plugin-search-history": {
+  "search-history-command": {
     "name": "Search history",
     "description": "Stores search history in data/history.json with timestamps; !history shows a paginated, deletable list.",
     "settings": {

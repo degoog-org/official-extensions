@@ -1,10 +1,14 @@
+import { resolveProviderBaseUrl } from "./base-url.js";
+import { reasoningEffortField } from "./fields.js";
 import { withExtras } from "./headers.js";
 import { readSse } from "./sse.js";
 import {
   ChatRole,
   ChunkKind,
+  PERPLEXITY_DEFAULT_BASE,
   PERPLEXITY_PRESETS,
   ProviderId,
+  ReasoningEffort,
 } from "./types.js";
 
 const LOG_NS = "ai-summary:perplexity";
@@ -18,6 +22,14 @@ const COMPLETED = "response.completed";
 const INCOMPLETE = "response.incomplete";
 const FAILED = "response.failed";
 const ERROR = "error";
+
+const sendBrowserLanguageField = Object.freeze({
+  key: "sendBrowserLanguage",
+  label: "Answer in the visitor's language",
+  type: "toggle",
+  default: "true",
+  description: "Sends the browser's language to Perplexity so the answer comes back in it.",
+});
 
 const toAgentInput = (messages) => {
   let instructions = "";
@@ -47,12 +59,13 @@ const buildBody = (config, messages, opts) => {
   if (PERPLEXITY_PRESETS.includes(model)) body.preset = model;
   else body.model = model;
   if (instructions) body.instructions = instructions;
-  if (opts.enableThinking) body.reasoning = { effort: "medium" };
+  if (opts.enableThinking) body.reasoning = { effort: opts.reasoningEffort ?? ReasoningEffort.Medium };
+  if (opts.sendBrowserLanguage && opts.language) body.language_preference = opts.language;
   return body;
 };
 
 const callPerplexity = (config, messages, opts) => {
-  const endpoint = (config.baseUrl ?? "").trim().replace(/\/+$/, "");
+  const endpoint = resolveProviderBaseUrl(config.baseUrl ?? "", PERPLEXITY_DEFAULT_BASE);
   const headers = {
     "Content-Type": "application/json",
     Accept: "text/event-stream",
@@ -123,4 +136,11 @@ export const streamPerplexity = async function* (config, messages, opts) {
 export const perplexityAdapter = {
   id: ProviderId.Perplexity,
   stream: streamPerplexity,
+  settings: {
+    label: "Perplexity",
+    requires: { baseUrl: false, apiKey: true },
+    notes:
+      "Needs a key from [Perplexity](https://console.perplexity.ai). A blank base URL uses `https://api.perplexity.ai/v1/agent`, and `/v1/responses` is still accepted. The model is a `provider/model` id like `openai/gpt-5.6-sol`, or a preset: `fast`, `low`, `medium`, `high`, `xhigh`. Presets add Perplexity's own web search, so their citations don't point at degoog's sources.",
+    fields: [reasoningEffortField, sendBrowserLanguageField],
+  },
 };

@@ -1,10 +1,10 @@
-# CloakBrowser — degoog setup
+# CloakBrowser setup for degoog
 
-Run a self-hosted CloakBrowser (stealth Chromium) service that degoog can route requests through.
+Run your own CloakBrowser service, a stealth build of Chromium, and route degoog requests through it.
 
 ## 1. Files
 
-Create a folder (e.g. `~/cloakbrowser`) with these four files:
+Create a folder, such as `~/cloakbrowser`, with these four files:
 
 ### `docker-compose.yml`
 
@@ -223,8 +223,6 @@ docker compose up -d --build
 
 ## 3. Configure in degoog
 
-Settings → Transports → CloakBrowser → Configure:
+Open `Settings -> Transports -> CloakBrowser -> Configure` and set **CloakBrowser URL** to `http://127.0.0.1:53322`, or wherever you exposed the service.
 
-- **CloakBrowser URL**: `http://127.0.0.1:53322` (or wherever you exposed the service)
-
-Then, in Settings → Engines → Configure → Advanced, pick `cloakbrowser` as the outgoing transport for any engine you want routed through it.
+Then open `Settings -> Engines -> Configure` and pick `cloakbrowser` as the outgoing transport for each engine that should use it.

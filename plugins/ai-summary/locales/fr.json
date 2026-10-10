@@ -1,5 +1,5 @@
 {
-    "ai-summary": {
+    "ai-summary-slot": {
         "name": "Résumé IA",
         "description": "Résumé IA en streaming avec citations inline. Compatible avec les API OpenAI (dont Ollama), Google Gemini et Anthropic Claude.",
         "badge": "Résumé IA",

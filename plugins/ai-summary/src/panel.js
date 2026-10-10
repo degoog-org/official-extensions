@@ -53,8 +53,8 @@ const stackHtml = (sources) =>
     .map((s) => iconHtml(s.favicon, "glance-ai-stack-icon", 18))
     .join("");
 
-const railCard = (s) =>
-  `<a class="glance-ai-rail-card" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">` +
+const railCard = (s, newTab) =>
+  `<a class="glance-ai-rail-card" href="${escapeHtml(s.url)}" target="_blank" rel="${newTab ? "noopener noreferrer" : "noopener"}">` +
   '<span class="glance-ai-rail-head">' +
   iconHtml(s.favicon, "glance-ai-rail-icon", 14) +
   `<span class="glance-ai-rail-host">${escapeHtml(s.host || s.url)}</span>` +
@@ -63,15 +63,15 @@ const railCard = (s) =>
   "</a>";
 
 const countLabel = (t, n) =>
-  n === 1 ? t("ai-summary.site", { n }) : t("ai-summary.sites", { n });
+  n === 1 ? t("ai-summary-slot.site", { n }) : t("ai-summary-slot.sites", { n });
 
 const titleHtml = (t) =>
   '<div class="glance-ai-title">' +
   '<i class="fa-solid fa-robot" aria-hidden="true"></i>' +
-  `<span>${escapeHtml(t("ai-summary.badge"))}</span>` +
+  `<span>${escapeHtml(t("ai-summary-slot.badge"))}</span>` +
   "</div>";
 
-export const sourcesHtml = (t, sources) => {
+export const sourcesHtml = (t, sources, newTab = false) => {
   const title = titleHtml(t);
   if (!sources.length) return `<div class="glance-ai-head">${title}</div>`;
   return (
@@ -83,12 +83,12 @@ export const sourcesHtml = (t, sources) => {
     "</button>" +
     "</div>" +
     '<div class="glance-ai-rail" hidden>' +
-    sources.map(railCard).join("") +
+    sources.map((s) => railCard(s, newTab)).join("") +
     "</div>"
   );
 };
 
-export const buildPanelHtml = (t, query, sources, hideOnError, enableInputStyling) => {
+export const buildPanelHtml = (t, query, sources, hideOnError, enableInputStyling, openLinksInNewTab) => {
   const sourcesJson = JSON.stringify(
     sources.map((s) => ({ i: s.index, u: s.url, t: s.title, h: s.host, s: s.snippet, f: s.favicon })),
   );
@@ -99,8 +99,9 @@ export const buildPanelHtml = (t, query, sources, hideOnError, enableInputStylin
     '<div class="glance-ai degoog-panel degoog-panel--slot degoog-panel--slot-body-padded degoog-vstack"' +
     ` data-stream="1" data-query="${escapeHtml(query)}"` +
     ` data-hide-on-error="${hideOnError ? "1" : "0"}"` +
+    ` data-new-tab="${openLinksInNewTab ? "1" : "0"}"` +
     ` data-sources="${escapeHtml(sourcesJson)}">` +
-    sourcesHtml(t, sources) +
+    sourcesHtml(t, sources, openLinksInNewTab) +
     '<div class="glance-ai-summary-wrap">' +
     '<div class="glance-ai-body glance-ai-body--clamped">' +
     '<div class="glance-snippet glance-ai-stream degoog-text degoog-text--md" data-state="pending">' +
@@ -111,16 +112,16 @@ export const buildPanelHtml = (t, query, sources, hideOnError, enableInputStylin
     "</div>" +
     "</div>" +
     "</div>" +
-    '<button class="glance-ai-expand" type="button">{{ t:ai-summary.read-more }}</button>' +
+    '<button class="glance-ai-expand" type="button">{{ t:ai-summary-slot.read-more }}</button>' +
     "</div>" +
     '<div class="glance-ai-chat" hidden>' +
     '<div class="glance-ai-messages"></div>' +
     `<div class="${inputWrapClass}">` +
-    '<textarea class="glance-ai-input degoog-input degoog-input--chat" placeholder="{{ t:ai-summary.follow-up-placeholder }}" rows="1"></textarea>' +
+    '<textarea class="glance-ai-input degoog-input degoog-input--chat" placeholder="{{ t:ai-summary-slot.follow-up-placeholder }}" rows="1"></textarea>' +
     "</div>" +
     "</div>" +
     "</div>" +
-    '<button class="glance-ai-collapse" type="button" hidden>{{ t:ai-summary.show-less }}</button>' +
+    '<button class="glance-ai-collapse" type="button" hidden>{{ t:ai-summary-slot.show-less }}</button>' +
     "</div>"
   );
 };

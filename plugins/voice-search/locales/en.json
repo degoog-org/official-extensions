@@ -1,0 +1,149 @@
+{
+  "voice-search-command": {
+    "name": "Voice search",
+    "description": "Search by speaking. Press the microphone, say your search and end with the trigger word. Whisper runs in the browser, so the audio stays on the device.",
+    "settings": {
+      "transparency": {
+        "label": "Where your voice goes",
+        "description": "The browser records the microphone and Whisper turns the audio into text on the visitor's device. This server never receives audio, only the finished search. It downloads the model and runtime once from the hosts below, and browsers load them from this instance."
+      },
+      "triggerWord": {
+        "label": "Trigger word",
+        "placeholder": "search",
+        "description": "Say it last to run the search, as in \"adam sandler search\". Voice search drops it from the query. It can be more than one word."
+      },
+      "language": {
+        "label": "Language",
+        "placeholder": "en",
+        "description": "Two-letter code such as en, it or de. Leave blank to use the page language. English-only models such as whisper-base.en ignore it."
+      },
+      "silenceSeconds": {
+        "label": "Seconds of silence before it stops",
+        "description": "With 0 it keeps listening until someone presses the microphone again."
+      },
+      "searchOnSilence": {
+        "label": "Search when listening stops",
+        "description": "When listening stops after silence, search what it heard, even without the trigger word."
+      },
+      "livePreview": {
+        "label": "Show words while speaking",
+        "description": "Transcribes the phrase while the visitor is still talking. Slow devices feel the extra work."
+      },
+      "previewMs": {
+        "label": "Milliseconds between live word updates"
+      },
+      "pauseMs": {
+        "label": "Milliseconds of quiet that end a phrase",
+        "description": "After this pause Whisper transcribes the phrase and voice search checks it for the trigger word."
+      },
+      "maxPhraseSeconds": {
+        "label": "Longest phrase in seconds",
+        "description": "Voice search cuts longer speech here. Whisper takes at most 30 seconds at a time."
+      },
+      "vadThreshold": {
+        "label": "Speech threshold",
+        "description": "How many times louder than the background noise counts as speech. Raise it in noisy rooms."
+      },
+      "model": {
+        "label": "Speech model",
+        "placeholder": "owner/repo",
+        "description": "A Whisper model in transformers.js ONNX format. whisper-tiny is the fastest, whisper-base is the default, whisper-small is the most accurate and the largest. Models ending in .en only understand English. Find models lists them."
+      },
+      "revision": {
+        "label": "Model revision",
+        "placeholder": "main",
+        "description": "Branch, tag or commit. The default is a pinned commit of the default model. Leave it blank or pick another model to use the latest commit on main."
+      },
+      "device": {
+        "label": "Run on"
+      },
+      "gpuEncoderDtype": {
+        "label": "WebGPU encoder precision",
+        "description": "The model needs this file, for example onnx/encoder_model.onnx for fp32. On WebGPU, Whisper's encoder loses accuracy below fp32."
+      },
+      "gpuDecoderDtype": {
+        "label": "WebGPU decoder precision",
+        "description": "For example onnx/decoder_model_merged_q4.onnx for q4."
+      },
+      "wasmEncoderDtype": {
+        "label": "WebAssembly encoder precision",
+        "description": "For example onnx/encoder_model_quantized.onnx for q8."
+      },
+      "wasmDecoderDtype": {
+        "label": "WebAssembly decoder precision",
+        "description": "For example onnx/decoder_model_merged_quantized.onnx for q8."
+      },
+      "modelHost": {
+        "label": "Model download host",
+        "description": "This server downloads the model from here once. Any host with the Hugging Face layout works, a mirror too."
+      },
+      "runtimeHost": {
+        "label": "Runtime download host",
+        "description": "An npm CDN that serves package@version/path, such as cdn.jsdelivr.net/npm or unpkg.com."
+      },
+      "transformersVersion": {
+        "label": "transformers.js version"
+      },
+      "ortVersion": {
+        "label": "onnxruntime-web version",
+        "placeholder": "Same as transformers.js",
+        "description": "Leave blank to use the version transformers.js depends on."
+      },
+      "checksums": {
+        "label": "Runtime checksums",
+        "description": "One file name and SHA-256 per line. The server refuses a download that doesn't match. The defaults match the default versions, so update or clear them when you change a version. The server doesn't check files missing from the list."
+      },
+      "waveColors": {
+        "label": "Wave colours",
+        "description": "Up to 6 CSS colours or variables, separated by commas. Leave blank to use the theme's brand colours."
+      }
+    },
+    "fieldsets": {
+      "listening": "Listening",
+      "model": "Speech model, runs in the browser",
+      "runtime": "Speech runtime",
+      "look": "Appearance"
+    },
+    "options": {
+      "device": {
+        "auto": "WebGPU if available, otherwise WebAssembly",
+        "webgpu": "WebGPU only",
+        "wasm": "WebAssembly only"
+      },
+      "dtype": {
+        "fp32": "fp32, largest and exact",
+        "fp16": "fp16, half the size",
+        "q8": "q8, a quarter of the size",
+        "int8": "int8",
+        "uint8": "uint8",
+        "q4": "q4",
+        "q4f16": "q4f16",
+        "bnb4": "bnb4"
+      },
+      "findModels": "Find models"
+    },
+    "notices": {
+      "foundModels": "Found {count} Whisper models",
+      "noModels": "No models found. Type owner/repo instead."
+    },
+    "command": {
+      "title": "Voice search",
+      "start": "Start listening",
+      "hint": "Or press the microphone in the search bar. Say your search and end with"
+    },
+    "script": {
+      "listening": "Listening…",
+      "loading": "Loading the speech model…",
+      "loadingPct": "Loading the speech model… {pct}%",
+      "hint": "End with {word} to search",
+      "stop": "Stop",
+      "insecure": "Voice search needs HTTPS and a recent browser.",
+      "unavailable": "Voice search isn't available right now.",
+      "modelFailed": "The speech model didn't load in this browser.",
+      "workerFailed": "This browser can't run the speech model.",
+      "micBlocked": "Microphone access is blocked. Allow it in the browser to search by voice.",
+      "noMic": "No microphone found.",
+      "micFailed": "Couldn't open the microphone."
+    }
+  }
+}

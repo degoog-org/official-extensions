@@ -1,8 +1,8 @@
 # 4play (lolcat)
 
-Routes selected Degoog engines through a real Firefox session using lolcat's official [4play](https://git.lolcat.ca/lolcat/4play) extension.
+Sends the Degoog engines you pick through a real Firefox session, using lolcat's official [4play](https://git.lolcat.ca/lolcat/4play) extension.
 
-Degoog speaks the 4play protocol itself. You still install the Firefox extension, but you do **not** run lolcat's sample Node `page-render.js` server for Degoog.
+Degoog speaks the 4play protocol itself. You still install the Firefox extension, but you don't run lolcat's sample Node `page-render.js` server.
 
 Full user docs: [Degoog 4play guide](https://degoog-org.github.io/docs/tips-and-tricks.html#4play)  
 Official developer notes: [4play setup](https://git.lolcat.ca/lolcat/4get/src/branch/master/docs/configure.md#4play-setup)
@@ -11,39 +11,41 @@ Official developer notes: [4play setup](https://git.lolcat.ca/lolcat/4get/src/br
 
 1. Install **4play (lolcat)** from the Degoog Store.
 2. Run Firefox ESR or current Firefox on a real desktop session.
-3. Use a real screen, powered monitor, firefox in a docker container, laptop display, or EDID adapter. Avoid headless/software-rendered Firefox (for now at least).
+3. Give it a real display: a powered monitor, a laptop screen, an EDID adapter, or Firefox in a Docker container. Headless or software-rendered Firefox doesn't work well yet.
 4. Install the [official 4play Firefox extension](https://addons.mozilla.org/en-US/firefox/addon/4play/) in a clean profile.
-5. Allow private windows and automatic updates for the extension.
+5. Allow the extension in private windows and turn on its automatic updates.
 6. In Degoog, open `Settings -> Transports -> 4play (lolcat) -> Configure`.
 7. Set a strong password and copy the WebSocket path from that panel.
-8. Put the Degoog WebSocket URL and password into the Firefox extension (the transport config page will show it to you).
-9. The dot should soon turn green.
-10. Pick **4play (lolcat)** as the outgoing HTTP client for engines that need it.
+8. Enter the Degoog WebSocket URL and password in the Firefox extension. The transport's settings page shows the URL.
+9. Wait for the dot to turn green.
+10. Pick **4play (lolcat)** as the outgoing HTTP client for the engines that need it.
 
-For the official Store install, the WebSocket path is normally:
+For the official Store install, the WebSocket path is usually:
 
 ```text
 /ws/degoog-org-official-extensions-lolcat-4play-transport
 ```
 
-Copy the path shown in your own Degoog settings. Renamed or third-party installs can differ.
+Copy the path from your own Degoog settings, since renamed or third-party installs can use a different one.
 
 ## What it does
 
-- Opens warmup tabs in Firefox for search origins.
-- Captures Firefox's real outgoing headers and cookies.
-- Reuses the primed session with curl/curl-impersonate when possible.
-- Keeps CAPTCHA/manual-attention tabs open when needed.
-- Can keep state across Degoog restarts if `DEGOOG_VALKEY_URL` is configured.
+- Opens warmup tabs in Firefox for each search origin.
+- Copies the headers and cookies Firefox really sends.
+- Replays requests with that session through curl or curl-impersonate when it can.
+- Keeps one engine search in the same container from the first request to the last, so follow-ups like Google's result link lookups carry the same cookies.
+- Leaves tabs open when a CAPTCHA needs you.
+- Keeps its state across Degoog restarts if `DEGOOG_VALKEY_URL` is set.
 
-## Useful settings
+## Settings worth knowing
 
-- **Container isolation:** keeps browser state split per origin. Usually leave this on.
-- **Max containers:** how many origins can stay ready at once.
-- **Container TTL:** how long Firefox containers live before recycling.
-- **Origin warmup query:** harmless query used before replaying the real user query.
-- **Background warmup:** re-warms origins that already used 4play. It does not warm every engine blindly.
-- **Proxy settings:** attached per Firefox container so warmup and replay use the same route.
+- **Container isolation** keeps each origin's browser state separate. Leave it on.
+- **Max containers** is how many origins can stay ready at once. With proxies set in Settings -> Server -> Proxy, every site and proxy pair gets its own container, so set it to at least your number of 4play engines times your number of proxies.
+- **Container TTL** is how long a Firefox container lives before it gets recycled.
+- **Origin warmup query** is the harmless search typed in before the real one.
+- **Background warmup** re-warms only the origins that have already used 4play, not every engine.
+- **Proxies** come from Settings -> Server -> Proxy. Each container is attached to the proxy degoog picked, and warmup, curl replays and FlareSolverr all leave through that same proxy. A CAPTCHA solved in one container belongs to that proxy's IP, so with several proxies you may solve one per proxy. If a site flags a proxy, degoog drops that container's session and cools the proxy down for that site. This only holds if each proxy keeps the same exit IP across connections, so turn on sticky sessions if your provider rotates IPs.
+- **Proxy type, host, port, username and password** here are deprecated. 4play only uses them for engines degoog sends without a proxy.
 
 ## Status plugin
 
@@ -53,11 +55,8 @@ Install **4play status** and run:
 !4play
 ```
 
-It shows Firefox connection, primed sessions, alive containers, CAPTCHA tabs, and background warmup state. It can also test the transport or clear sessions. Admin-only by default.
+It shows the Firefox connection, primed sessions, live containers, CAPTCHA tabs and background warmup. It can also test the transport or clear sessions. Only admins can use it by default.
 
 ## Privacy trade-off
 
-**4play is VERY powerful, but configuring it properly is crucial to stay private.** Firefox talks to engines during warmup, and Degoog gets the cookies and
-headers it needs to reuse that browser session. That is the trade: better scraping, more trust placed in your own setup. Keep the WebSocket private,
-set a password, and proxy it properly if Firefox is not on the same box. If privacy is the goal, put both Firefox and Degoog's outgoing requests behind
-proxies or a VPN you trust. Otherwise you are mostly making scraping work better, not making it more private.
+4play works well, but it only stays private if you set it up carefully. Firefox talks to the engines during warmup, and Degoog takes the cookies and headers it needs to reuse that session. You get better scraping in exchange for trusting your own setup more. Keep the WebSocket private, set a password, and put it behind a proper proxy if Firefox runs on another machine. If privacy is the goal, route both Firefox and Degoog's outgoing requests through proxies or a VPN you trust. Without that, 4play makes scraping work better but doesn't make it more private.

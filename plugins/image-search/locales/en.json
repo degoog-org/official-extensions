@@ -1,0 +1,197 @@
+{
+  "image-search-command": {
+    "name": "Image search",
+    "description": "Better image search. Your vision model turns the picture into a search query for your normal image engines, and the visitor's browser reorders the results by how close they look to the picture. Each part can be turned off on its own.",
+    "settings": {
+      "transparency": {
+        "label": "Where the image goes",
+        "description": "degoog sends the image from the visitor's browser to this server. With Turn images into a search query on, the server passes it straight to the vision model below and doesn't store it. Text engines only see the query the model writes. Engines that search by image get the picture itself, and each one says so in its own settings. Ranking runs in the visitor's browser. This server downloads the ranking model and runtime once from the hosts below, and browsers load them from this instance."
+      },
+      "describe": {
+        "label": "Turn images into a search query",
+        "description": "Your vision model writes a query for each image, and degoog runs it through your normal image engines next to the engines that search by image."
+      },
+      "rank": {
+        "label": "Re-rank results by how they look",
+        "description": "The visitor's browser compares every result with the image and reorders them."
+      },
+      "baseUrl": {
+        "label": "Vision model URL",
+        "placeholder": "http://localhost:11434",
+        "description": "Ollama, llama.cpp, LM Studio, vLLM or any OpenAI-compatible server."
+      },
+      "provider": {
+        "label": "Provider"
+      },
+      "model": {
+        "label": "Model",
+        "description": "It has to accept images, for example qwen3.5:4b or gemma4:e4b."
+      },
+      "apiKey": {
+        "label": "API key",
+        "placeholder": "Leave blank for local servers"
+      },
+      "prompt": {
+        "label": "Prompt",
+        "description": "The server sends this with every image. Keep the last sentence. It makes the model answer with a query field."
+      },
+      "refinePrompt": {
+        "label": "Prompt when the visitor adds words",
+        "description": "The server adds this when the visitor types words next to the image. {text} becomes those words."
+      },
+      "timeoutSeconds": {
+        "label": "Timeout in seconds"
+      },
+      "maxImageMb": {
+        "label": "Largest image accepted, in MB"
+      },
+      "maxConcurrent": {
+        "label": "Images described at once",
+        "description": "While this many are running, new image searches skip the query and say the model is busy."
+      },
+      "rankModel": {
+        "label": "Ranking model",
+        "placeholder": "owner/repo",
+        "description": "A CLIP model in transformers.js ONNX format. Bigger models are more accurate, but slower to download and run. Find models lists them."
+      },
+      "rankRevision": {
+        "label": "Ranking model revision",
+        "placeholder": "main",
+        "description": "Branch, tag or commit. The default is a pinned commit of the default model. Leave it blank or pick another model to use the latest commit on main."
+      },
+      "weakMatches": {
+        "label": "Results that don't look like the image"
+      },
+      "matchThreshold": {
+        "label": "Match threshold, in percent",
+        "description": "Results below this similarity count as not matching."
+      },
+      "sameThreshold": {
+        "label": "Same image threshold, in percent",
+        "description": "How close a result's fingerprint has to be to your image to get the Same image badge. It catches resized and recompressed copies, not crops."
+      },
+      "textWeight": {
+        "label": "Weight of typed words",
+        "description": "How much the words typed next to the image count when ordering results. 0 ignores them."
+      },
+      "device": {
+        "label": "Run on"
+      },
+      "gpuDtype": {
+        "label": "WebGPU precision",
+        "description": "The model needs this file, for example onnx/vision_model_fp16.onnx."
+      },
+      "wasmDtype": {
+        "label": "WebAssembly precision",
+        "description": "The model needs this file, for example onnx/vision_model_quantized.onnx."
+      },
+      "batchSize": {
+        "label": "Images ranked per batch"
+      },
+      "fetchConcurrency": {
+        "label": "Thumbnails fetched at once"
+      },
+      "modelHost": {
+        "label": "Ranking model download host",
+        "description": "This server downloads the ranking model from here once. Any host with the Hugging Face layout works, a mirror too."
+      },
+      "runtimeHost": {
+        "label": "Runtime download host",
+        "description": "An npm CDN that serves package@version/path, such as cdn.jsdelivr.net/npm or unpkg.com."
+      },
+      "transformersVersion": {
+        "label": "transformers.js version"
+      },
+      "ortVersion": {
+        "label": "onnxruntime-web version",
+        "placeholder": "Same as transformers.js",
+        "description": "Leave blank to use the version transformers.js depends on."
+      },
+      "checksums": {
+        "label": "Runtime checksums",
+        "description": "One file name and SHA-256 per line. The server refuses a download that doesn't match. The defaults match the default versions, so update or clear them when you change a version. The server doesn't check files missing from the list."
+      }
+    },
+    "fieldsets": {
+      "vision": "Vision model, turns the image into a query",
+      "ranking": "Ranking, runs in the visitor's browser",
+      "runtime": "Ranking runtime"
+    },
+    "options": {
+      "provider": {
+        "auto": "Detect automatically",
+        "openai-compat": "OpenAI-compatible"
+      },
+      "weakMatches": {
+        "bottom": "Move to the end",
+        "hide": "Hide",
+        "keep": "Leave in place"
+      },
+      "device": {
+        "auto": "WebGPU if available, otherwise WebAssembly",
+        "webgpu": "WebGPU only",
+        "wasm": "WebAssembly only"
+      },
+      "dtype": {
+        "fp32": "fp32, largest and exact",
+        "fp16": "fp16, half the size",
+        "q8": "q8, a quarter of the size",
+        "int8": "int8",
+        "uint8": "uint8",
+        "q4": "q4",
+        "q4f16": "q4f16",
+        "bnb4": "bnb4"
+      },
+      "detect": "Detect",
+      "fetchModels": "Fetch models",
+      "findModels": "Find models"
+    },
+    "notices": {
+      "detected": "Detected {provider}",
+      "foundModels": "Found {count} models on {provider}",
+      "noModels": "No models found",
+      "foundClip": "Found {count} CLIP models",
+      "noClip": "No models found. Type owner/repo instead."
+    },
+    "command": {
+      "title": "Image search",
+      "pick": "Choose an image",
+      "hint": "Or drop or paste an image into the search bar. Add words next to it to narrow the search."
+    },
+    "script": {
+      "searchedFor": "Searched for {query}",
+      "yourWords": "your words: \"{text}\"",
+      "stages": {
+        "runtime": "Loading the ranking runtime…",
+        "model": "Loading the ranking model…",
+        "modelPct": "Loading the ranking model from this browser… {pct}%",
+        "download": "Fetching the ranking model from this instance…",
+        "downloadPct": "Downloading the ranking model… {loaded} of {total} MB",
+        "device": "Starting {device}…",
+        "source": "Reading your image with {device}…",
+        "ready": "Ranking model ready, waiting for the results…",
+        "readyResults": "Ranking model ready, comparing {count} results…"
+      },
+      "ranked": "Ranked {done} of {total} on this device with {device}",
+      "rankedSoFar": "Ranked {done} so far with {device}, more results are on the way…",
+      "copies": "{count} copies of this image",
+      "hidden": "{count} hidden",
+      "shown": "{count} weak matches shown",
+      "moved": "{count} weak matches moved to the end",
+      "weak": "{count} weak matches",
+      "hideWeak": "Hide weak matches",
+      "showHidden": "Show {count} hidden",
+      "ranking": "Ranking on this device with {device}… {done}/{total}",
+      "rankFailed": "Couldn't load the ranking model. Results stay in degoog's normal order.",
+      "same": "Same image",
+      "errors": {
+        "busy": "The vision model is busy. Try again in a moment.",
+        "tooLarge": "That image is too large.",
+        "invalid": "The image didn't arrive. Try again.",
+        "noQuery": "The vision model didn't return a query.",
+        "describeFailed": "The vision model couldn't describe this image."
+      },
+      "searchedWithImage": "Searched with your image"
+    }
+  }
+}

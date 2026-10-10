@@ -30,7 +30,7 @@ export default {
     if (!word) {
       return {
         title: "Define",
-        html: `<div class="command-result"><p>{{ t:plugin-define.usage }}</p></div>`,
+        html: `<div class="command-result"><p>{{ t:define-command.usage }}</p></div>`,
       };
     }
     try {
@@ -39,7 +39,7 @@ export default {
         if (res.status === 404) {
           return {
             title: "Define",
-            html: `<div class="command-result"><p>{{ t:plugin-define.notFoundBefore }} <strong>${_esc(word)}</strong>.</p></div>`,
+            html: `<div class="command-result"><p>{{ t:define-command.notFoundBefore }} <strong>${_esc(word)}</strong>.</p></div>`,
           };
         }
         throw new Error(res.statusText);
@@ -49,7 +49,7 @@ export default {
       if (!entry) {
         return {
           title: "Define",
-          html: `<div class="command-result"><p>{{ t:plugin-define.notFoundBefore }} <strong>${_esc(word)}</strong>.</p></div>`,
+          html: `<div class="command-result"><p>{{ t:define-command.notFoundBefore }} <strong>${_esc(word)}</strong>.</p></div>`,
         };
       }
       const wordTitle = _esc(entry.word || word);
@@ -73,7 +73,7 @@ export default {
     } catch (err) {
       return {
         title: "Define",
-        html: `<div class="command-result"><p>{{ t:plugin-define.fetchError }} ${_esc(String(err.message))}</p></div>`,
+        html: `<div class="command-result"><p>{{ t:define-command.fetchError }} ${_esc(String(err.message))}</p></div>`,
       };
     }
   },

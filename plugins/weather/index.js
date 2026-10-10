@@ -94,19 +94,19 @@ export default {
     const t = this.t;
     const trCode = (code) => {
       if (code == null || code === "") return "—";
-      const k = `plugin-weather.codes.${code}`;
+      const k = `weather-command.codes.${code}`;
       if (!t) return WEATHER_CODES[code] || "—";
       const v = t(k);
       if (v !== k) return v;
-      return WEATHER_CODES[code] || t("plugin-weather.codes.unknown") || "—";
+      return WEATHER_CODES[code] || t("weather-command.codes.unknown") || "—";
     };
 
     if (!query) {
       return {
         title: "Weather",
         html: `<div class="command-result">
-          <p>{{ t:plugin-weather.usage.needCityLine1 }}</p>
-          <p>{{ t:plugin-weather.usage.needCityLine2 }}</p>
+          <p>{{ t:weather-command.usage.needCityLine1 }}</p>
+          <p>{{ t:weather-command.usage.needCityLine2 }}</p>
         </div>`,
       };
     }
@@ -120,7 +120,7 @@ export default {
         const q = String(query).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         return {
           title: "Weather Error",
-          html: `<div class="command-result"><p>{{ t:plugin-weather.usage.notFoundBefore }} <strong>${q}</strong></p></div>`,
+          html: `<div class="command-result"><p>{{ t:weather-command.usage.notFoundBefore }} <strong>${q}</strong></p></div>`,
         };
       }
 
@@ -215,8 +215,8 @@ export default {
       return {
         title: "Weather Error",
         html: `<div class="command-result">
-          <p>{{ t:plugin-weather.usage.fetchErrorBefore }} <strong>${q}</strong>.</p>
-          <p>{{ t:plugin-weather.usage.errorDetails }} <code>${em}</code></p>
+          <p>{{ t:weather-command.usage.fetchErrorBefore }} <strong>${q}</strong>.</p>
+          <p>{{ t:weather-command.usage.errorDetails }} <code>${em}</code></p>
         </div>`,
       };
     }

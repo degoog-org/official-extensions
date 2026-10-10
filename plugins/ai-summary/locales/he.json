@@ -1,5 +1,5 @@
 {
-  "ai-summary": {
+  "ai-summary-slot": {
     "name": "סיכום AI",
     "description": "סיכום AI בזרימה עם ציטוטים מקוריים. פועל עם ממשקי API תואמי OpenAI (כולל Ollama), Google Gemini ו-Anthropic Claude.",
     "badge": "סיכום AI",

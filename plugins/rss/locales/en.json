@@ -1,5 +1,5 @@
 {
-  "rss": {
+  "rss-slot": {
     "name": "Home RSS Feeds",
     "description": "RSS/Atom news feed reader with home page integration",
     "settings": {

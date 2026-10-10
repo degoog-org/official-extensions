@@ -57,6 +57,21 @@ const _originOf = (url) => {
   }
 };
 
+const LOG_TAG = "[cloakbrowser]";
+const MANUAL_REDIRECT = "manual";
+
+const _wantsLocation = (options) =>
+  options?.redirect === MANUAL_REDIRECT && !options?.allowlistHop;
+
+const _direct = (url, options, context) =>
+  context.fetch(url, {
+    method: options?.method ?? "GET",
+    redirect: options?.redirect ?? "follow",
+    signal: options?.signal,
+    headers: options?.headers,
+    body: options?.body,
+  });
+
 export default class CloakBrowserTransport {
   isClientExposed = false;
   name = "cloakbrowser";
@@ -79,21 +94,22 @@ export default class CloakBrowserTransport {
       type: "toggle",
       default: "false",
       description:
-        "Visit the target origin first (with cookies/dwell carried into the real request) before scraping. Helps with sites that flag cold sessions.",
+        "Visits the target origin before scraping and carries its cookies into the real request. Helps on sites that flag cold sessions.",
     },
     {
       key: "warmupDwellMs",
       label: "Warmup dwell (ms)",
       type: "number",
       placeholder: "1500",
-      description: "How long to dwell on the warmup page before continuing.",
+      description: "How long to stay on the warmup page before moving on.",
+      visibleWhen: { key: "warmupEnabled", equals: "true" },
     },
     {
       key: "timeout",
       label: "Timeout (ms)",
       type: "number",
       placeholder: "15000",
-      description: "Maximum time to wait for the page to load (3000–60000 ms).",
+      description: "How long to wait for the page to load, 3000 to 60000 ms.",
     },
     {
       key: "waitUntil",
@@ -101,7 +117,7 @@ export default class CloakBrowserTransport {
       type: "select",
       options: ["load", "domcontentloaded", "networkidle"],
       default: "networkidle",
-      description: "When to consider the page fully loaded.",
+      description: "Which page event counts as loaded.",
     },
     {
       key: "bypassProxy",
@@ -109,7 +125,7 @@ export default class CloakBrowserTransport {
       type: "toggle",
       default: "true",
       description:
-        "Connect directly to the CloakBrowser service instead of routing through the degoog proxy.",
+        "Connects straight to the CloakBrowser service instead of going through the degoog proxy.",
     },
   ];
 
@@ -141,12 +157,16 @@ export default class CloakBrowserTransport {
     return this._url.length > 0;
   }
 
+  _shouldWarm(origin, url) {
+    return this._warmupEnabled && Boolean(origin) && origin !== url;
+  }
+
   async fetch(url, options, context) {
+    if (_wantsLocation(options)) return _direct(url, options, context);
     const doFetch = this._bypassProxy ? fetch : context.fetch;
     const headers = options?.headers ?? {};
     const cookieHeader = _pickHeader(headers, "Cookie");
     const cookies = _parseCookies(cookieHeader, url);
-    const userAgent = _pickHeader(headers, "User-Agent");
     const acceptLanguage = _pickHeader(headers, "Accept-Language");
     const referer = _pickHeader(headers, "Referer");
 
@@ -158,7 +178,6 @@ export default class CloakBrowserTransport {
       },
     };
 
-    if (userAgent) payload.userAgent = userAgent;
     const extraHeaders = {};
     if (acceptLanguage) extraHeaders["Accept-Language"] = acceptLanguage;
     if (referer) {
@@ -169,15 +188,13 @@ export default class CloakBrowserTransport {
       payload.setExtraHTTPHeaders = extraHeaders;
     if (cookies.length > 0) payload.cookies = cookies;
 
-    if (this._warmupEnabled) {
-      const origin = _originOf(url);
-      if (origin && origin !== url) {
-        payload.warmup = {
-          url: origin,
-          waitUntil: "domcontentloaded",
-          dwellMs: this._warmupDwellMs,
-        };
-      }
+    const origin = _originOf(url);
+    if (this._shouldWarm(origin, url)) {
+      payload.warmup = {
+        url: origin,
+        waitUntil: "domcontentloaded",
+        dwellMs: this._warmupDwellMs,
+      };
     }
 
     let res;
@@ -188,7 +205,9 @@ export default class CloakBrowserTransport {
         body: JSON.stringify(payload),
         signal: options?.signal,
       });
-    } catch {
+    } catch (err) {
+      if (options?.signal?.aborted) throw err;
+      console.warn(`${LOG_TAG} request to ${this._url} failed: ${err?.message || err}`);
       return new Response("", { status: 503 });
     }
 

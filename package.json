@@ -8,17 +8,17 @@
       "path": "plugins/4play-status",
       "name": "4play status",
       "description": "!4play shows live 4play transport status. Access can be admin-only, open, or locked.",
-      "version": "1.4.0",
+      "version": "1.6.0",
       "type": "command",
-      "minDegoogVersion": "0.23.0"
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "plugins/ai-summary",
       "name": "AI Summary",
       "description": "Summarizes search results. Works with OpenAI-compatible APIs, OpenAI, OpenRouter, Ollama, llama.cpp, vLLM, LM Studio, Gemini, Anthropic, and Perplexity.",
-      "version": "1.6.1",
+      "version": "1.8.1",
       "type": "slot",
-      "minDegoogVersion": "1.0.0",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "ai-summary-slot"
       ]
@@ -27,7 +27,7 @@
       "path": "plugins/weather",
       "name": "Weather",
       "description": "Shows weather information using Open-Meteo.",
-      "version": "1.3.3",
+      "version": "1.4.0",
       "type": "command",
       "minDegoogVersion": "1.0.0"
     },
@@ -35,42 +35,42 @@
       "path": "plugins/define",
       "name": "Define",
       "description": "Look up word definitions using the Free Dictionary API.",
-      "version": "1.1.3",
+      "version": "1.2.0",
       "type": "command"
     },
     {
       "path": "plugins/time",
       "name": "Time",
       "description": "Show current time in a timezone or city.",
-      "version": "1.1.2",
+      "version": "1.2.0",
       "type": "command"
     },
     {
       "path": "plugins/qr",
       "name": "QR Code",
       "description": "Generate a QR code for a URL.",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "type": "command"
     },
     {
       "path": "plugins/password",
       "name": "Password",
       "description": "Generate a random password.",
-      "version": "1.1.2",
+      "version": "1.2.0",
       "type": "command"
     },
     {
       "path": "plugins/search-history",
       "name": "Search history",
       "description": "Stores search history in data/history.json with timestamps; !history shows a paginated, deletable list.",
-      "version": "1.2.2",
+      "version": "1.3.0",
       "type": "command"
     },
     {
       "path": "plugins/tmdb-slot",
       "name": "TMDb",
       "description": "Shows movie/TV show details above search results.",
-      "version": "1.4.3",
+      "version": "1.5.0",
       "type": "slot",
       "minDegoogVersion": "1.0.0"
     },
@@ -84,31 +84,31 @@
     {
       "path": "plugins/jellyfin",
       "name": "Jellyfin",
-      "minDegoogVersion": "1.0.0",
+      "minDegoogVersion": "1.1.0",
       "description": "Search your Jellyfin media library.",
-      "version": "1.4.3",
+      "version": "1.6.0",
       "type": "command"
     },
     {
       "path": "plugins/romm",
       "name": "RomM",
       "description": "Search your RomM game library.",
-      "version": "1.1.1",
+      "version": "1.3.0",
       "type": "command",
-      "minDegoogVersion": "1.0.0"
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "plugins/colors",
       "name": "Colors",
       "description": "Generate a five-color palette. Space to shuffle, click to lock.",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "type": "command"
     },
     {
       "path": "plugins/meilisearch",
       "name": "Meilisearch",
       "description": "Search across your Meilisearch indexes.",
-      "version": "1.2.2",
+      "version": "1.3.0",
       "type": "command",
       "minDegoogVersion": "1.0.0"
     },
@@ -116,7 +116,7 @@
       "path": "plugins/rss",
       "name": "Home RSS Feeds",
       "description": "Shows RSS feed items above search results.",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "type": "slot",
       "minDegoogVersion": "1.0.0"
     },
@@ -140,7 +140,7 @@
       "path": "plugins/apps-pocket",
       "name": "Apps pocket",
       "description": "App grid next to the settings icon. You manage the list in plugin settings.",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "type": "command",
       "minDegoogVersion": "1.0.0"
     },
@@ -171,9 +171,9 @@
       "path": "plugins/custom-bangs",
       "name": "Custom Bangs",
       "description": "Define your own bang shortcuts that redirect to any site, optionally injecting your query into a URL template. Type !<shortcut> terms, leading or trailing.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "command",
-      "minDegoogVersion": "0.22.0"
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "plugins/highlight-terms",
@@ -186,8 +186,25 @@
       "path": "plugins/dynacat",
       "name": "Dynacat",
       "description": "Puts Dynacat widgets on the home page and behind !dynacat. The token stays on the server. A picker sets which widgets show, how wide they are, and in what order.",
-      "version": "1.0.0",
+      "version": "1.0.1",
+      "minDegoogVersion": "1.1.0",
       "type": "command"
+    },
+    {
+      "path": "plugins/image-search",
+      "name": "Image search",
+      "description": "Better image search. Your own vision model, such as Ollama or llama.cpp, turns the picture into a query for your normal image engines, and the browser reorders the results by how close they look to the picture. Each part can be turned off on its own.",
+      "version": "2.0.1",
+      "type": "command",
+      "minDegoogVersion": "1.1.0"
+    },
+    {
+      "path": "plugins/voice-search",
+      "name": "Voice search",
+      "description": "Search by speaking. Say your search and end with a trigger word. Whisper runs in the visitor's browser, so the audio never leaves their device.",
+      "version": "1.1.0",
+      "type": "command",
+      "minDegoogVersion": "1.1.0"
     }
   ],
   "themes": [
@@ -227,41 +244,43 @@
       "path": "transports/flaresolverr",
       "name": "FlareSolverr",
       "description": "Sends requests through FlareSolverr to get past Cloudflare. Engines pick it as their outgoing transport once it is set up.",
-      "version": "1.1.1"
+      "version": "1.2.0"
     },
     {
       "path": "transports/browserless",
       "name": "Browserless",
       "description": "Fetches pages through Browserless or any headless browser that accepts POST /content. It runs JavaScript and returns HTML, which is what you want for engines like Google Images that ignore a normal HTTP request. Works with browserless/chromium and CloakBrowser wrappers.",
-      "version": "1.1.2"
+      "version": "1.2.0"
     },
     {
       "path": "transports/cloakbrowser",
       "name": "CloakBrowser",
       "description": "Fetches pages through CloakBrowser, a stealth Chromium that patches navigator.webdriver, canvas, and CDP leaks in C++. Gets past Google and Cloudflare. Docker setup lives in homelab/cloakbrowser.",
-      "version": "1.0.1"
+      "version": "1.1.0",
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "transports/camoufox",
       "name": "Camoufox",
       "description": "Fetches pages through Camoufox, a stealth Firefox that patches bot-detection signals in C++. Gets past Google and Cloudflare. Docker setup lives at Korosys/camoufox-degoog.",
-      "version": "1.0.2"
+      "version": "1.1.0",
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "transports/lolcat-4play",
       "name": "4play (lolcat)",
-      "minDegoogVersion": "0.23.0",
+      "minDegoogVersion": "1.1.0",
       "description": "Fetches pages with a real Firefox session through the official lolcat 4play browser extension.",
-      "version": "1.8.3"
+      "version": "1.10.0"
     }
   ],
   "engines": [
     {
       "path": "engines/google",
       "name": "Google",
-      "description": "Google web search. Lite results work over plain HTTP, but Google rate-limits them per IP. 4play is still the recommended transport, and HTML results need it.",
-      "version": "1.2.2",
-      "minDegoogVersion": "0.19.0",
+      "description": "Google web search. Only works through the 4play or FlareSolverr transport for now.",
+      "version": "1.5.0",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "google",
         "google-engine"
@@ -271,8 +290,8 @@
       "path": "engines/google-cse",
       "name": "Google CSE",
       "description": "Google Custom Search.",
-      "version": "1.0.0",
-      "minDegoogVersion": "0.23.0",
+      "version": "1.1.0",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "google-cse",
         "google-cse-engine"
@@ -282,8 +301,8 @@
       "path": "engines/google-images",
       "name": "Google Images",
       "description": "Google image search. Pick JSON or HTML in engine settings. Each mode points you at the matching transport in the Store.",
-      "version": "1.3.1",
-      "minDegoogVersion": "0.23.0",
+      "version": "1.5.0",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "google-images",
         "google-images-engine"
@@ -293,8 +312,8 @@
       "path": "engines/google-videos",
       "name": "Google Videos",
       "description": "Google video search.",
-      "version": "1.1.1",
-      "minDegoogVersion": "0.19.0",
+      "version": "1.3.1",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "google-videos",
         "google-videos-engine"
@@ -304,8 +323,8 @@
       "path": "engines/bing",
       "name": "Bing",
       "description": "Bing web search.",
-      "version": "1.0.5",
-      "minDegoogVersion": "0.19.0",
+      "version": "1.1.0",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "bing",
         "bing-engine"
@@ -315,8 +334,8 @@
       "path": "engines/bing-images",
       "name": "Bing Images",
       "description": "Bing image search.",
-      "version": "1.1.1",
-      "minDegoogVersion": "0.23.0",
+      "version": "1.2.0",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "bing-images",
         "bing-images-engine"
@@ -326,8 +345,8 @@
       "path": "engines/bing-videos",
       "name": "Bing Videos",
       "description": "Bing video search.",
-      "version": "1.0.4",
-      "minDegoogVersion": "0.19.0",
+      "version": "1.1.0",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "bing-videos",
         "bing-videos-engine"
@@ -337,8 +356,8 @@
       "path": "engines/bing-news",
       "name": "Bing News",
       "description": "Bing news search.",
-      "version": "1.0.2",
-      "minDegoogVersion": "0.19.0",
+      "version": "1.1.0",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "bing-news",
         "bing-news-engine"
@@ -347,9 +366,9 @@
     {
       "path": "engines/brave",
       "name": "Brave Search",
-      "description": "Brave web search by scraping HTML. For API access use Brave API Search.",
-      "version": "1.0.0",
-      "minDegoogVersion": "0.19.0",
+      "description": "Brave web search by scraping HTML. For API access use Brave API Search. We found curl-impersonate works best with Brave, so it's now the default transport. If you're still on curl or fetch, switch to curl-impersonate in advanced options.",
+      "version": "1.2.0",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "brave",
         "brave-engine"
@@ -359,8 +378,8 @@
       "path": "engines/brave-news",
       "name": "Brave News",
       "description": "Brave news search.",
-      "version": "1.0.1",
-      "minDegoogVersion": "0.19.0",
+      "version": "1.1.0",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "brave-news",
         "brave-news-engine"
@@ -370,8 +389,8 @@
       "path": "engines/duckduckgo",
       "name": "DuckDuckGo",
       "description": "DuckDuckGo web search.",
-      "version": "1.1.1",
-      "minDegoogVersion": "0.19.0",
+      "version": "1.2.0",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "duckduckgo",
         "duckduckgo-engine"
@@ -381,7 +400,7 @@
       "path": "engines/wikipedia",
       "name": "Wikipedia",
       "description": "Wikipedia search through the MediaWiki API.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "wikipedia",
@@ -392,7 +411,7 @@
       "path": "engines/reddit",
       "name": "Reddit",
       "description": "Reddit post search through the public RSS feed.",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "minDegoogVersion": "0.19.0",
       "legacyIds": [
         "reddit",
@@ -403,46 +422,47 @@
       "path": "engines/ecosia",
       "name": "Ecosia",
       "description": "Ecosia web search. Cloudflare often blocks the server and you get nothing. Use another engine when that happens.",
-      "version": "1.0.8"
+      "version": "1.0.9"
     },
     {
       "path": "engines/startpage",
       "name": "Startpage",
       "description": "Startpage web search. degoog gets through Startpage's Anubis check by itself, on any transport. Turn on Anonymous View if you want result links to open through Startpage's proxy.",
-      "version": "1.3.0",
-      "minDegoogVersion": "1.0.0"
+      "version": "1.4.0",
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "engines/internet-archive",
       "name": "Internet Archive",
       "description": "File-type engine for archive.org. Books, software, whatever they have.",
-      "version": "1.0.6"
+      "version": "1.0.7"
     },
     {
       "path": "engines/lemmy",
       "name": "Lemmy World",
       "description": "Lemmy search for posts, comments, and communities.",
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "path": "engines/brave-api-search",
       "name": "Brave API Search",
       "description": "Brave web search through their API, not the HTML page.",
-      "version": "1.0.3"
+      "version": "1.1.0",
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "engines/duckduckgo-images",
       "name": "DuckDuckGo Images",
       "description": "DuckDuckGo image search. About 70 images per page.",
-      "version": "1.2.0",
-      "minDegoogVersion": "0.23.0"
+      "version": "1.3.0",
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "engines/brave-images",
       "name": "Brave Images",
       "description": "Brave image search by scraping the results page.",
-      "version": "1.0.0",
-      "minDegoogVersion": "0.23.0",
+      "version": "1.1.0",
+      "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "brave-images",
         "brave-images-engine"
@@ -452,75 +472,90 @@
       "path": "engines/openverse",
       "name": "Openverse",
       "description": "CC-licensed images from Flickr, Wikimedia, and museum collections, through the Openverse API.",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/wikimedia-commons",
       "name": "Wikimedia Commons",
       "description": "Wikimedia Commons images through the MediaWiki API.",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/nasa-images",
       "name": "NASA Images",
       "description": "NASA Image and Video Library search.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "minDegoogVersion": "0.23.0"
     },
     {
       "path": "engines/hacker-news",
       "name": "Hacker News",
       "description": "Hacker News stories through the Algolia API.",
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "path": "engines/duckduckgo-news",
       "name": "DuckDuckGo News",
       "description": "DuckDuckGo news search.",
-      "version": "1.0.5"
+      "version": "1.1.0",
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "engines/the-guardian",
       "name": "The Guardian",
       "description": "Guardian news through the Open Platform API. Needs a free key from open-platform.theguardian.com.",
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "path": "engines/duckduckgo-videos",
       "name": "DuckDuckGo Videos",
       "description": "DuckDuckGo video search using the v.js JSON endpoint.",
-      "version": "1.0.0",
-      "minDegoogVersion": "0.23.0"
+      "version": "1.1.0",
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "engines/brave-videos",
       "name": "Brave Videos",
       "description": "Brave video search by scraping the video results page.",
-      "version": "1.0.0",
-      "minDegoogVersion": "0.23.0"
+      "version": "1.1.0",
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "engines/startpage-images",
       "name": "Startpage Images",
       "description": "Startpage image search with thumbnails proxied through Startpage.",
-      "version": "1.1.0",
-      "minDegoogVersion": "1.0.0"
+      "version": "1.2.0",
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "engines/startpage-videos",
       "name": "Startpage Videos",
       "description": "Startpage video search fetched anonymously through Startpage.",
-      "version": "1.1.0",
-      "minDegoogVersion": "1.0.0"
+      "version": "1.2.0",
+      "minDegoogVersion": "1.1.0"
     },
     {
       "path": "engines/startpage-news",
       "name": "Startpage News",
       "description": "Startpage news search. Each result names its outlet.",
-      "version": "1.1.0",
-      "minDegoogVersion": "1.0.0"
+      "version": "1.2.0",
+      "minDegoogVersion": "1.1.0"
+    },
+    {
+      "path": "engines/immich",
+      "name": "Immich",
+      "description": "Search your Immich photo library with Immich's smart search, on the Images tab or with !immich. Read only. Needs an API key with asset.read and asset.view.",
+      "version": "1.0.1",
+      "minDegoogVersion": "1.1.0"
+    },
+    {
+      "path": "engines/yandex-visual",
+      "name": "Yandex Visual Search",
+      "description": "Reverse image search on Yandex. Finds pages that use the image and images that look like it. Uploads the searched image to Yandex.",
+      "version": "1.0.1",
+      "minDegoogVersion": "1.1.0"
     }
   ],
   "autocomplete": [

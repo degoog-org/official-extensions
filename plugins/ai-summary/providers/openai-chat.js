@@ -67,7 +67,13 @@ export const basicOpenAIBody = (_config, messages, opts) => ({
   ...tokenCap(opts),
 });
 
-export const createOpenAIChatAdapter = ({ id, logNs, defaultBaseUrl, buildBody = basicOpenAIBody }) => {
+export const createOpenAIChatAdapter = ({
+  id,
+  logNs,
+  defaultBaseUrl,
+  buildBody = basicOpenAIBody,
+  settings,
+}) => {
   const call = (config, messages, opts) => {
     const base = defaultBaseUrl
       ? resolveProviderBaseUrl(config.baseUrl ?? "", defaultBaseUrl)
@@ -142,5 +148,5 @@ export const createOpenAIChatAdapter = ({ id, logNs, defaultBaseUrl, buildBody =
     yield { kind: ChunkKind.Done, finishReason: stopped ? "stop" : finishReason };
   };
 
-  return { id, stream };
+  return { id, stream, settings };
 };

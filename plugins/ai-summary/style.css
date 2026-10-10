@@ -19,6 +19,8 @@
 .glance-ai-title .fa-robot {
   color: var(--text-secondary);
   font-size: 0.9rem;
+  margin-right: 0.2rem;
+  transform-origin: 50% 100%;
 }
 
 .glance-ai-sources-toggle {

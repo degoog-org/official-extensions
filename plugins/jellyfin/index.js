@@ -1,16 +1,23 @@
-import { createThumbCache } from "./thumb-cache.js";
-
-const thumb = createThumbCache();
-
 let jellyfinUrl = "";
-let _signProxyUrl = null;
 let apiKey = "";
 let headerName = "X-Emby-Token";
-let template = "";
-let resultItemTpl = "";
+let authMethod = "auto";
 
-const JELLYFIN_LOGO =
-  "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@refs/heads/main/svg/jellyfin.svg";
+const AUTH_METHODS = ["auto", "modern", "legacy"];
+const JELLYFIN_SITE = "https://jellyfin.org";
+
+const _authHeaders = () => {
+  const modern = { Authorization: `MediaBrowser Token="${apiKey}"` };
+  const legacy = { [headerName]: apiKey };
+  if (authMethod === "modern") return modern;
+  if (authMethod === "legacy") return legacy;
+  return { ...legacy, ...modern };
+};
+let searchType = "web";
+let _signFaviconUrl = null;
+let thumbHeight = 400;
+let previewHeight = 1600;
+let _searchTypes = null;
 
 function escHtml(s) {
   return String(s)
@@ -19,15 +26,6 @@ function escHtml(s) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
-
-const _renderMain = (data) =>
-  template.replace(/\{\{(\w+)\}\}/g, (_, k) => data[k] ?? "");
-
-const _thumbnailBlock = (src) => {
-  const u = escHtml(src);
-  if (!u) return "";
-  return `<div class="result-thumbnail-wrap degoog-result--thumb"><img class="result-thumbnail-img" src="${u}" alt="" loading="lazy" onerror="this.parentElement.style.display = 'none'" /></div>`;
-};
 
 function searchVariants(term) {
   const variants = [term];
@@ -83,8 +81,8 @@ function buildSnippet(item) {
     if (series) ep.push(series);
     if (sNum != null && eNum != null)
       ep.push(`S${String(sNum).padStart(2, "0")}E${String(eNum).padStart(2, "0")}`);
-    else if (eNum != null) ep.push(`Episode ${eNum}`);
-    if (ep.length) parts.push(ep.join(" — "));
+    else if (eNum != null) ep.push(_tr("messages.episode", "Episode {n}", { n: eNum }));
+    if (ep.length) parts.push(ep.join(" · "));
   } else if (type === "Season") {
     const series = item["SeriesName"] || "";
     if (series) parts.push(series);
@@ -94,67 +92,68 @@ function buildSnippet(item) {
     .trim()
     .slice(0, 280);
   if (overview) parts.push(overview);
-  return parts.join(" — ");
+  return parts.join(" · ");
 }
 
-async function _itemThumbSrc(item, fetchFn, authHeaders) {
-  const imageTags = item["ImageTags"];
-  if (!imageTags?.["Primary"] || !item["Id"]) return "";
-  return thumb.store(
-    fetchFn,
-    `${jellyfinUrl}/Items/${item["Id"]}/Images/Primary?maxHeight=120`,
-    authHeaders,
+const _height = (value, fallback) => {
+  const n = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(n) && n >= 50 && n <= 4000 ? n : fallback;
+};
+
+const _imageUrl = (item, height) => {
+  const own = item["ImageTags"]?.["Primary"];
+  const tag = own || item["SeriesPrimaryImageTag"];
+  const owner = own ? item["Id"] : item["SeriesId"];
+  if (!tag || !owner) return undefined;
+  const id = encodeURIComponent(String(owner));
+  return `${jellyfinUrl}/Items/${id}/Images/Primary?maxHeight=${height}&quality=90&tag=${encodeURIComponent(String(tag))}`;
+};
+
+const _normTitle = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+
+const _exactFirst = (items, term) => {
+  const want = _normTitle(term);
+  const exact = items.filter((item) => _normTitle(item["Name"]) === want);
+  return exact.length ? [...exact, ...items.filter((item) => !exact.includes(item))] : items;
+};
+
+const _withSeasons = async (items, fetchFn, authHeaders, itemFields) => {
+  const present = new Set(items.map((item) => String(item["Id"] || "")));
+  const seasons = await Promise.all(
+    items.map((item) =>
+      item["Type"] === "Series" && item["Id"]
+        ? fetchFn(
+            `${jellyfinUrl}/Shows/${encodeURIComponent(String(item["Id"]))}/Seasons?Fields=${itemFields}`,
+            { headers: authHeaders },
+          )
+            .then((r) => (r.ok ? r.json() : { Items: [] }))
+            .then((data) => (data.Items || []).filter((s) => s["Id"] && !present.has(String(s["Id"]))))
+            .catch(() => [])
+        : [],
+    ),
   );
-}
+  return items.flatMap((item, i) => [item, ...seasons[i]]);
+};
 
-async function _renderCards(items, startIndex, fetchFn, authHeaders) {
-  const cards = await Promise.all(
-    items.map(async (item, i) => {
-      const thumbSrc = await _itemThumbSrc(item, fetchFn, authHeaders);
-      return renderCard(item, startIndex + i, thumbSrc);
-    }),
-  );
-  return cards.join("");
-}
-
-function renderCard(item, index, thumbSrc) {
-  const type = String(item["Type"] || "");
+const _toResult = (item) => {
   const year = item["ProductionYear"] ? ` (${item["ProductionYear"]})` : "";
-
-  const matchedPeople = item["MatchedPeople"];
-  const badgeParts = [type, "Jellyfin"];
-  if (matchedPeople?.length) badgeParts.push(matchedPeople.join(", "));
-  const sources = badgeParts
-    .filter(Boolean)
-    .map(
-      (t) =>
-        `<span class="result-engine-tag degoog-badge degoog-badge--engine-tag">${escHtml(t)}</span>`,
-    )
-    .join("");
-
-  let host = "";
-  try {
-    host = new URL(jellyfinUrl).hostname;
-  } catch {
-    host = "";
-  }
-  const cite = host ? `${host} · ${type}` : jellyfinUrl;
-
-  const data = {
-    index: String(index),
-    thumbnail_block: thumbSrc ? _thumbnailBlock(thumbSrc) : "",
-    favicon_url: escHtml(_signProxyUrl ? _signProxyUrl(JELLYFIN_LOGO) : ""),
-    favicon_host: escHtml(host),
-    cite_url: escHtml(cite),
-    url: escHtml(`${jellyfinUrl}/web/index.html#!/details?id=${item["Id"]}`),
-    link_target: "_blank",
-    link_rel: "noopener noreferrer",
-    title: escHtml(String(item["Name"] || "")) + year,
-    snippet: escHtml(buildSnippet(item)),
-    sources,
+  const people = item["MatchedPeople"]?.length
+    ? _tr("messages.with", "With {people}", { people: item["MatchedPeople"].join(", ") })
+    : "";
+  const name =
+    item["Type"] === "Season" && item["SeriesName"]
+      ? `${item["SeriesName"]}: ${item["Name"] || ""}`
+      : String(item["Name"] || "");
+  return {
+    title: `${name}${year}`,
+    url: `${jellyfinUrl}/web/index.html#!/details?id=${encodeURIComponent(String(item["Id"]))}`,
+    snippet: [String(item["Type"] || ""), people, buildSnippet(item)].filter(Boolean).join(" · "),
+    source: "Jellyfin",
+    favicon: _signFaviconUrl?.(JELLYFIN_SITE) || undefined,
+    thumbnail: _imageUrl(item, thumbHeight),
+    imageUrl: _imageUrl(item, previewHeight),
   };
-  return resultItemTpl.replace(/\{\{(\w+)\}\}/g, (_, key) => data[key] ?? "");
-}
+};
 
 async function findEpisode(epQuery, authHeaders, itemFields, limit, startIndex, fetchFn = fetch) {
   const seriesVariants = searchVariants(epQuery.series);
@@ -197,54 +196,117 @@ async function findEpisode(epQuery, authHeaders, itemFields, limit, startIndex, 
   return items;
 }
 
-export default {
+const ID = "jellyfin-command";
+const AUTH_LABELS = {"auto": "Automatic, sends both", "modern": "Modern only, Authorization header", "legacy": "Legacy only, the header below"};
+
+const _tr = (key, fallback, vars = {}) => {
+  const value = jellyfin.t?.(`${ID}.${key}`, vars);
+  if (typeof value === "string" && value !== `${ID}.${key}`) return value;
+  return fallback.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+};
+
+const _schema = () => [
+  {
+    key: "url",
+    label: "Jellyfin URL",
+    type: "url",
+    required: true,
+    placeholder: "https://your-jellyfin-server.com",
+    description: "The base URL of your Jellyfin server.",
+  },
+  {
+    key: "apiKey",
+    label: "API key",
+    type: "password",
+    secret: true,
+    required: true,
+    placeholder: "Your Jellyfin API key",
+    description: "Create one in Jellyfin under Dashboard > API Keys.",
+  },
+  {
+    key: "authMethod",
+    label: "Auth method",
+    type: "select",
+    default: "auto",
+    options: AUTH_METHODS,
+    optionLabels: AUTH_METHODS.map((m) => _tr(`options.authMethod.${m}`, AUTH_LABELS[m])),
+    description:
+      "Newer Jellyfin servers only accept the Authorization header. Automatic sends both, so it works with old and new servers.",
+  },
+  {
+    key: "headerName",
+    label: "Legacy auth header",
+    type: "text",
+    default: "X-Emby-Token",
+    placeholder: "X-Emby-Token",
+    advanced: true,
+    description:
+      "The header the legacy method sends. Only change it if your server expects a different one.",
+    visibleWhen: { key: "authMethod", equals: ["auto", "legacy"] },
+  },
+  {
+    key: "thumbHeight",
+    label: "Thumbnail height in pixels",
+    type: "number",
+    min: "50",
+    max: "4000",
+    default: "400",
+    advanced: true,
+    description: "Jellyfin resizes result thumbnails to this height.",
+  },
+  {
+    key: "previewHeight",
+    label: "Preview image height in pixels",
+    type: "number",
+    min: "50",
+    max: "4000",
+    default: "1600",
+    advanced: true,
+    description: "Jellyfin resizes the image in the preview panel to this height.",
+  },
+  {
+    key: "searchType",
+    label: "Show results on",
+    type: "select",
+    default: "web",
+    options: ["web"],
+    optionsFrom: { dependsOn: [], refreshLabel: _tr("options.loadTabs", "Load tabs"), auto: true },
+    description: "The results tab !jellyfin opens on.",
+  },
+];
+
+const jellyfin = {
   isClientExposed: false,
   name: "Jellyfin",
-  description: "Search your Jellyfin media library",
+  description: "Search your Jellyfin media library.",
   trigger: "jellyfin",
   aliases: ["jf"],
-  settingsSchema: [
-    {
-      key: "url",
-      label: "Jellyfin URL",
-      type: "url",
-      required: true,
-      placeholder: "https://your-jellyfin-server.com",
-      description: "Base URL of your Jellyfin server",
-    },
-    {
-      key: "apiKey",
-      label: "API Key",
-      type: "password",
-      secret: true,
-      required: true,
-      placeholder: "Enter your Jellyfin API key",
-      description: "Found in Jellyfin Dashboard → API Keys",
-    },
-    {
-      key: "headerName",
-      label: "Auth Header",
-      type: "text",
-      default: "X-Emby-Token",
-      placeholder: "X-Emby-Token",
-      description:
-        "HTTP header for Jellyfin API requests. Change only if your server requires a different header.",
-    },
-  ],
-
-  routes: [thumb.route],
+  get settingsSchema() {
+    return _schema();
+  },
 
   async init(ctx) {
-    if (ctx.signProxyUrl) _signProxyUrl = ctx.signProxyUrl;
-    thumb.useApiBase(ctx.apiBase);
-    template = ctx.template;
-    resultItemTpl = await ctx.readFile("result.html");
+    if (typeof ctx.searchTypes === "function") _searchTypes = ctx.searchTypes;
+    if (typeof ctx.signFaviconUrl === "function") _signFaviconUrl = ctx.signFaviconUrl;
   },
 
   configure(settings) {
     jellyfinUrl = settings.url || "";
     apiKey = settings.apiKey || "";
     headerName = settings.headerName || "X-Emby-Token";
+    authMethod = AUTH_METHODS.includes(settings.authMethod) ? settings.authMethod : "auto";
+    searchType = typeof settings.searchType === "string" && settings.searchType ? settings.searchType : "web";
+    thumbHeight = _height(settings.thumbHeight, 400);
+    previewHeight = _height(settings.previewHeight, 1600);
+  },
+
+  async getFieldOptions(key) {
+    if (key !== "searchType") return { options: [] };
+    const types = _searchTypes ? await _searchTypes() : ["web"];
+    return {
+      options: types.map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) })),
+      notice: _tr("notices.tabs", "{count} tabs on this instance", { count: types.length }),
+    };
   },
 
   async isConfigured() {
@@ -252,18 +314,23 @@ export default {
   },
 
   async execute(args, context) {
+    const result = await jellyfin.run(args, context);
+    return searchType && searchType !== "web" ? { ...result, searchType } : result;
+  },
+
+  async run(args, context) {
     const fetchFn = context?.fetch || fetch;
     if (!jellyfinUrl || !apiKey) {
       return {
-        title: "Jellyfin Search",
-        html: `<div class="command-result"><p>Jellyfin is not configured. Go to <a href="/settings">Settings → Plugins</a> to set up your Jellyfin URL and API key.</p></div>`,
+        title: _tr("messages.title", "Jellyfin"),
+        html: `<div class="command-result"><p>{{ t:${ID}.messages.notConfigured }} <a href="/settings">{{ t:${ID}.messages.settingsLink }}</a>.</p></div>`,
       };
     }
 
     if (!args.trim()) {
       return {
-        title: "Jellyfin Search",
-        html: `<div class="command-result"><p>Usage: <code>!jellyfin &lt;search term&gt;</code></p></div>`,
+        title: _tr("messages.title", "Jellyfin"),
+        html: `<div class="command-result"><p>{{ t:${ID}.messages.usage }} <code>!jellyfin &lt;search term&gt;</code></p></div>`,
       };
     }
 
@@ -273,7 +340,7 @@ export default {
       const perPage = 25;
       const startIndex = (page - 1) * perPage;
 
-      const authHeaders = { [headerName]: apiKey };
+      const authHeaders = _authHeaders();
       const itemFields =
         "Overview,People,SeriesName,SeasonName,IndexNumber,ParentIndexNumber,ImageTags,ProductionYear";
       const itemTypes =
@@ -283,15 +350,13 @@ export default {
       if (epQuery) {
         const epResults = await findEpisode(epQuery, authHeaders, itemFields, perPage, startIndex, fetchFn);
         if (epResults.length > 0) {
-          const results = await _renderCards(
-            epResults,
-            startIndex,
-            fetchFn,
-            authHeaders,
-          );
           return {
-            title: `Jellyfin: ${term} — ${epResults.length} results`,
-            html: _renderMain({ content: results }),
+            title: _tr("messages.resultsTitle", "Jellyfin: {term}, {count} results", {
+              term,
+              count: epResults.length,
+            }),
+            html: "",
+            results: epResults.map(_toResult),
           };
         }
       }
@@ -393,7 +458,7 @@ export default {
             )
             .map(
               (p) =>
-                `${String(p["Name"])} (${String(p["Type"] || p["Role"] || "Cast")})`,
+                `${String(p["Name"])} (${String(p["Type"] || p["Role"] || _tr("messages.cast", "Cast"))})`,
             )
             .slice(0, 3);
           allItems.push({
@@ -406,31 +471,30 @@ export default {
 
       if (allItems.length === 0) {
         return {
-          title: "Jellyfin Search",
-          html: `<div class="command-result"><p>No results found for "${escHtml(term)}"</p></div>`,
+          title: _tr("messages.title", "Jellyfin"),
+          html: `<div class="command-result"><p>{{ t:${ID}.messages.noResults }} <strong>${escHtml(term)}</strong>.</p></div>`,
         };
       }
 
-      const results = await _renderCards(
-        allItems,
-        startIndex,
-        fetchFn,
-        authHeaders,
-      );
-
       const totalHints = totalRecordCount || allItems.length;
       const totalPages = Math.ceil(totalHints / perPage);
-      const pageInfo = totalPages > 1 ? ` — Page ${page} of ${totalPages}` : "";
+      const ordered = await _withSeasons(_exactFirst(allItems, term), fetchFn, authHeaders, itemFields);
       return {
-        title: `Jellyfin: ${term} — ${totalHints} results${pageInfo}`,
-        html: _renderMain({ content: results }),
+        title: _tr("messages.resultsTitle", "Jellyfin: {term}, {count} results", {
+          term,
+          count: totalHints,
+        }),
+        html: "",
+        results: ordered.map(_toResult),
         totalPages,
       };
     } catch {
       return {
-        title: "Jellyfin Search",
-        html: `<div class="command-result"><p>Failed to connect to Jellyfin. Check your configuration.</p></div>`,
+        title: _tr("messages.title", "Jellyfin"),
+        html: `<div class="command-result"><p>{{ t:${ID}.messages.failed }}</p></div>`,
       };
     }
   },
 };
+
+export default jellyfin;

@@ -16,7 +16,7 @@ api:
   token: your-token
 ```
 
-No CORS setup is needed: degoog fetches server side, so the token never reaches the browser.
+You don't need any CORS setup. degoog fetches server side, so the token never reaches the browser.
 
 ## Settings
 
@@ -24,19 +24,19 @@ No CORS setup is needed: degoog fetches server side, so the token never reaches 
 | --- | --- |
 | Dynacat URL | Base URL, for example `http://dynacat:8080` |
 | API token | Value of `api.token` |
-| Page | Loaded live from `/api/v1/pages` once the URL and token are set |
+| Default page | degoog loads the list from `/api/v1/pages` once the URL and token are set |
 | Show on home page | Render the dashboard under the search bar |
 | Show on mobile | Hide it on narrow screens if you prefer |
-| Refresh interval | How long data is cached before Dynacat is asked again |
+| Refresh interval | Seconds degoog caches widget data before asking Dynacat again |
 | Username / Password | Only for pages restricted with `allowed-users` |
 
 ## Picking what matters
 
-The **Customize** button on the dashboard opens a picker where every widget on the selected page can be shown or hidden, made single or double width, and reordered. The choice is stored per page in `data/dynacat-dashboard.json`, so widgets added in Dynacat later appear at the end instead of replacing your layout.
+The **Customize** button on the dashboard opens a picker. There you can show or hide each widget on the selected page, make it single or double width, and change the order. degoog saves your layout per page in `data/dynacat-dashboard.json`, so widgets you add in Dynacat later show up at the end and leave your layout alone.
 
-Widgets that Dynacat does not expose data for (search, bookmarks, clock, to-do, calendar and similar) are left out of the picker. Types without a dedicated renderer fall back to stat tiles and short tables.
+The picker leaves out widgets Dynacat exposes no data for, such as search, bookmarks, clock, to-do and calendar. Widget types without their own renderer fall back to stat tiles and short tables.
 
 ## Limitations
 
-- Dynacat strips configured values from API responses, so titles and links defined in its YAML are not always available.
-- `custom-api` and `dynawidgets` only expose the raw upstream JSON, which is shown as formatted JSON.
+- Dynacat strips configured values from API responses, so titles and links set in its YAML don't always come through.
+- `custom-api` and `dynawidgets` only expose the raw upstream JSON, so degoog shows that JSON formatted.

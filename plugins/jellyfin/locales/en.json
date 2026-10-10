@@ -1,23 +1,62 @@
 {
-  "plugin-jellyfin": {
+  "jellyfin-command": {
     "name": "Jellyfin",
-    "description": "Search your Jellyfin media library",
+    "description": "Search your Jellyfin media library.",
     "settings": {
       "url": {
         "label": "Jellyfin URL",
         "placeholder": "https://your-jellyfin-server.com",
-        "description": "Base URL of your Jellyfin server"
+        "description": "The base URL of your Jellyfin server."
       },
       "apiKey": {
-        "label": "API Key",
-        "placeholder": "Enter your Jellyfin API key",
-        "description": "Found in Jellyfin Dashboard → API Keys"
+        "label": "API key",
+        "placeholder": "Your Jellyfin API key",
+        "description": "Create one in Jellyfin under Dashboard > API Keys."
+      },
+      "authMethod": {
+        "label": "Auth method",
+        "description": "Newer Jellyfin servers only accept the Authorization header. Automatic sends both, so it works with old and new servers."
       },
       "headerName": {
-        "label": "Auth Header",
+        "label": "Legacy auth header",
         "placeholder": "X-Emby-Token",
-        "description": "HTTP header used to authenticate image proxy requests. Change only if your server requires a different header."
+        "description": "The header the legacy method sends. Only change it if your server expects a different one."
+      },
+      "thumbHeight": {
+        "label": "Thumbnail height in pixels",
+        "description": "Jellyfin resizes result thumbnails to this height."
+      },
+      "previewHeight": {
+        "label": "Preview image height in pixels",
+        "description": "Jellyfin resizes the image in the preview panel to this height."
+      },
+      "searchType": {
+        "label": "Show results on",
+        "description": "The results tab !jellyfin opens on."
       }
+    },
+    "options": {
+      "authMethod": {
+        "auto": "Automatic, sends both",
+        "modern": "Modern only, Authorization header",
+        "legacy": "Legacy only, the header below"
+      },
+      "loadTabs": "Load tabs"
+    },
+    "notices": {
+      "tabs": "{count} tabs on this instance"
+    },
+    "messages": {
+      "title": "Jellyfin",
+      "notConfigured": "Jellyfin isn't set up yet. Add your Jellyfin URL and API key in",
+      "settingsLink": "Settings > Plugins",
+      "usage": "Usage:",
+      "noResults": "No results for",
+      "failed": "Couldn't reach Jellyfin. Check the URL and API key in settings.",
+      "resultsTitle": "Jellyfin: {term}, {count} results",
+      "with": "With {people}",
+      "episode": "Episode {n}",
+      "cast": "Cast"
     }
   }
 }

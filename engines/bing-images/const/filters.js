@@ -1,0 +1,21 @@
+export const filters = {
+  size: ["small", "medium", "large", "wallpaper"],
+  color: [
+    "monochrome",
+    "red",
+    "orange",
+    "yellow",
+    "green",
+    "teal",
+    "blue",
+    "purple",
+    "pink",
+    "white",
+    "gray",
+    "brown",
+    "black",
+  ],
+  type: ["photo", "clipart", "lineart", "animated", "transparent"],
+  layout: ["square", "wide", "tall"],
+  nsfw: ["on", "moderate", "off"],
+};

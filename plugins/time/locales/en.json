@@ -1,5 +1,5 @@
 {
-  "plugin-time": {
+  "time-command": {
     "name": "Time",
     "description": "Show current time in a timezone or city."
   }

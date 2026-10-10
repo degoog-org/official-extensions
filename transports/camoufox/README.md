@@ -1,10 +1,10 @@
-# Camoufox — degoog setup
+# Camoufox setup for degoog
 
-Run a self-hosted Camoufox (stealth Firefox) service that degoog can route requests through.
+Run your own Camoufox service, a stealth build of Firefox, and route degoog requests through it.
 
 ## 1. Files
 
-Create a folder (e.g. `~/camoufox`) with these four files:
+Create a folder, such as `~/camoufox`, with these four files:
 
 ### `docker-compose.yml`
 
@@ -104,12 +104,10 @@ if __name__ == "__main__":
 docker compose up -d --build
 ```
 
-The first build downloads the Camoufox browser binaries (`python -m camoufox fetch`), so it can take a few minutes.
+The first build runs `python -m camoufox fetch` to download the browser, so give it a few minutes.
 
 ## 3. Configure in degoog
 
-Settings → Transports → Camoufox → Configure:
+Open `Settings -> Transports -> Camoufox -> Configure` and set **Camoufox URL** to `http://127.0.0.1:53323`, or wherever you exposed the service.
 
-- **Camoufox URL**: `http://127.0.0.1:53323` (or wherever you exposed the service)
-
-Then, in Settings → Engines → Configure → Advanced, pick `camoufox` as the outgoing transport for any engine you want routed through it.
+Then open `Settings -> Engines -> Configure` and pick `camoufox` as the outgoing transport for each engine that should use it.

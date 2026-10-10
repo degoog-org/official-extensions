@@ -1,5 +1,5 @@
 {
-  "plugin-password": {
+  "password-command": {
     "name": "Password",
     "description": "Genera una password casuale."
   }

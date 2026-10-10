@@ -1,3 +1,5 @@
+import { flareProxyFromUrl } from "./proxy.js";
+
 const FLARE_CMD = "request.get";
 const MIN_FLARE_TIMEOUT_MS = 10000;
 const ABORT_GRACE_MS = 5000;
@@ -8,19 +10,14 @@ const resolveEndpoint = (base) => {
   return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
 };
 
-const cookiesToHeader = (cookies = []) =>
-  (Array.isArray(cookies) ? cookies : [])
-    .filter((cookie) => cookie?.name)
-    .map((cookie) => `${cookie.name}=${cookie.value ?? ""}`)
-    .join("; ");
-
 export const solveChallenge = async ({ endpoint, url, timeoutMs = 60000, proxyUrl = "" }) => {
   const target = resolveEndpoint(endpoint);
   if (!target) return null;
 
   const maxTimeout = Math.max(MIN_FLARE_TIMEOUT_MS, Number(timeoutMs) || 60000);
   const body = { cmd: FLARE_CMD, url, maxTimeout };
-  if (proxyUrl) body.proxy = { url: proxyUrl };
+  const proxy = flareProxyFromUrl(proxyUrl);
+  if (proxy) body.proxy = proxy;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), maxTimeout + ABORT_GRACE_MS);
@@ -42,11 +39,7 @@ export const solveChallenge = async ({ endpoint, url, timeoutMs = 60000, proxyUr
       throw new Error(data?.message || "FlareSolverr returned no solution");
     }
 
-    return {
-      html: data.solution.response || "",
-      cookieHeader: cookiesToHeader(data.solution.cookies),
-      userAgent: data.solution.userAgent || "",
-    };
+    return { html: data.solution.response || "" };
   } finally {
     clearTimeout(timer);
   }

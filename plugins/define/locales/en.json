@@ -1,5 +1,5 @@
 {
-  "plugin-define": {
+  "define-command": {
     "name": "Define",
     "description": "Look up word definitions using the Free Dictionary API.",
     "usage": "Usage: <code>!define &lt;word&gt;</code> or try &quot;define serendipity&quot;",

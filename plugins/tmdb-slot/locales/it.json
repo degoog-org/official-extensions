@@ -1,5 +1,5 @@
 {
-  "tmdb": {
+  "tmdb-slot": {
     "name": "TMDb",
     "description": "Mostra dettagli di film e serie sopra i risultati di ricerca.",
     "settings": {
