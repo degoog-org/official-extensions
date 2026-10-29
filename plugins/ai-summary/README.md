@@ -3,7 +3,7 @@
 Streams an AI-written answer above the search results, with inline `[N]` citations back to the sources it used, plus a follow-up chat under it. Everything is fetched server side, so your API key never reaches the browser.
 
 <div align="center">
-    <img width="800" src="./screenshots/1.png" />
+    <img width="800" src="./screenshots/1.webp" />
 </div>
 
 ## Providers

@@ -1,8 +1,8 @@
 # Dynacat Theme
 
 <div align="center">
-    <img width="800" src="./screenshots/light.png" />
-    <img width="800" src="./screenshots/dark.png" />
+    <img width="800" src="./screenshots/light.webp" />
+    <img width="800" src="./screenshots/dark.webp" />
 </div>
 ## Settings
 
