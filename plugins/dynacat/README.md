@@ -3,7 +3,7 @@
 Pulls widget data from a [Dynacat](https://github.com/Panonim/dynacat) dashboard through its read-only API and shows the widgets you pick on the degoog home page. `!dynacat` renders the same cards in the results area, and `!dynacat <text>` filters them by title or widget type.
 
 <div align="center">
-    <img width="800" src="./screenshots/1.png" />
+    <img width="800" src="./screenshots/1.webp" />
 </div>
 
 ## Dynacat side
