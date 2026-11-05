@@ -1,5 +1,5 @@
 import { tokenLimitField } from "./fields.js";
-import { basicOpenAIBody, createOpenAIChatAdapter } from "./openai-chat.js";
+import { GENERIC_THINKING_OFF, basicOpenAIBody, createOpenAIChatAdapter } from "./openai-chat.js";
 import { LMSTUDIO_DEFAULT_BASE, ProviderId } from "./types.js";
 
 export const lmStudioAdapter = createOpenAIChatAdapter({
@@ -7,6 +7,7 @@ export const lmStudioAdapter = createOpenAIChatAdapter({
   logNs: "ai-summary:lm-studio",
   defaultBaseUrl: LMSTUDIO_DEFAULT_BASE,
   buildBody: basicOpenAIBody,
+  thinkingOff: GENERIC_THINKING_OFF,
   settings: {
     label: "LM Studio",
     requires: { baseUrl: false, apiKey: false },

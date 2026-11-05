@@ -24,7 +24,7 @@ const callOllama = (config, messages, opts) => {
       model: config.model,
       messages,
       stream: true,
-      think: !!opts.enableThinking,
+      ...(opts.enableThinking || opts.disableThinking ? { think: !!opts.enableThinking } : {}),
       options: { num_predict: opts.maxTokens },
     }),
     signal: opts.signal,

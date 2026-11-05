@@ -60,7 +60,8 @@ export const parseSettings = (raw) => {
     systemPrompt: asStr(raw["systemPrompt"]),
     maxTokens: Math.max(16, maxTokens),
     questionMarkOnly: asBool(raw["questionMarkOnly"]),
-    enableThinking: asBool(raw["enableThinking"]),
+    enableThinking: asStr(raw["enableThinking"]) === "true",
+    disableThinking: asStr(raw["enableThinking"]) === "false",
     reasoningEffort: normaliseEffort(asStr(raw["reasoningEffort"])),
     hideOnError: asBool(raw["hideOnError"]),
     enableInputStyling: asBool(raw["enableInputStyling"]),
@@ -148,10 +149,13 @@ export const settingsSchema = [
   },
   {
     key: "enableThinking",
-    label: "Let reasoning models think",
-    type: "toggle",
+    label: "Thinking",
+    type: "select",
+    options: ["auto", "true", "false"],
+    optionLabels: ["Auto (default)", "On", "Off"],
+    default: "auto",
     description:
-      "Off by default. Native providers map this to their own thinking controls. OpenAI compatible sends no thinking flags.",
+      "Auto lets the model decide. On or Off may error on models that don't support them.",
   },
   ...providerFields(),
   {

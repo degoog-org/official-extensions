@@ -40,6 +40,8 @@ const callAnthropic = async (config, messages, opts) => {
   if (system) body["system"] = system;
   if (opts.enableThinking) {
     body["thinking"] = { type: "enabled", budget_tokens: THINKING_BUDGET };
+  } else if (opts.disableThinking) {
+    body["thinking"] = { type: "disabled" };
   }
   return fetch(`${base}/messages`, {
     method: "POST",

@@ -10,14 +10,14 @@ Streams an AI-written answer above the search results, with inline `[N]` citatio
 
 | Provider | Endpoint used | Notes |
 | --- | --- | --- |
-| OpenAI compatible | `POST {baseUrl}/chat/completions` | The catch-all. Sends no provider-specific thinking flags |
-| OpenAI | same, default `https://api.openai.com/v1` | Adds `reasoning_effort` when thinking is on |
+| OpenAI compatible | `POST {baseUrl}/chat/completions` | The catch-all. With thinking off, sends `reasoning_effort: none` and `chat_template_kwargs.enable_thinking: false` |
+| OpenAI | same, default `https://api.openai.com/v1` | Adds `reasoning_effort`, `none` when thinking is off |
 | OpenRouter | same, default `https://openrouter.ai/api/v1` | Adds the `reasoning` block |
 | Ollama | `POST {origin}/api/chat` | Token cap goes to `options.num_predict` |
 | llama.cpp / vLLM | `POST {baseUrl}/chat/completions` | Adds `chat_template_kwargs.enable_thinking` |
-| LM Studio | same, default `http://localhost:1234/v1` | |
+| LM Studio | same, default `http://localhost:1234/v1` | Same thinking off flags as OpenAI compatible |
 | Google Gemini | `:streamGenerateContent` | Token cap goes to `generationConfig.maxOutputTokens`. See below for thinking |
-| Anthropic Claude | `POST {baseUrl}/messages` | Thinking uses a token budget |
+| Anthropic Claude | `POST {baseUrl}/messages` | Thinking uses a token budget. Off sends `thinking: disabled` |
 | Perplexity | `POST {baseUrl}`, default `https://api.perplexity.ai/v1/agent` | Agent API. Model is `provider/model` or a preset, see below |
 
 Pick the provider first, and the settings below it change to match. Each provider shows a short note on what it needs. Fields like **Token limit parameter** and **Reasoning effort** only appear for providers that use them. **Detect** asks your endpoint what it is and sets the provider for you. **Fetch models** lists what that endpoint serves, but any model id can be typed by hand.
@@ -32,7 +32,7 @@ Pick the provider first, and the settings below it change to match. Each provide
 | Model | Set it with **Fetch models**, or type an id |
 | Token limit parameter | OpenAI-style providers only. `max_tokens` or `max_completion_tokens`, see below |
 | Extra request headers | Advanced. Custom headers per request, see below |
-| Let reasoning models think | Off by default. Thoughts stream live and clear when the answer starts |
+| Thinking | Auto, On or Off. Auto (default) sends no thinking flags, so the model does what it does by default. On asks it to think and streams thoughts live, clearing them when the answer starts. Off sends the provider's flag to turn thinking off completely. A model that can't do On or Off answers with an error, so pick them only for models that support them |
 | Reasoning effort | OpenAI, OpenRouter, Gemini and Perplexity, with thinking on. Low, medium or high |
 | Only trigger on questions | Summarize only when the query ends with `?` |
 | Hide summary on error | Remove the box instead of showing the error |
@@ -61,13 +61,13 @@ The model field takes either:
 - A model id in `provider/model` form, like `openai/gpt-5.6-sol` or `anthropic/claude-sonnet-4-6`. **Fetch models** lists them. The model answers from your search results only, so the `[N]` citations line up.
 - A preset: `fast`, `low`, `medium`, `high` or `xhigh`. Presets run Perplexity's own web search on top of your results. They answer well, but the citations they add don't point at degoog's sources, and the higher ones are slow and cost more. `fast`, `low`, `medium` and `high` run Perplexity's cheaper Fast Search; `xhigh` runs the full web search. A `provider/model` id runs no search, so you only pay for tokens.
 
-**Let reasoning models think** sends `reasoning.effort` set to **Reasoning effort**.
+**Thinking** On sends `reasoning.effort` set to **Reasoning effort**. Off sends `reasoning.effort: none`.
 
 **Answer in the visitor's language** sends the primary subtag of the browser's language, like `it` for `it-IT`, as `language_preference`. Codes that aren't two letters are dropped.
 
 ## Gemini
 
-Gemini 3 models take a thinking level instead of a token budget, and none of them can switch thinking off. With thinking off, degoog asks for the lowest level the model takes, `minimal` or `low`. Gemini 2.x models still get `thinkingBudget: 0`. If a model answers `400 Request contains an invalid argument`, degoog retries with the next request shape the API accepts and remembers the one that worked for that model until the server restarts. Gemma models served through the Gemini API get the system prompt folded into the first message, since they don't take one of their own.
+Gemini 3 models take a thinking level instead of a token budget, and none of them can switch thinking off. With Thinking set to Off, degoog asks for the lowest level the model takes, `minimal` or `low`. Gemini 2.x models still get `thinkingBudget: 0`. If a model answers `400 Request contains an invalid argument`, degoog retries with the next request shape the API accepts and remembers the one that worked for that model until the server restarts. Gemma models served through the Gemini API get the system prompt folded into the first message, since they don't take one of their own.
 
 ## Adding a provider
 
@@ -95,4 +95,5 @@ Rules worth knowing:
 
 - The summary only runs once results are in, so it adds the model's latency on top of the search.
 - degoog caches summaries for two minutes per query and result set. It never caches follow-ups.
-- If a model streams nothing but thoughts for 45 seconds with thinking turned off, the request is abandoned.
+- If a model streams nothing but thoughts for 45 seconds with Thinking set to Off, the request is abandoned.
+- Some models can't turn thinking off, like Claude Opus 5.5 or OpenAI o-series, and answer Off with a `400`. Use Auto for those.

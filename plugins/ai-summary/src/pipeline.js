@@ -56,7 +56,7 @@ export const runStream = (messages, maxTokens, cacheKey, settings, cache, sessio
             return;
           }
         }
-        if (!settings.enableThinking) {
+        if (settings.disableThinking) {
           watchdog = setTimeout(() => {
             console.warn(LOG_NS, "no text within window, aborting");
             abort.abort();
@@ -74,6 +74,7 @@ export const runStream = (messages, maxTokens, cacheKey, settings, cache, sessio
           {
             maxTokens,
             enableThinking: settings.enableThinking,
+            disableThinking: settings.disableThinking,
             reasoningEffort: settings.reasoningEffort,
             tokenParam: settings.tokenParam,
             sendBrowserLanguage: settings.sendBrowserLanguage,
