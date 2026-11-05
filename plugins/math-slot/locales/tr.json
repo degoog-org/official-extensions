@@ -1,0 +1,14 @@
+{
+  "math-slot": {
+    "name": "Matematik",
+    "description": "Matematiksel ifadeleri hesaplar ve etkileşimli bir hesap makinesi gösterir.",
+    "settings": {
+      "enabled": {
+        "label": "Etkin"
+      }
+    },
+    "template": {
+      "equals": "="
+    }
+  }
+}

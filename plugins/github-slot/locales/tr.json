@@ -1,0 +1,23 @@
+{
+  "github-slot": {
+    "name": "GitHub",
+    "description": "Arama sonuçlarında GitHub depoları veya kullanıcıları bulunduğunda, sonuçların üzerinde biçimlendirilmiş bilgiler gösterir.",
+    "settings": {
+      "apiToken": {
+        "label": "GitHub API anahtarı",
+        "placeholder": "İsteğe bağlı, daha yüksek istek sınırı için",
+        "description": "Kişisel erişim anahtarı (isteğe bağlı). Anahtar olmadan API saatte yalnızca 60 istekle sınırlıdır."
+      },
+      "maxRepos": {
+        "label": "Gösterilecek en fazla depo sayısı",
+        "placeholder": "3",
+        "description": "Gösterilecek en fazla depo kartı sayısı (1–5)."
+      },
+      "maxUsers": {
+        "label": "Gösterilecek en fazla kullanıcı sayısı",
+        "placeholder": "2",
+        "description": "Gösterilecek en fazla kullanıcı kartı sayısı (1–3)."
+      }
+    }
+  }
+}

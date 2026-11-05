@@ -1,0 +1,17 @@
+{
+  "rss-slot": {
+    "name": "Ana Sayfa RSS Akışı",
+    "description": "Ana sayfa entegrasyonlu RSS/Atom haber akışı okuyucusu",
+    "settings": {
+      "urls": {
+        "label": "Akış bağlantıları",
+        "placeholder": "https://example.com/feed.xml",
+        "description": "RSS/Atom akış URL'lerinizi yönetin. Akışları tek tek kaldırın veya aşağıdan yeni akışlar ekleyin."
+      },
+      "showOnDesktop": {
+        "label": "Haberleri masaüstünde göster",
+        "description": "Haber akışını masaüstünde de ana sayfada göster (yatay kaydırma)."
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "qr-command": {
+    "name": "QR Kodu",
+    "description": "Bir URL için QR kodu oluşturur."
+  }
+}
