@@ -271,7 +271,7 @@
       "name": "4play (lolcat)",
       "minDegoogVersion": "1.1.0",
       "description": "Fetches pages with a real Firefox session through the official lolcat 4play browser extension.",
-      "version": "1.10.0"
+      "version": "1.10.1"
     }
   ],
   "engines": [

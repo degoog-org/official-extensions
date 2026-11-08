@@ -221,25 +221,25 @@ export class PageFetcher {
       this._tabs.ownedTabIds.add(tabId);
       if (containerId) this._tabs.tabContainerIds.set(tabId, containerId);
 
-      await this._tabs.awaitMatch(tabId, {
-        origin,
-        urlMatch: options.match?.urlMatch,
-        domMatch: options.match?.domMatch,
-        failUrlMatch: options.match?.failUrlMatch,
-        timeoutMs: this._timeoutMs(),
-        signal: options.signal,
-      });
-      await sleep(1000);
-      await this._tabs.acceptConsent(tabId);
-
-      const html = await this._tabs.inject(tabId, documentHtmlJs());
-      if (!html) {
-        throw new Error(
-          "lolcat-4play: failed to retrieve page HTML content from browser tab",
-        );
-      }
-
       try {
+        await this._tabs.awaitMatch(tabId, {
+          origin,
+          urlMatch: options.match?.urlMatch,
+          domMatch: options.match?.domMatch,
+          failUrlMatch: options.match?.failUrlMatch,
+          timeoutMs: this._timeoutMs(),
+          signal: options.signal,
+        });
+        await sleep(1000);
+        await this._tabs.acceptConsent(tabId);
+
+        const html = await this._tabs.inject(tabId, documentHtmlJs());
+        if (!html) {
+          throw new Error(
+            "lolcat-4play: failed to retrieve page HTML content from browser tab",
+          );
+        }
+
         return this._wrapFetchedText(html, origin, containerId, url, tabId);
       } catch (error) {
         if (!(error instanceof OriginBlockedError)) throw error;
