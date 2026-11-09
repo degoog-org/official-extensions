@@ -1,0 +1,18 @@
+{
+  "spell-check": {
+    "name": "Spell Check",
+    "description": "Intercepts search queries and corrects spelling using Yandex Speller.",
+    "settings": {
+      "language": {
+        "label": "Language",
+        "placeholder": "en",
+        "description": "Language code passed to Yandex Speller (en, ru, uk)."
+      }
+    },
+    "template": {
+      "showingResultsFor": "Showing results for",
+      "searchInsteadFor": "Search instead for",
+      "didYouMean": "Did you mean"
+    }
+  }
+}
