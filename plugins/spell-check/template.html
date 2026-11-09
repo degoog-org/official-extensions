@@ -1,11 +1,11 @@
 <div class="spell-check-notice">
-  Showing results for <strong>{{corrected}}</strong> <br />
+  {{ t:spell-check.template.showingResultsFor }} <strong>{{corrected}}</strong> <br />
   <a
     data-spell-link
     href="{{search_url}}"
     data-original="{{original}}"
     data-skip="{{skip_endpoint}}"
-    >Search instead for <em>{{original}}</em></a
+    >{{ t:spell-check.template.searchInsteadFor }} <em>{{original}}</em></a
   >
 </div>
 <script>
