@@ -1,0 +1,9 @@
+{
+  "define-command": {
+    "name": "Tanımla",
+    "description": "Free Dictionary API'sini kullanarak kelimelerin tanımlarını arayın.",
+    "usage": "Kullanım: <code>!define &lt;kelime&gt;</code> veya &quot;define serendipity&quot; yazmayı deneyin",
+    "notFoundBefore": "Tanımı bulunamadı:",
+    "fetchError": "Tanım alınamadı:"
+  }
+}

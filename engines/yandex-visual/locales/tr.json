@@ -1,0 +1,25 @@
+{
+  "yandex-visual-engine": {
+    "name": "Yandex Görsel Arama",
+    "settings": {
+      "privacy": {
+        "label": "Görsel nereye gönderiliyor",
+        "description": "Bu motorla aranan her görsel, yanına yazılan sözcüklerle birlikte üçüncü taraf olan Yandex'e yüklenir. Yandex, ziyaretçinin değil, bu sunucunun IP adresini görür ve görseli kendi koşulları kapsamında saklar. Ziyaretçilerin görsellerini Yandex'e göndermemesi gerekiyorsa motoru kapalı tutun."
+      },
+      "domain": {
+        "label": "Yandex alan adı"
+      },
+      "include": {
+        "label": "Sonuçlar",
+        "description": "Görseli içeren sayfalar, görsele benzeyen görseller veya her ikisi. Önce sayfalar gösterilir."
+      }
+    },
+    "options": {
+      "include": {
+        "both": "Sayfalar ve benzer görseller",
+        "pages": "Görseli içeren sayfalar",
+        "similar": "Benzer görseller"
+      }
+    }
+  }
+}

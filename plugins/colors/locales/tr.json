@@ -1,0 +1,7 @@
+{
+  "colors-command": {
+    "description": "Beş renkten oluşan bir palet oluşturun. Renkleri değiştirmek için boşluk tuşuna basın, sabitlemek istediğiniz renge tıklayın.",
+    "title": "Renkler",
+    "hint": "Yeni renkler oluşturmak için boşluk tuşuna basın · bir rengi sabitlemek için renk örneğine tıklayın · HEX kodunu kopyalamak için kodun üzerine tıklayın"
+  }
+}

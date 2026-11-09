@@ -1,0 +1,13 @@
+{
+  "tmdb-slot": {
+    "name": "TMDb",
+    "description": "Arama sonuçlarının üzerinde film/dizi ayrıntılarını gösterir.",
+    "settings": {
+      "apiKey": {
+        "label": "API Anahtarı",
+        "placeholder": "themoviedb.org adresinden ücretsiz alınabilir",
+        "description": "Oyuncu fotoğraflarına ve filmografiye erişmek, film/dizi araması yapmak için bir anahtar gereklidir. https://www.themoviedb.org/settings/api adresinden edinebilirsiniz."
+      }
+    }
+  }
+}

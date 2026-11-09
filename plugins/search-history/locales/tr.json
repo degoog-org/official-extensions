@@ -1,0 +1,13 @@
+{
+  "search-history-command": {
+    "name": "Arama geçmişi",
+    "description": "Arama geçmişini zaman damgalarıyla birlikte data/history.json dosyasında saklar; !history komutu, sayfalar hâlinde görüntülenen ve kayıtların silinebildiği bir liste gösterir.",
+    "settings": {
+      "maxEntries": {
+        "label": "Maksimum kayıt sayısı",
+        "placeholder": "1000",
+        "description": "Saklanacak maksimum geçmiş kaydı sayısı (bu sınır aşılırsa en eski kayıtlar silinir)."
+      }
+    }
+  }
+}
