@@ -1,9 +1,8 @@
 import { regions } from "./const/regions.js";
-import { API_URL, FRESHNESS_MAP, PAGE_SIZE } from "./const/search.js";
+import { API_URL, FRESHNESS_MAP, MAX_OFFSET, PAGE_SIZE } from "./const/search.js";
 
 export const buildSearchUrl = (query, page, timeFilter, safeSearch, context) => {
-  // Brave's `offset` is a zero-based page index (max 9), not a result offset.
-  const offset = Math.min(Math.max((page || 1) - 1, 0), 9);
+  const offset = Math.min(Math.max((page || 1) - 1, 0), MAX_OFFSET);
   const params = new URLSearchParams({
     q: query,
     count: String(PAGE_SIZE),
