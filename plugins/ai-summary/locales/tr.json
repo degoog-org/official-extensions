@@ -1,0 +1,18 @@
+{
+  "ai-summary-slot": {
+    "name": "Yapay Zekâ Özeti",
+    "description": "Yapay zekâ tarafından hazırlanan özeti, kaynak gösterimleriyle birlikte oluşturuldukça sunar. OpenAI uyumlu API’ler (Ollama dâhil), Google Gemini ve Anthropic Claude ile uyumludur.",
+    "badge": "Yapay Zekâ Özeti",
+    "dive-deeper": "Daha derinlemesine incele",
+    "follow-up-placeholder": "Dilediğinizi sorun\u2026",
+    "thinking": "Düşünüyor\u2026",
+    "writing": "Yanıt yazılıyor\u2026",
+    "no-response": "Yanıt alınamadı. Tekrar deneyin.",
+    "request-failed": "İstek başarısız oldu. Tekrar deneyin.",
+    "read-more": "Daha fazla oku",
+    "show-less": "Daha az göster",
+    "site": "{n} site",
+    "sites": "{n} site",
+    "sources": "Kaynaklar"
+  }
+}

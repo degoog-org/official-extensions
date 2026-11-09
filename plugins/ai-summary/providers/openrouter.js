@@ -9,9 +9,11 @@ const buildBody = (config, messages, opts) => {
     stream: true,
     ...tokenCap(opts),
   };
-  body.reasoning = opts.enableThinking
-    ? { effort: opts.reasoningEffort ?? ReasoningEffort.Medium, exclude: false }
-    : { effort: "none" };
+  if (opts.enableThinking) {
+    body.reasoning = { effort: opts.reasoningEffort ?? ReasoningEffort.Medium, exclude: false };
+  } else if (opts.disableThinking) {
+    body.reasoning = { effort: "none" };
+  }
   return body;
 };
 

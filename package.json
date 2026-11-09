@@ -16,7 +16,7 @@
       "path": "plugins/ai-summary",
       "name": "AI Summary",
       "description": "Summarizes search results. Works with OpenAI-compatible APIs, OpenAI, OpenRouter, Ollama, llama.cpp, vLLM, LM Studio, Gemini, Anthropic, and Perplexity.",
-      "version": "1.8.1",
+      "version": "1.9.0",
       "type": "slot",
       "minDegoogVersion": "1.1.0",
       "legacyIds": [
@@ -156,7 +156,7 @@
       "path": "plugins/spell-check",
       "name": "Spell Check",
       "description": "Intercepts search queries and corrects spelling using Yandex Speller.",
-      "version": "1.3.0",
+      "version": "1.4.0",
       "type": "interceptor",
       "minDegoogVersion": "0.19.0"
     },
@@ -271,7 +271,7 @@
       "name": "4play (lolcat)",
       "minDegoogVersion": "1.1.0",
       "description": "Fetches pages with a real Firefox session through the official lolcat 4play browser extension.",
-      "version": "1.10.0"
+      "version": "1.10.1"
     }
   ],
   "engines": [
@@ -447,7 +447,7 @@
       "path": "engines/brave-api-search",
       "name": "Brave API Search",
       "description": "Brave web search through their API, not the HTML page.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "minDegoogVersion": "1.1.0"
     },
     {

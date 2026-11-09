@@ -1,0 +1,197 @@
+{
+  "image-search-command": {
+    "name": "Görsel arama",
+    "description": "Daha iyi görsel arama. Görsel modeliniz resmi normal görsel arama motorlarınız için bir arama sorgusuna dönüştürür; ziyaretçinin tarayıcısı da sonuçları resme ne kadar benzediklerine göre yeniden sıralar. Her bölüm ayrı ayrı kapatılabilir.",
+    "settings": {
+      "transparency": {
+        "label": "Görsel nereye gönderiliyor",
+        "description": "degoog, görseli ziyaretçinin tarayıcısından bu sunucuya gönderir. Görselleri arama sorgusuna dönüştür seçeneği açıksa sunucu görseli doğrudan aşağıdaki görsel modele iletir ve saklamaz. Metin tabanlı arama motorları yalnızca modelin oluşturduğu sorguyu görür. Görselle arama yapan motorlar görselin kendisini alır; her motor bunu kendi ayarlarında belirtir. Sıralama ziyaretçinin tarayıcısında yapılır. Bu sunucu, sıralama modelini ve çalışma ortamını aşağıdaki sunuculardan bir kez indirir; tarayıcılar da bunları bu degoog örneğinden yükler."
+      },
+      "describe": {
+        "label": "Görselleri arama sorgusuna dönüştür",
+        "description": "Görsel modeliniz her görsel için bir sorgu oluşturur; degoog da bunu görselle arama yapan motorların yanı sıra normal görsel arama motorlarınızda aratır."
+      },
+      "rank": {
+        "label": "Sonuçları görsele benzerliklerine göre yeniden sırala",
+        "description": "Ziyaretçinin tarayıcısı her sonucu görselle karşılaştırır ve sonuçları yeniden sıralar."
+      },
+      "baseUrl": {
+        "label": "Görsel modelinin URL'si",
+        "placeholder": "http://localhost:11434",
+        "description": "Ollama, llama.cpp, LM Studio, vLLM veya OpenAI ile uyumlu herhangi bir sunucu."
+      },
+      "provider": {
+        "label": "Sağlayıcı"
+      },
+      "model": {
+        "label": "Model",
+        "description": "Görselleri kabul etmesi gerekir; örneğin qwen3.5:4b veya gemma4:e4b."
+      },
+      "apiKey": {
+        "label": "API anahtarı",
+        "placeholder": "Yerel sunucular için boş bırakın"
+      },
+      "prompt": {
+        "label": "İstem",
+        "description": "Sunucu bunu her görselle birlikte gönderir. Son cümleyi koruyun. Bu cümle, modelin bir sorgu alanıyla yanıt vermesini sağlar."
+      },
+      "refinePrompt": {
+        "label": "Ziyaretçi sözcük eklediğinde kullanılacak istem",
+        "description": "Ziyaretçi görselin yanına sözcük yazdığında sunucu bunu ekler. {text}, bu sözcüklerle değiştirilir."
+      },
+      "timeoutSeconds": {
+        "label": "Zaman aşımı (saniye)"
+      },
+      "maxImageMb": {
+        "label": "Kabul edilen en büyük görsel boyutu (MB)"
+      },
+      "maxConcurrent": {
+        "label": "Aynı anda açıklanacak görsel sayısı",
+        "description": "Bu sayıda işlem devam ederken yapılan yeni görsel aramalarında sorgu oluşturma atlanır ve modelin meşgul olduğu belirtilir."
+      },
+      "rankModel": {
+        "label": "Sıralama modeli",
+        "placeholder": "owner/repo",
+        "description": "transformers.js ONNX biçiminde bir CLIP modeli. Büyük modeller daha isabetlidir, ancak indirilip çalıştırılmaları daha uzun sürer. Modelleri bul seçeneği bunları listeler."
+      },
+      "rankRevision": {
+        "label": "Sıralama modeli revizyonu",
+        "placeholder": "main",
+        "description": "Dal, etiket veya commit. Varsayılan değer, varsayılan modelin sabitlenmiş bir commit'idir. main dalındaki en son commit'i kullanmak için alanı boş bırakın veya başka bir model seçin."
+      },
+      "weakMatches": {
+        "label": "Görsele benzemeyen sonuçlar"
+      },
+      "matchThreshold": {
+        "label": "Benzerlik eşiği (yüzde)",
+        "description": "Benzerliği bu eşiğin altında kalan sonuçlar eşleşme sayılmaz."
+      },
+      "sameThreshold": {
+        "label": "Aynı görsel eşiği (yüzde)",
+        "description": "Bir sonucun parmak izinin, Aynı görsel rozetini alabilmesi için görselinizinkine ne kadar yakın olması gerektiği. Yeniden boyutlandırılmış ve yeniden sıkıştırılmış kopyaları tespit eder, kırpılmış kopyaları etmez."
+      },
+      "textWeight": {
+        "label": "Yazılan sözcüklerin ağırlığı",
+        "description": "Görselin yanına yazılan sözcüklerin sonuçların sıralamasını ne kadar etkileyeceği. 0, sözcükleri yok sayar."
+      },
+      "device": {
+        "label": "Çalıştırılacağı ortam"
+      },
+      "gpuDtype": {
+        "label": "WebGPU hassasiyeti",
+        "description": "Modelin bu dosyaya ihtiyacı vardır; örneğin onnx/vision_model_fp16.onnx."
+      },
+      "wasmDtype": {
+        "label": "WebAssembly hassasiyeti",
+        "description": "Modelin bu dosyaya ihtiyacı vardır; örneğin onnx/vision_model_quantized.onnx."
+      },
+      "batchSize": {
+        "label": "Grup başına sıralanacak görsel sayısı"
+      },
+      "fetchConcurrency": {
+        "label": "Aynı anda alınacak küçük resim sayısı"
+      },
+      "modelHost": {
+        "label": "Sıralama modelinin indirileceği sunucu",
+        "description": "Bu sunucu sıralama modelini buradan bir kez indirir. Hugging Face dizin yapısına sahip herhangi bir sunucu kullanılabilir; ayna sunucular da buna dâhildir."
+      },
+      "runtimeHost": {
+        "label": "Çalışma ortamının indirileceği sunucu",
+        "description": "cdn.jsdelivr.net/npm veya unpkg.com gibi package@version/path biçiminde içerik sunan bir npm CDN'i."
+      },
+      "transformersVersion": {
+        "label": "transformers.js sürümü"
+      },
+      "ortVersion": {
+        "label": "onnxruntime-web sürümü",
+        "placeholder": "transformers.js ile aynı",
+        "description": "transformers.js'in bağımlı olduğu sürümü kullanmak için boş bırakın."
+      },
+      "checksums": {
+        "label": "Çalışma ortamı sağlama toplamları",
+        "description": "Her satıra bir dosya adı ve SHA-256 değeri yazın. Sunucu, sağlama toplamı eşleşmeyen indirmeleri reddeder. Varsayılan değerler varsayılan sürümlerle eşleşir; bu nedenle bir sürümü değiştirdiğinizde bunları güncelleyin veya silin. Sunucu, listede bulunmayan dosyaları denetlemez."
+      }
+    },
+    "fieldsets": {
+      "vision": "Görseli sorguya dönüştüren görsel modeli",
+      "ranking": "Ziyaretçinin tarayıcısında çalışan sıralama",
+      "runtime": "Sıralama çalışma ortamı"
+    },
+    "options": {
+      "provider": {
+        "auto": "Otomatik algıla",
+        "openai-compat": "OpenAI uyumlu"
+      },
+      "weakMatches": {
+        "bottom": "Listenin sonuna taşı",
+        "hide": "Gizle",
+        "keep": "Yerinde bırak"
+      },
+      "device": {
+        "auto": "Varsa WebGPU, yoksa WebAssembly",
+        "webgpu": "Yalnızca WebGPU",
+        "wasm": "Yalnızca WebAssembly"
+      },
+      "dtype": {
+        "fp32": "fp32, en büyük ve tam hassasiyetli",
+        "fp16": "fp16, yarı boyutta",
+        "q8": "q8, dörtte bir boyutta",
+        "int8": "int8",
+        "uint8": "uint8",
+        "q4": "q4",
+        "q4f16": "q4f16",
+        "bnb4": "bnb4"
+      },
+      "detect": "Algıla",
+      "fetchModels": "Modelleri getir",
+      "findModels": "Modelleri bul"
+    },
+    "notices": {
+      "detected": "{provider} algılandı",
+      "foundModels": "{provider} üzerinde {count} model bulundu",
+      "noModels": "Model bulunamadı",
+      "foundClip": "{count} CLIP modeli bulundu",
+      "noClip": "Model bulunamadı. Bunun yerine owner/repo yazın."
+    },
+    "command": {
+      "title": "Görsel arama",
+      "pick": "Bir görsel seçin",
+      "hint": "Ya da arama çubuğuna bir görsel sürükleyip bırakın veya yapıştırın. Aramayı daraltmak için yanına sözcükler ekleyin."
+    },
+    "script": {
+      "searchedFor": "{query} için arama yapıldı",
+      "yourWords": "yazdıklarınız: \"{text}\"",
+      "stages": {
+        "runtime": "Sıralama çalışma ortamı yükleniyor…",
+        "model": "Sıralama modeli yükleniyor…",
+        "modelPct": "Sıralama modeli bu tarayıcıdan yükleniyor… {pct}%",
+        "download": "Sıralama modeli bu degoog örneğinden alınıyor…",
+        "downloadPct": "Sıralama modeli indiriliyor… {loaded} / {total} MB",
+        "device": "{device} başlatılıyor…",
+        "source": "Görseliniz {device} ile okunuyor…",
+        "ready": "Sıralama modeli hazır, sonuçlar bekleniyor…",
+        "readyResults": "Sıralama modeli hazır, {count} sonuç karşılaştırılıyor…"
+      },
+      "ranked": "Bu cihazda {device} ile {total} sonucun {done} tanesi sıralandı",
+      "rankedSoFar": "Şu ana kadar {device} ile {done} sonuç sıralandı; diğer sonuçlar geliyor…",
+      "copies": "Bu görselin {count} kopyası",
+      "hidden": "{count} gizlendi",
+      "shown": "{count} düşük benzerlikli sonuç gösteriliyor",
+      "moved": "{count} düşük benzerlikli sonuç listenin sonuna taşındı",
+      "weak": "{count} düşük benzerlikli sonuç",
+      "hideWeak": "Düşük benzerlikli sonuçları gizle",
+      "showHidden": "{count} gizli sonucu göster",
+      "ranking": "Bu cihazda {device} ile sıralanıyor… {done}/{total}",
+      "rankFailed": "Sıralama modeli yüklenemedi. Sonuçlar degoog'un normal sıralamasında kalacak.",
+      "same": "Aynı görsel",
+      "errors": {
+        "busy": "Görsel modeli meşgul. Birazdan tekrar deneyin.",
+        "tooLarge": "Bu görsel çok büyük.",
+        "invalid": "Görsel ulaşmadı. Tekrar deneyin.",
+        "noQuery": "Görsel modeli bir sorgu döndürmedi.",
+        "describeFailed": "Görsel modeli bu görseli açıklayamadı."
+      },
+      "searchedWithImage": "Görselinizle arandı"
+    }
+  }
+}

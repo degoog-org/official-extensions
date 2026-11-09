@@ -39,6 +39,7 @@ export const thinkingVariants = (model, opts) => {
       ? [{ includeThoughts: true }, leveled]
       : [leveled, { includeThoughts: true }];
   }
+  if (!opts.disableThinking) return [];
   const off = [{ thinkingLevel: "minimal" }, { thinkingLevel: "low" }];
   return legacy ? [{ thinkingBudget: 0 }, ...off] : [...off, { thinkingBudget: 0 }];
 };
@@ -75,7 +76,7 @@ const callGemini = (config, messages, opts, variant) => {
 const workingVariant = new Map();
 
 const variantKey = (config, opts) =>
-  `${config.baseUrl ?? ""}|${config.model}|${!!opts.enableThinking}|${opts.reasoningEffort ?? ""}`;
+  `${config.baseUrl ?? ""}|${config.model}|${!!opts.enableThinking}|${!!opts.disableThinking}|${opts.reasoningEffort ?? ""}`;
 
 const describe = (variant) =>
   JSON.stringify({ thinkingConfig: variant.thinkingConfig, systemAsUser: variant.systemAsUser });

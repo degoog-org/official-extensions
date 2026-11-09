@@ -1,6 +1,7 @@
 import { SETTINGS_SCHEMA } from "./settings.js";
 import { buildHeaders, buildSearchUrl } from "./request.js";
 import { parseResults } from "./parse.js";
+import { MAX_OFFSET } from "./const/search.js";
 
 export { regions } from "./const/regions.js";
 
@@ -20,6 +21,7 @@ export default class BraveApiSearchEngine {
 
   async executeSearch(query, page = 1, timeFilter, context) {
     if (!this.apiKey) return [];
+    if ((page || 1) - 1 > MAX_OFFSET) return [];
 
     const doFetch = context?.fetch ?? fetch;
     const url = buildSearchUrl(query, page, timeFilter, this.safeSearch, context);

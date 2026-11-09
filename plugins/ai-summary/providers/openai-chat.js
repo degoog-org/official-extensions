@@ -60,6 +60,11 @@ export const tokenCap = (opts) => ({
   [opts.tokenParam || TokenParam.MaxTokens]: opts.maxTokens,
 });
 
+export const GENERIC_THINKING_OFF = Object.freeze({
+  reasoning_effort: "none",
+  chat_template_kwargs: { enable_thinking: false },
+});
+
 export const basicOpenAIBody = (_config, messages, opts) => ({
   model: _config.model,
   messages,
@@ -72,6 +77,7 @@ export const createOpenAIChatAdapter = ({
   logNs,
   defaultBaseUrl,
   buildBody = basicOpenAIBody,
+  thinkingOff = null,
   settings,
 }) => {
   const call = (config, messages, opts) => {
@@ -86,7 +92,10 @@ export const createOpenAIChatAdapter = ({
     return fetch(`${base}/chat/completions`, {
       method: "POST",
       headers: withExtras(stdHeaders, config),
-      body: JSON.stringify(buildBody(config, messages, opts)),
+      body: JSON.stringify({
+        ...buildBody(config, messages, opts),
+        ...(opts.disableThinking ? thinkingOff : {}),
+      }),
       signal: opts.signal,
     });
   };

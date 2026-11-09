@@ -1,0 +1,6 @@
+{
+  "password-command": {
+    "name": "Parola",
+    "description": "Rastgele bir parola oluştur."
+  }
+}

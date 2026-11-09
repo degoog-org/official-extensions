@@ -1,0 +1,13 @@
+{
+  "apps-pocket-command": {
+    "name": "Uygulama cebi",
+    "description": "Ayarlar simgesinin yanına Google tarzı bir uygulama ızgarası ekler. Her uygulamanın bir etiketi, simge URL'si ve bağlantısı vardır.",
+    "settings": {
+      "appsJson": {
+        "label": "Uygulamalar (JSON)",
+        "placeholder": "[{\"label\":\"Gmail\",\"icon\":\"https://.../icon.png\",\"url\":\"https://mail.google.com\"}]",
+        "description": "{label, icon, url} nesnelerinden oluşan bir JSON dizisi. Etiket ve URL zorunludur; simge bir görsel URL'sidir ve kullanılamadığında yerine etiketin ilk harfi gösterilir."
+      }
+    }
+  }
+}

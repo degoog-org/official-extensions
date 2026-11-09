@@ -7,16 +7,18 @@ const _skipOnce = new Set();
 const _pending = new Map();
 
 const TRIGGER_WAIT_MS = 2_000;
-const TRIGGER_POLL_MS = 25;
+const REQUEST_TIMEOUT_MS = 5_000;
 const _delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 let _cache = null;
 let _lang = "en";
 let _apiBase = "";
 let _tpl = "";
+let _suggestTpl = "";
 
 const BANG = /^!/;
 const MIN_WORDS = 2;
+const LONG_WORD_LENGTH = 9;
 const CACHE_NAMESPACE = "ext:spell-check:corrections";
 const CACHE_TTL_MS = 120_000;
 
@@ -45,11 +47,39 @@ const _esc = (s) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-const _applyFixes = (query, errors) => {
+const _editDistance = (a, b) => {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j += 1) d[0][j] = j;
+  for (let i = 1; i <= a.length; i += 1) {
+    for (let j = 1; j <= b.length; j += 1) {
+      d[i][j] = Math.min(
+        d[i - 1][j] + 1,
+        d[i][j - 1] + 1,
+        d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      }
+    }
+  }
+  return d[a.length][b.length];
+};
+
+const _changesWord = (e) => e.s[0].toLowerCase() !== e.word.toLowerCase();
+
+const _isSureFix = (e) => {
+  const word = e.word.toLowerCase();
+  const rep = e.s[0].toLowerCase();
+  if (/\s/.test(rep)) return false;
+  const edits = _editDistance(word, rep);
+  return edits > 0 && edits <= (word.length >= LONG_WORD_LENGTH ? 2 : 1);
+};
+
+const _applyFixes = (query, errors, accept) => {
   let out = query;
   let offset = 0;
   for (const e of errors) {
-    if (!e.s?.length) continue;
+    if (!e.s?.length || !accept(e)) continue;
     const start = e.pos + offset;
     const end = start + e.len;
     const rep = e.s[0];
@@ -57,6 +87,17 @@ const _applyFixes = (query, errors) => {
     offset += rep.length - e.len;
   }
   return out;
+};
+
+const _remember = (q, { query, suggested }) => {
+  const sure = query !== q;
+  const corrected = sure ? query : suggested;
+  if (corrected === q) return;
+  _corrections.set(q, {
+    corrected,
+    sure,
+    expiresAt: Date.now() + CORRECTION_TTL_MS,
+  });
 };
 
 const _toLang = (tag) => tag.split(/[-_]/)[0].toLowerCase();
@@ -117,36 +158,31 @@ export const interceptor = {
 const _runIntercept = async (q, context) => {
   const cacheKey = `${_lang}:${q}`;
   const hit = _cache ? await _cache.get(cacheKey) : null;
-  if (hit) {
-    if (hit.query !== q)
-      _corrections.set(q, {
-        corrected: hit.query,
-        expiresAt: Date.now() + CORRECTION_TTL_MS,
-      });
-    return hit;
+  if (typeof hit?.suggested === "string") {
+    _remember(q, hit);
+    return { query: hit.query };
   }
 
   const fetchFn = context?.fetch ?? fetch;
 
   try {
     const url = `${YANDEX_SPELLER}?text=${encodeURIComponent(q)}&lang=${_lang}`;
-    const res = await fetchFn(url);
+    const res = await fetchFn(url, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
 
     if (!res.ok) return { query: q };
 
     const errors = await res.json();
-    if (!Array.isArray(errors) || errors.length === 0) return { query: q };
+    if (!Array.isArray(errors)) return { query: q };
 
-    const corrected = _applyFixes(q, errors);
-    if (corrected === q) return { query: q };
-
-    const result = { query: corrected };
+    const result = {
+      query: _applyFixes(q, errors, _isSureFix),
+      suggested: _applyFixes(q, errors, _changesWord),
+    };
     if (_cache) await _cache.set(cacheKey, result);
-    _corrections.set(q, {
-      corrected,
-      expiresAt: Date.now() + CORRECTION_TTL_MS,
-    });
-    return result;
+    _remember(q, result);
+    return { query: result.query };
   } catch (err) {
     console.warn("[spell-check] Yandex Speller request failed", err);
     return { query: q };
@@ -159,43 +195,31 @@ export const slot = {
   description: "Shows a correction banner when a query was spell-checked.",
   position: "at-a-glance",
 
-  init(ctx) {
+  async init(ctx) {
     _tpl = ctx.template;
+    _suggestTpl = await ctx.readFile("did-you-mean.html");
     _apiBase = ctx.apiBase;
   },
 
   async trigger(query) {
-    const deadline = Date.now() + TRIGGER_WAIT_MS;
-
-    while (Date.now() < deadline) {
-      const entry = _corrections.get(query);
-      if (entry && Date.now() < entry.expiresAt) return true;
-
-      const pending = _pending.get(query);
-      if (pending) {
-        await Promise.race([
-          pending.catch(() => {}),
-          _delay(deadline - Date.now()),
-        ]);
-        continue;
-      }
-
-      await _delay(Math.min(TRIGGER_POLL_MS, deadline - Date.now()));
+    const pending = _pending.get(query);
+    if (pending) {
+      await Promise.race([pending.catch(() => {}), _delay(TRIGGER_WAIT_MS)]);
     }
-
-    const resolved = _corrections.get(query);
-    return !!(resolved && Date.now() < resolved.expiresAt);
+    const entry = _corrections.get(query);
+    return !!(entry && Date.now() < entry.expiresAt);
   },
 
   async execute(query) {
     const entry = _corrections.get(query);
     if (!entry || Date.now() > entry.expiresAt) return { html: "" };
 
-    const { corrected } = entry;
-    const html = _tpl
+    const { corrected, sure } = entry;
+    const html = (sure ? _tpl : _suggestTpl)
       .replace(/\{\{corrected\}\}/g, _esc(corrected))
       .replace(/\{\{original\}\}/g, _esc(query))
       .replace(/\{\{search_url\}\}/g, `/search?q=${encodeURIComponent(query)}`)
+      .replace(/\{\{corrected_url\}\}/g, `/search?q=${encodeURIComponent(corrected)}`)
       .replace(/\{\{skip_endpoint\}\}/g, `${_apiBase}/skip`);
 
     return { html };

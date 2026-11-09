@@ -1,0 +1,70 @@
+{
+  "weather-command": {
+    "name": "Hava Durumu",
+    "description": "Open-Meteo kullanarak hava durumu bilgilerini gösterir.",
+    "settings": {
+      "defaultCity": {
+        "label": "Varsayılan Şehir",
+        "placeholder": "Londra",
+        "description": "!weather komutu bir argüman olmadan çalıştırıldığında kullanılacak şehir"
+      },
+      "fahrenheit": {
+        "label": "Fahrenheit kullan",
+        "description": "Sıcaklığı °C yerine °F cinsinden göster"
+      }
+    },
+    "template": {
+      "feelsPrefix": "Hissedilen",
+      "highLabel": "Y",
+      "lowLabel": "D",
+      "uvSuffix": "UV",
+      "weekTitle": "7 günlük",
+      "weekHint": "Saatlik tahmin için bir güne tıklayın",
+      "colDay": "Gün",
+      "colHighLow": "En yüksek / En düşük",
+      "colPrecip": "Yağış"
+    },
+    "usage": {
+      "needCityLine1": "Kullanım: <code>!weather &lt;şehir&gt;</code>",
+      "needCityLine2": "Ayrıca Ayarlar → Eklentiler bölümünden varsayılan bir şehir belirleyebilirsiniz.",
+      "notFoundBefore": "Konum bulunamadı:",
+      "fetchErrorBefore": "Şu konum için hava durumu bilgileri alınamadı:",
+      "errorDetails": "Hata ayrıntıları:"
+    },
+    "codes": {
+      "0": "Açık",
+      "1": "Genellikle açık",
+      "2": "Parçalı bulutlu",
+      "3": "Kapalı",
+      "45": "Sis",
+      "48": "Sis",
+      "51": "Çisenti",
+      "53": "Çisenti",
+      "55": "Çisenti",
+      "56": "Dondurucu çisenti",
+      "57": "Dondurucu çisenti",
+      "61": "Yağmur",
+      "63": "Yağmur",
+      "65": "Kuvvetli yağmur",
+      "66": "Dondurucu yağmur",
+      "67": "Dondurucu yağmur",
+      "71": "Kar",
+      "73": "Kar",
+      "75": "Yoğun kar",
+      "77": "Kar tanecikleri",
+      "80": "Sağanak",
+      "81": "Sağanak",
+      "82": "Kuvvetli sağanak",
+      "85": "Kar sağanağı",
+      "86": "Kuvvetli kar sağanağı",
+      "95": "Gök gürültülü fırtına",
+      "96": "Dolu yağışlı gök gürültülü fırtına",
+      "99": "Dolu yağışlı gök gürültülü fırtına",
+      "unknown": "Bilinmiyor"
+    },
+    "script": {
+      "hourlyAria": "Saatlik tahmin",
+      "mmSuffix": "mm"
+    }
+  }
+}
