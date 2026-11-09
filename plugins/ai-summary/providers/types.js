@@ -29,6 +29,12 @@ export const ReasoningEffort = Object.freeze({
   High: "high",
 });
 
+export const ThinkingMode = Object.freeze({
+  Auto: "false",
+  On: "true",
+  Off: "off",
+});
+
 export const SESSION_PLACEHOLDER = "{{session}}";
 
 export const ChatRole = Object.freeze({

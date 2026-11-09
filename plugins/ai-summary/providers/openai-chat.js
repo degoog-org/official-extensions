@@ -65,7 +65,7 @@ export const GENERIC_THINKING_OFF = Object.freeze({
   chat_template_kwargs: { enable_thinking: false },
 });
 
-export const basicOpenAIBody =(_config, messages, opts) => ({
+export const basicOpenAIBody = (_config, messages, opts) => ({
   model: _config.model,
   messages,
   stream: true,

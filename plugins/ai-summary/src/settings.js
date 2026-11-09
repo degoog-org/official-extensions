@@ -5,6 +5,7 @@ import {
   PROVIDER_ORDER,
   ProviderId,
   ReasoningEffort,
+  ThinkingMode,
   TOKEN_PARAM_ORDER,
   TokenParam,
 } from "../providers/index.js";
@@ -48,6 +49,7 @@ const normaliseCompatProvider = (raw) => {
 export const parseSettings = (raw) => {
   const timeoutSeconds = parseFloat(asStr(raw["timeoutSeconds"]) || "") || DEFAULT_TIMEOUT_S;
   const maxTokens = parseInt(asStr(raw["maxTokens"]) || "", 10) || DEFAULT_MAX_TOKENS;
+  const thinking = asStr(raw["enableThinking"]);
   return {
     provider: normaliseProvider(asStr(raw["provider"])),
     openAICompatProvider: normaliseCompatProvider(asStr(raw["openAICompatProvider"])),
@@ -60,8 +62,8 @@ export const parseSettings = (raw) => {
     systemPrompt: asStr(raw["systemPrompt"]),
     maxTokens: Math.max(16, maxTokens),
     questionMarkOnly: asBool(raw["questionMarkOnly"]),
-    enableThinking: asStr(raw["enableThinking"]) === "true",
-    disableThinking: asStr(raw["enableThinking"]) === "false",
+    enableThinking: thinking === ThinkingMode.On,
+    disableThinking: thinking === ThinkingMode.Off,
     reasoningEffort: normaliseEffort(asStr(raw["reasoningEffort"])),
     hideOnError: asBool(raw["hideOnError"]),
     enableInputStyling: asBool(raw["enableInputStyling"]),
@@ -151,9 +153,9 @@ export const settingsSchema = [
     key: "enableThinking",
     label: "Thinking",
     type: "select",
-    options: ["auto", "true", "false"],
+    options: [ThinkingMode.Auto, ThinkingMode.On, ThinkingMode.Off],
     optionLabels: ["Auto (default)", "On", "Off"],
-    default: "auto",
+    default: ThinkingMode.Auto,
     description:
       "Auto lets the model decide. On or Off may error on models that don't support them.",
   },
