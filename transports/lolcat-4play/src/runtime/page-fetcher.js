@@ -81,11 +81,12 @@ export class PageFetcher {
     );
   }
 
-  _wrapFetchedText(text, origin, url = "", tabId = null) {
+  _wrapFetchedText(text, origin, containerId, url = "", tabId = null) {
     if (origin && looksConsent(text, url)) {
       throw new OriginBlockedError(origin, "response consent", tabId, "consent");
     }
     if (origin && looksBlocked(text, url)) {
+      this._markBlocked(origin, containerId, "response block/captcha", tabId);
       throw new OriginBlockedError(origin, "response block/captcha", tabId);
     }
     return wrapResponse(text);
@@ -221,14 +222,21 @@ export class PageFetcher {
       if (containerId) this._tabs.tabContainerIds.set(tabId, containerId);
 
       try {
-        await this._tabs.awaitMatch(tabId, {
-          origin,
-          urlMatch: options.match?.urlMatch,
-          domMatch: options.match?.domMatch,
-          failUrlMatch: options.match?.failUrlMatch,
-          timeoutMs: this._timeoutMs(),
-          signal: options.signal,
-        });
+        await this._tabs
+          .awaitMatch(tabId, {
+            origin,
+            urlMatch: options.match?.urlMatch,
+            domMatch: options.match?.domMatch,
+            failUrlMatch: options.match?.failUrlMatch,
+            timeoutMs: this._timeoutMs(),
+            signal: options.signal,
+          })
+          .catch((error) => {
+            if (error instanceof OriginBlockedError) {
+              this._markBlocked(origin, containerId, error.reason, tabId);
+            }
+            throw error;
+          });
         await sleep(1000);
         await this._tabs.acceptConsent(tabId);
 
@@ -239,7 +247,7 @@ export class PageFetcher {
           );
         }
 
-        return this._wrapFetchedText(html, origin, url, tabId);
+        return this._wrapFetchedText(html, origin, containerId, url, tabId);
       } catch (error) {
         if (!(error instanceof OriginBlockedError)) throw error;
 
@@ -248,15 +256,13 @@ export class PageFetcher {
             const retryHtml = await this._tabs.inject(tabId, documentHtmlJs());
             if (retryHtml) {
               try {
-                return this._wrapFetchedText(retryHtml, origin, url, tabId);
+                return this._wrapFetchedText(retryHtml, origin, containerId, url, tabId);
               } catch {
                 // consent still not cleared; escalate to a manual tab below
               }
             }
           }
           this._markBlocked(origin, containerId, "consent (needs manual accept)", tabId);
-        } else {
-          this._markBlocked(origin, containerId, error.reason, tabId);
         }
 
         const solved = await this.solveWithFlare(url, origin, containerId, proxyUrl);
