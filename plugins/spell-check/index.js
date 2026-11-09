@@ -12,6 +12,7 @@ const DEFAULT_MAX_WAIT_MS = 1_500;
 const _delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 let _cache = null;
+let _kept = null;
 let _lang = "en";
 let _maxWaitMs = DEFAULT_MAX_WAIT_MS;
 let _apiBase = "";
@@ -23,13 +24,15 @@ const MIN_WORDS = 2;
 const LONG_WORD_LENGTH = 9;
 const CACHE_NAMESPACE = "ext:spell-check:corrections";
 const CACHE_TTL_MS = 120_000;
+const KEPT_NAMESPACE = "ext:spell-check:kept";
+const KEPT_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
-const _resolveCache = (ctx) => {
+const _resolveCache = (ctx, namespace, ttlMs) => {
   if (typeof ctx?.useCache === "function") {
-    return ctx.useCache(CACHE_NAMESPACE, CACHE_TTL_MS);
+    return ctx.useCache(namespace, ttlMs);
   }
   if (typeof ctx?.createCache === "function") {
-    const sync = ctx.createCache(CACHE_TTL_MS);
+    const sync = ctx.createCache(ttlMs);
     return {
       get: async (k) => sync.get(k),
       set: async (k, v) => sync.set(k, v),
@@ -91,15 +94,33 @@ const _applyFixes = (query, errors, accept) => {
   return out;
 };
 
-const _remember = (q, { query, suggested }) => {
+const _remember = (q, { query, suggested, words = [] }) => {
   const sure = query !== q;
   const corrected = sure ? query : suggested;
   if (corrected === q) return;
   _corrections.set(q, {
     corrected,
     sure,
+    words,
     expiresAt: Date.now() + CORRECTION_TTL_MS,
   });
+};
+
+const _keptKey = (word) => `${_lang}:${word.toLowerCase()}`;
+
+const _unkept = async (errors) => {
+  if (!_kept) return errors;
+  const kept = await Promise.all(
+    errors.map((e) => _kept.get(_keptKey(e.word))),
+  );
+  return errors.filter((_, i) => !kept[i]);
+};
+
+const _keep = async (q) => {
+  const words = _corrections.get(q)?.words ?? [];
+  _corrections.delete(q);
+  if (!_kept) return;
+  await Promise.all(words.map((word) => _kept.set(_keptKey(word), true)));
 };
 
 const _toLang = (tag) => tag.split(/[-_]/)[0].toLowerCase();
@@ -150,7 +171,8 @@ export const interceptor = {
   },
 
   async init(ctx) {
-    _cache = _resolveCache(ctx);
+    _cache = _resolveCache(ctx, CACHE_NAMESPACE, CACHE_TTL_MS);
+    _kept = _resolveCache(ctx, KEPT_NAMESPACE, KEPT_TTL_MS);
     _apiBase = ctx.apiBase;
   },
 
@@ -189,12 +211,22 @@ export const interceptor = {
 };
 
 const _runIntercept = async (q, context) => {
+  const errors = await _unkept(await _spellingErrors(q, context));
+  return {
+    query: _applyFixes(q, errors, _isSureFix),
+    suggested: _applyFixes(q, errors, _changesWord),
+    words: errors
+      .filter((e) => e.s?.length && _isSureFix(e))
+      .map((e) => e.word),
+  };
+};
+
+const _spellingErrors = async (q, context) => {
   const cacheKey = `${_lang}:${q}`;
   const hit = _cache ? await _cache.get(cacheKey) : null;
-  if (typeof hit?.suggested === "string") return hit;
+  if (Array.isArray(hit?.errors)) return hit.errors;
 
   const fetchFn = context?.fetch ?? fetch;
-  const unchanged = { query: q, suggested: q };
 
   try {
     const url = `${YANDEX_SPELLER}?text=${encodeURIComponent(q)}&lang=${_lang}`;
@@ -202,20 +234,16 @@ const _runIntercept = async (q, context) => {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
-    if (!res.ok) return unchanged;
+    if (!res.ok) return [];
 
     const errors = await res.json();
-    if (!Array.isArray(errors)) return unchanged;
+    if (!Array.isArray(errors)) return [];
 
-    const result = {
-      query: _applyFixes(q, errors, _isSureFix),
-      suggested: _applyFixes(q, errors, _changesWord),
-    };
-    if (_cache) await _cache.set(cacheKey, result);
-    return result;
+    if (_cache) await _cache.set(cacheKey, { errors });
+    return errors;
   } catch (err) {
     console.warn("[spell-check] Yandex Speller request failed", err);
-    return unchanged;
+    return [];
   }
 };
 
@@ -266,6 +294,7 @@ export const routes = [
         if (typeof body?.q === "string" && body.q) {
           _skipOnce.add(body.q);
           setTimeout(() => _skipOnce.delete(body.q), 30_000);
+          await _keep(body.q);
         }
       } catch (err) {
         console.warn("[spell-check] skip route parse failed", err);
