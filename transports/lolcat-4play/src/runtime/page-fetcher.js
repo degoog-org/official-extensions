@@ -268,6 +268,13 @@ export class PageFetcher {
         const solved = await this.solveWithFlare(url, origin, containerId, proxyUrl);
         if (solved) return solved;
 
+        if (this._captcha.hasOpenTab(origin, containerId)) {
+          this._warn(
+            `closing browser fetch tab ${tabId}; ${origin} already has a tab waiting for manual attention`,
+          );
+          throw error;
+        }
+
         keepTabOpen = true;
         if (typeof tabId === "number") {
           this._captcha.register(tabId, origin);
