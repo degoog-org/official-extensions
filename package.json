@@ -156,7 +156,7 @@
       "path": "plugins/spell-check",
       "name": "Spell Check",
       "description": "Intercepts search queries and corrects spelling using Yandex Speller.",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "type": "interceptor",
       "minDegoogVersion": "0.19.0"
     },
