@@ -89,7 +89,7 @@ const _applyFixes = (query, errors, accept) => {
   return out;
 };
 
-const _remember = (q, { query, suggested = query }) => {
+const _remember = (q, { query, suggested }) => {
   const sure = query !== q;
   const corrected = sure ? query : suggested;
   if (corrected === q) return;
@@ -158,7 +158,7 @@ export const interceptor = {
 const _runIntercept = async (q, context) => {
   const cacheKey = `${_lang}:${q}`;
   const hit = _cache ? await _cache.get(cacheKey) : null;
-  if (hit) {
+  if (typeof hit?.suggested === "string") {
     _remember(q, hit);
     return { query: hit.query };
   }
