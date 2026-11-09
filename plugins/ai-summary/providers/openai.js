@@ -18,6 +18,7 @@ export const openAIAdapter = createOpenAIChatAdapter({
   logNs: "ai-summary:openai",
   defaultBaseUrl: OPENAI_DEFAULT_BASE,
   buildBody,
+  thinkingOff: { reasoning_effort: "none" },
   settings: {
     label: "OpenAI",
     requires: { baseUrl: false, apiKey: true },

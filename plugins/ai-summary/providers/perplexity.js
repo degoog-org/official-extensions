@@ -60,6 +60,7 @@ const buildBody = (config, messages, opts) => {
   else body.model = model;
   if (instructions) body.instructions = instructions;
   if (opts.enableThinking) body.reasoning = { effort: opts.reasoningEffort ?? ReasoningEffort.Medium };
+  else if (opts.disableThinking) body.reasoning = { effort: "none" };
   if (opts.sendBrowserLanguage && opts.language) body.language_preference = opts.language;
   return body;
 };

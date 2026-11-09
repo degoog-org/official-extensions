@@ -7,7 +7,9 @@ const buildBody = (config, messages, opts) => ({
   messages,
   stream: true,
   ...tokenCap(opts),
-  chat_template_kwargs: { enable_thinking: !!opts.enableThinking },
+  ...(opts.enableThinking || opts.disableThinking
+    ? { chat_template_kwargs: { enable_thinking: !!opts.enableThinking } }
+    : {}),
 });
 
 export const llamaCppAdapter = createOpenAIChatAdapter({

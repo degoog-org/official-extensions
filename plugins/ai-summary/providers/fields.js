@@ -1,4 +1,4 @@
-import { ReasoningEffort, TokenParam } from "./types.js";
+import { ReasoningEffort, ThinkingMode, TokenParam } from "./types.js";
 
 export const TOKEN_PARAM_ORDER = Object.freeze([TokenParam.MaxTokens, TokenParam.MaxCompletionTokens]);
 export const EFFORT_ORDER = Object.freeze([ReasoningEffort.Low, ReasoningEffort.Medium, ReasoningEffort.High]);
@@ -21,6 +21,6 @@ export const reasoningEffortField = Object.freeze({
   options: [...EFFORT_ORDER],
   optionLabels: ["Low", "Medium (default)", "High"],
   default: ReasoningEffort.Medium,
-  visibleWhen: { key: "enableThinking", equals: "true" },
+  visibleWhen: { key: "enableThinking", equals: ThinkingMode.On },
   description: "How hard the model thinks before answering. Higher is slower and costs more.",
 });
