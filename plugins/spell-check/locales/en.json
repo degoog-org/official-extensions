@@ -7,6 +7,10 @@
         "label": "Language",
         "placeholder": "en",
         "description": "Language code passed to Yandex Speller (en, ru, uk)."
+      },
+      "maxWaitMs": {
+        "label": "Maximum wait (ms)",
+        "description": "How long a search waits for Yandex Speller before it runs as typed. A fix that arrives later is shown as Did you mean."
       }
     },
     "template": {
