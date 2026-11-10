@@ -461,7 +461,7 @@
       "path": "engines/brave-images",
       "name": "Brave Images",
       "description": "Brave image search by scraping the results page.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "brave-images",

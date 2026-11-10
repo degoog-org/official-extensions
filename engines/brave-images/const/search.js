@@ -3,5 +3,8 @@ export const FALLBACK_UA =
 
 export const BASE_URL = "https://search.brave.com/images";
 
-export const RESULT_RE =
-  /title:"((?:[^"\\]|\\.)*)",url:"((?:[^"\\]|\\.)*)"[\s\S]*?source:"((?:[^"\\]|\\.)*)"[\s\S]*?thumbnail:\{src:"((?:[^"\\]|\\.)*)"[\s\S]*?original:"((?:[^"\\]|\\.)*)"/g;
+export const IMAGES_RESPONSE = 'response:{type:"images"';
+
+export const RESULTS_KEY = "results:[";
+
+export const HOISTED_FN = "(function(";
