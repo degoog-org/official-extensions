@@ -32,44 +32,99 @@ const _esc = (s) => {
     .replace(/"/g, "&quot;");
 }
 
-const _resolveTimeZone = (input) => {
-  const key = input.trim().toLowerCase().replace(/\s+/g, " ");
-  if (TZ_MAP[key]) return TZ_MAP[key];
-  const normalized = key.replace(/\s+/g, "_");
-  
+const GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search";
+const GEOCODE_TTL_MS = 12 * 60 * 60 * 1000;
+const GEOCODE_MISS_TTL_MS = 60 * 60 * 1000;
+const MAX_PLACE_LENGTH = 100;
+
+let _fetch = (url, init) => fetch(url, init);
+let _places = null;
+
+const _canonicalZone = (tz) => {
+  if (typeof tz !== "string" || !tz) return null;
   try {
-    const formatter = new Intl.DateTimeFormat("en", { timeZone: normalized });
-    formatter.format(new Date());
-    return normalized;
+    return new Intl.DateTimeFormat("en", { timeZone: tz }).resolvedOptions().timeZone;
   } catch {
     return null;
   }
 };
 
+const _resolveTimeZone = (input) => {
+  const key = input.trim().toLowerCase().replace(/\s+/g, " ");
+  if (TZ_MAP[key]) return TZ_MAP[key];
+
+  return _canonicalZone(key.replace(/\s+/g, "_"));
+};
+
+const _lang = (locale) => {
+  const lang = String(locale || "").split("-")[0].toLowerCase();
+
+  return /^[a-z]{2,3}$/.test(lang) ? lang : "en";
+};
+
+const _geocode = async (place, lang) => {
+  const key = `${lang}:${place.toLowerCase().replace(/\s+/g, " ")}`;
+  const cached = _places ? await _places.get(key) : null;
+  if (cached) return cached.tz ? cached : null;
+
+  const url = `${GEOCODE_URL}?name=${encodeURIComponent(place)}&count=1&language=${lang}&format=json`;
+  const res = await _fetch(url);
+  if (!res.ok) throw new Error(`Geocoding HTTP ${res.status}`);
+  const data = await res.json();
+  const hit = Array.isArray(data?.results) ? data.results[0] : null;
+  const tz = (hit && _canonicalZone(hit.timezone)) || "";
+  const label = tz ? [...new Set([hit.name, hit.admin1, hit.country].filter(Boolean))].join(", ") : "";
+  const entry = { tz, label };
+  if (_places) await _places.set(key, entry, tz ? GEOCODE_TTL_MS : GEOCODE_MISS_TTL_MS);
+
+  return tz ? entry : null;
+};
+
+const _message = (title, key, place) => ({
+  title,
+  html: `<div class="command-result"><p>{{ t:time-command.errors.${key} }} <strong>${_esc(place)}</strong></p></div>`,
+});
+
 export default {
   isClientExposed: false,
   name: "Time",
-  description: "Show current time in a timezone or city.",
+  description: "Show current time in a timezone or city. Places it does not know are looked up with Open-Meteo geocoding.",
   trigger: "time",
   aliases: ["tz", "clock"],
   naturalLanguagePhrases: ["what time is it in", "time in", "current time in", "what's the time in"],
 
+  respectRateLimiting: true,
+
   settingsSchema: [],
 
-  execute(args) {
+  init(ctx) {
+    if (typeof ctx?.fetch === "function") _fetch = ctx.fetch;
+    if (typeof ctx?.useCache === "function") {
+      _places = ctx.useCache(`ext:${ctx.pluginId || "time"}:places`, GEOCODE_TTL_MS);
+    }
+  },
+
+  async execute(args, context) {
+    const title = this.t?.("time-command.title", undefined, context?.locale) ?? "Time";
     const place = args.trim().replace(/[?.,!]+$/, "").trim();
     if (!place) {
       return {
-        title: "Time",
-        html: `<div class="command-result"><p>Usage: <code>!time &lt;city or timezone&gt;</code></p><p>Examples: <code>!time Tokyo</code>, <code>!time America/New_York</code></p></div>`,
+        title,
+        html: `<div class="command-result"><p>{{ t:time-command.usage.label }} <code>!time &lt;city or timezone&gt;</code></p><p>{{ t:time-command.usage.examples }} <code>!time Tokyo</code>, <code>!time America/New_York</code></p></div>`,
       };
     }
-    const tz = _resolveTimeZone(place);
+    let tz = _resolveTimeZone(place);
+    let placeLabel = "";
     if (!tz) {
-      return {
-        title: "Time",
-        html: `<div class="command-result"><p>Unknown timezone or city: <strong>${_esc(place)}</strong></p></div>`,
-      };
+      if (place.length > MAX_PLACE_LENGTH) return _message(title, "unknown", place);
+      try {
+        const found = await _geocode(place, _lang(context?.locale));
+        if (!found) return _message(title, "unknown", place);
+        tz = found.tz;
+        placeLabel = found.label;
+      } catch {
+        return _message(title, "lookupFailed", place);
+      }
     }
     const now = new Date();
     const timeStr = now.toLocaleTimeString("en-GB", {
@@ -86,8 +141,10 @@ export default {
       month: "long",
       year: "numeric",
     });
-    const label = tz.replace(/_/g, " ");
-    const html = `<div class="command-result time-result"><h3 class="time-place">${_esc(label)}</h3><p class="time-time">${_esc(timeStr)}</p><p class="time-date">${_esc(dateStr)}</p></div>`;
-    return { title: `Time: ${label}`, html };
+    const zoneLabel = tz.replace(/_/g, " ");
+    const label = placeLabel || zoneLabel;
+    const zoneLine = placeLabel ? `<p class="time-zone">${_esc(zoneLabel)}</p>` : "";
+    const html = `<div class="command-result time-result"><h3 class="time-place">${_esc(label)}</h3><p class="time-time">${_esc(timeStr)}</p><p class="time-date">${_esc(dateStr)}</p>${zoneLine}</div>`;
+    return { title: `${title}: ${label}`, html };
   },
 };

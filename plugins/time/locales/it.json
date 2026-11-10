@@ -1,6 +1,15 @@
 {
   "time-command": {
     "name": "Ora",
-    "description": "Mostra l'ora corrente in un fuso orario o in una città."
+    "description": "Mostra l'ora corrente in un fuso orario o in una città. I luoghi che non conosce vengono cercati con il geocoding di Open-Meteo.",
+    "title": "Ora",
+    "usage": {
+      "label": "Uso:",
+      "examples": "Esempi:"
+    },
+    "errors": {
+      "unknown": "Fuso orario o città sconosciuti:",
+      "lookupFailed": "Impossibile trovare il fuso orario per"
+    }
   }
 }
