@@ -14,3 +14,9 @@
   font-size: 0.95rem;
   margin: 0;
 }
+
+.time-zone {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0 0;
+}

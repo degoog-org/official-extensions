@@ -3,5 +3,8 @@ export const FALLBACK_UA =
 
 export const BASE_URL = "https://search.brave.com/videos";
 
-export const RESULT_RE =
-  /title:"((?:[^"\\]|\\.)*)",url:"((?:[^"\\]|\\.)*)",[\s\S]{0,400}?description:(?:"((?:[^"\\]|\\.)*)"|null)[\s\S]{0,400}?type:"video_result",video:\{duration:(?:"([^"]*)"|null)[\s\S]{0,600}?thumbnail:\{src:"((?:[^"\\]|\\.)*)"/g;
+export const VIDEOS_RESPONSE = 'type:"videos"';
+
+export const RESULTS_KEY = "results:[";
+
+export const HOISTED_FN = "(function(";

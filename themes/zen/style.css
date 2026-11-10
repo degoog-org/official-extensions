@@ -675,34 +675,48 @@ a:hover {
 .pagination {
   display: flex;
   justify-content: center;
-  gap: 8px;
   margin: 40px 0;
 }
 
-.pagination a, .pagination span {
-  width: 36px;
-  height: 36px;
+.pagination-pages {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.pagination-link,
+.pagination-current,
+.pagination-nav,
+.pagination-page-label {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
+  gap: 8px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 18px;
   color: var(--text-link);
   font-weight: 500;
   transition: background-color 0.2s ease;
-  box-shadow: none;
-  padding: 0;
 }
 
-.pagination a:hover {
+.pagination-link,
+.pagination-current {
+  padding: 0 6px;
+}
+
+.pagination-link:hover,
+.pagination-nav:hover {
   background: var(--bg-hover);
+  color: var(--text-link);
+  text-decoration: none;
 }
 
-.pagination .active {
+.pagination-current,
+.pagination-page-label {
   background: var(--theme-pagination-active-bg);
   color: var(--accent);
-  border-style: none;
 }
 
 #home-footer {

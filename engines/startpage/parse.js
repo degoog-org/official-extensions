@@ -2,7 +2,9 @@ import {
   ANUBIS_MARKER,
   BASE_URL,
   CAPTCHA_MARKERS,
+  NO_RESULTS_BLOCK,
   SUSPENDED_MARKERS,
+  WEB_BLOCK_PREFIX,
 } from "./const/serp.js";
 
 export const isCaptcha = (html) => {
@@ -48,11 +50,18 @@ const _stripProxy = (url) => {
   return url;
 };
 
+const _isWebBlock = (block) =>
+  typeof block?.display_type === "string" &&
+  block.display_type.startsWith(WEB_BLOCK_PREFIX) &&
+  Array.isArray(block.results);
+
+export const isReadableMainline = (mainline) =>
+  mainline.some((block) => _isWebBlock(block) || block?.display_type === NO_RESULTS_BLOCK);
+
 export const parseMainline = (mainline, name, useAnonymousView) => {
   const results = [];
   for (const block of mainline) {
-    if (block?.display_type !== "web-google") continue;
-    if (!Array.isArray(block.results)) continue;
+    if (!_isWebBlock(block)) continue;
     for (const item of block.results) {
       let url = _stripProxy(item.clickUrl ?? item.url ?? "");
       if (!url || !url.startsWith("http")) continue;

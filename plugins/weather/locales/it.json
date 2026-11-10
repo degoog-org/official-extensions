@@ -26,7 +26,7 @@
     },
     "usage": {
       "needCityLine1": "Uso: <code>!weather &lt;città&gt;</code>",
-      "needCityLine2": "Puoi anche impostare una città predefinita in Impostazioni → Plugin.",
+      "needCityLine2": "Puoi anche impostare una città predefinita in Impostazioni -> Plugin.",
       "notFoundBefore": "Località non trovata:",
       "fetchErrorBefore": "Impossibile recuperare il meteo per",
       "errorDetails": "Dettagli errore:"

@@ -26,7 +26,7 @@
     },
     "usage": {
       "needCityLine1": "Usage: <code>!weather &lt;city&gt;</code>",
-      "needCityLine2": "You can also set a default city in Settings → Plugins.",
+      "needCityLine2": "You can also set a default city in Settings -> Plugins.",
       "notFoundBefore": "Could not find location:",
       "fetchErrorBefore": "Could not fetch weather for",
       "errorDetails": "Error details:"

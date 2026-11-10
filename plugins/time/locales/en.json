@@ -1,6 +1,15 @@
 {
   "time-command": {
     "name": "Time",
-    "description": "Show current time in a timezone or city."
+    "description": "Show current time in a timezone or city. Places it does not know are looked up with Open-Meteo geocoding.",
+    "title": "Time",
+    "usage": {
+      "label": "Usage:",
+      "examples": "Examples:"
+    },
+    "errors": {
+      "unknown": "Unknown timezone or city:",
+      "lookupFailed": "Could not look up the timezone for"
+    }
   }
 }

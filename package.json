@@ -27,7 +27,7 @@
       "path": "plugins/weather",
       "name": "Weather",
       "description": "Shows weather information using Open-Meteo.",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "type": "command",
       "minDegoogVersion": "1.0.0"
     },
@@ -41,8 +41,8 @@
     {
       "path": "plugins/time",
       "name": "Time",
-      "description": "Show current time in a timezone or city.",
-      "version": "1.2.0",
+      "description": "Show current time in a timezone or city. Places it does not know are looked up with Open-Meteo geocoding.",
+      "version": "1.3.1",
       "type": "command"
     },
     {
@@ -218,19 +218,19 @@
       "path": "themes/zen",
       "name": "Zen",
       "description": "Paper-colored theme with Bricolage Grotesque and Junicode.",
-      "version": "2.1.0"
+      "version": "2.1.2"
     },
     {
       "path": "themes/catpuccin",
       "name": "Catppuccin",
       "description": "Mocha (blue), Latte (light blue), Rose (red/coral), Peach (orange/amber).",
-      "version": "1.1.1"
+      "version": "1.1.2"
     },
     {
       "path": "themes/pokemon",
       "name": "Pokemon",
       "description": "Starter-inspired: Pikachu (yellow), Bulbasaur (green), Charmander (orange), Squirtle (blue).",
-      "version": "1.3.0"
+      "version": "1.3.1"
     },
     {
       "path": "themes/dynacat",
@@ -428,7 +428,7 @@
       "path": "engines/startpage",
       "name": "Startpage",
       "description": "Startpage web search. degoog gets through Startpage's Anubis check by itself, on any transport. Turn on Anonymous View if you want result links to open through Startpage's proxy.",
-      "version": "1.4.0",
+      "version": "1.4.2",
       "minDegoogVersion": "1.1.0"
     },
     {
@@ -461,7 +461,7 @@
       "path": "engines/brave-images",
       "name": "Brave Images",
       "description": "Brave image search by scraping the results page.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "minDegoogVersion": "1.1.0",
       "legacyIds": [
         "brave-images",
@@ -519,14 +519,14 @@
       "path": "engines/brave-videos",
       "name": "Brave Videos",
       "description": "Brave video search by scraping the video results page.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "minDegoogVersion": "1.1.0"
     },
     {
       "path": "engines/startpage-images",
       "name": "Startpage Images",
       "description": "Startpage image search with thumbnails proxied through Startpage.",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "minDegoogVersion": "1.1.0"
     },
     {

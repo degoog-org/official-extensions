@@ -5,6 +5,9 @@ export const SEARCH_URL = `${BASE_URL}/sp/search`;
 export const TIME_MAP = { hour: "h", day: "d", week: "w", month: "m", year: "y" };
 export const SAFE_MAP = { off: "none", on: "heavy" };
 
+export const WEB_BLOCK_PREFIX = "web-";
+export const NO_RESULTS_BLOCK = "notice-noresults-empty";
+
 export const READY_SELECTOR = "#debug";
 export const ANUBIS_MARKER = 'id="anubis_challenge"';
 

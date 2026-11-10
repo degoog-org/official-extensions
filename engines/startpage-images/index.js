@@ -66,15 +66,7 @@ export default class StartpageImagesEngine {
     return res.text();
   }
 
-  async executeSearch(query, page = 1, _timeFilter, context) {
-    const doFetch = context?.fetch ?? fetch;
-    const p = Math.max(1, page || 1);
-    const safe = this._resolveSafe(context);
-    const html =
-      p > 1 && context?.carried?.sc
-        ? await this._postPage(doFetch, buildNextPageBody(query, p, context.carried.sc, safe, context), context, safe)
-        : await this._getPage(doFetch, buildFirstPageParams(query, safe, context), context, safe);
-
+  _readSerp(html, context) {
     if (isAnubisGate(html)) {
       const message = `${this.name} is still showing its Anubis check. On a browser transport, let the page finish loading in the browser.`;
       if (context?.engineError) {
@@ -96,13 +88,35 @@ export default class StartpageImagesEngine {
       throw this._parseError(context, `${this.name} returned a page without parseable results`);
     }
 
-    let data;
     try {
-      data = JSON.parse(jsonStr);
+      return JSON.parse(jsonStr);
     } catch (e) {
       if (e?.name === "SentinelBreach") throw e;
       throw this._parseError(context, `${this.name} returned malformed result data`);
     }
+  }
+
+  async _pagingToken(doFetch, query, context, safe) {
+    if (context?.carried?.sc) return context.carried.sc;
+    const html = await this._getPage(doFetch, buildFirstPageParams(query, safe, context), context, safe);
+    const sc = this._readSerp(html, context)?.render?.search_sc;
+    if (!sc) throw this._parseError(context, `${this.name} did not hand out a paging token`);
+    return sc;
+  }
+
+  async _fetchSerp(doFetch, query, page, context, safe) {
+    if (page === 1) {
+      return this._getPage(doFetch, buildFirstPageParams(query, safe, context), context, safe);
+    }
+    const sc = await this._pagingToken(doFetch, query, context, safe);
+    return this._postPage(doFetch, buildNextPageBody(query, page, sc, safe, context), context, safe);
+  }
+
+  async executeSearch(query, page = 1, _timeFilter, context) {
+    const doFetch = context?.fetch ?? fetch;
+    const p = Math.max(1, page || 1);
+    const safe = this._resolveSafe(context);
+    const data = this._readSerp(await this._fetchSerp(doFetch, query, p, context, safe), context);
 
     if (data?.render?.search_sc) context?.carry?.({ sc: data.render.search_sc });
 
