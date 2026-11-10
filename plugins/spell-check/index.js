@@ -9,7 +9,13 @@ const _pending = new Map();
 const TRIGGER_WAIT_MS = 2_000;
 const REQUEST_TIMEOUT_MS = 5_000;
 const DEFAULT_MAX_WAIT_MS = 1_500;
-const _delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const _waitUpTo = (promise, ms) => {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(resolve, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+};
 
 let _cache = null;
 let _lang = "en";
@@ -174,7 +180,7 @@ export const interceptor = {
       promise.then(clear, clear);
     }
 
-    const result = await Promise.race([promise, _delay(_maxWaitMs)]);
+    const result = await _waitUpTo(promise, _maxWaitMs);
     if (result) {
       _remember(q, result);
       return { query: result.query };
@@ -182,7 +188,7 @@ export const interceptor = {
 
     promise.then(
       ({ suggested }) => _remember(q, { query: q, suggested }),
-      () => {},
+      (err) => console.warn("[spell-check] late correction failed", err),
     );
     return { query };
   },
@@ -234,7 +240,7 @@ export const slot = {
   async trigger(query) {
     const pending = _pending.get(query);
     if (pending) {
-      await Promise.race([pending.catch(() => {}), _delay(TRIGGER_WAIT_MS)]);
+      await _waitUpTo(pending.catch(() => {}), TRIGGER_WAIT_MS);
     }
     const entry = _corrections.get(query);
     return !!(entry && Date.now() < entry.expiresAt);
