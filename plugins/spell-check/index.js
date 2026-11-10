@@ -8,10 +8,18 @@ const _pending = new Map();
 
 const TRIGGER_WAIT_MS = 2_000;
 const REQUEST_TIMEOUT_MS = 5_000;
-const _delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const DEFAULT_MAX_WAIT_MS = 1_500;
+const _waitUpTo = (promise, ms) => {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(resolve, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+};
 
 let _cache = null;
 let _lang = "en";
+let _maxWaitMs = DEFAULT_MAX_WAIT_MS;
 let _apiBase = "";
 let _tpl = "";
 let _suggestTpl = "";
@@ -102,6 +110,12 @@ const _remember = (q, { query, suggested }) => {
 
 const _toLang = (tag) => tag.split(/[-_]/)[0].toLowerCase();
 
+const _toMaxWait = (value) => {
+  const ms = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(ms)) return DEFAULT_MAX_WAIT_MS;
+  return Math.min(REQUEST_TIMEOUT_MS, Math.max(0, ms));
+};
+
 export const plugin = {
   id: "spell-check",
   name: "Spell Check",
@@ -123,8 +137,22 @@ export const interceptor = {
   isClientExposed: false,
   name: "Spell Check",
 
+  settingsSchema: [
+    {
+      key: "maxWaitMs",
+      label: "Maximum wait (ms)",
+      type: "number",
+      min: "0",
+      max: String(REQUEST_TIMEOUT_MS),
+      default: String(DEFAULT_MAX_WAIT_MS),
+      description:
+        "How long a search waits for Yandex Speller before it runs as typed. A fix that arrives later is shown as Did you mean.",
+    },
+  ],
+
   configure(settings) {
     _lang = _toLang(settings.language || "en");
+    _maxWaitMs = _toMaxWait(settings.maxWaitMs);
   },
 
   async init(ctx) {
@@ -142,28 +170,37 @@ export const interceptor = {
       return { query };
     }
 
-    const existing = _pending.get(q);
-    if (existing) return await existing;
-
-    const promise = _runIntercept(q, context);
-    _pending.set(q, promise);
-    try {
-      return await promise;
-    } finally {
-      if (_pending.get(q) === promise) _pending.delete(q);
+    let promise = _pending.get(q);
+    if (!promise) {
+      promise = _runIntercept(q, context);
+      _pending.set(q, promise);
+      const clear = () => {
+        if (_pending.get(q) === promise) _pending.delete(q);
+      };
+      promise.then(clear, clear);
     }
+
+    const result = await _waitUpTo(promise, _maxWaitMs);
+    if (result) {
+      _remember(q, result);
+      return { query: result.query };
+    }
+
+    promise.then(
+      ({ suggested }) => _remember(q, { query: q, suggested }),
+      (err) => console.warn("[spell-check] late correction failed", err),
+    );
+    return { query };
   },
 };
 
 const _runIntercept = async (q, context) => {
   const cacheKey = `${_lang}:${q}`;
   const hit = _cache ? await _cache.get(cacheKey) : null;
-  if (typeof hit?.suggested === "string") {
-    _remember(q, hit);
-    return { query: hit.query };
-  }
+  if (typeof hit?.suggested === "string") return hit;
 
   const fetchFn = context?.fetch ?? fetch;
+  const unchanged = { query: q, suggested: q };
 
   try {
     const url = `${YANDEX_SPELLER}?text=${encodeURIComponent(q)}&lang=${_lang}`;
@@ -171,21 +208,20 @@ const _runIntercept = async (q, context) => {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
-    if (!res.ok) return { query: q };
+    if (!res.ok) return unchanged;
 
     const errors = await res.json();
-    if (!Array.isArray(errors)) return { query: q };
+    if (!Array.isArray(errors)) return unchanged;
 
     const result = {
       query: _applyFixes(q, errors, _isSureFix),
       suggested: _applyFixes(q, errors, _changesWord),
     };
     if (_cache) await _cache.set(cacheKey, result);
-    _remember(q, result);
-    return { query: result.query };
+    return result;
   } catch (err) {
     console.warn("[spell-check] Yandex Speller request failed", err);
-    return { query: q };
+    return unchanged;
   }
 };
 
@@ -204,7 +240,7 @@ export const slot = {
   async trigger(query) {
     const pending = _pending.get(query);
     if (pending) {
-      await Promise.race([pending.catch(() => {}), _delay(TRIGGER_WAIT_MS)]);
+      await _waitUpTo(pending.catch(() => {}), TRIGGER_WAIT_MS);
     }
     const entry = _corrections.get(query);
     return !!(entry && Date.now() < entry.expiresAt);
