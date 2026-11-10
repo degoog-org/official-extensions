@@ -10,6 +10,7 @@ import {
   extractSerpJson,
   isAnubisGate,
   isCaptcha,
+  isReadableMainline,
   isSuspended,
   parseMainline,
 } from "./parse.js";
@@ -93,40 +94,58 @@ export default class StartpageEngine {
     );
   }
 
-  async executeSearch(query, page = 1, timeFilter, context) {
-    const doFetch = context?.fetch ?? fetch;
-    const p = Math.max(1, page || 1);
-    const html =
-      p > 1 && context?.carried?.sc
-        ? await this._postPage(
-            doFetch,
-            buildNextPageBody(query, p, context.carried.sc, this.safeSearch, context),
-            context,
-          )
-        : await this._getPage(
-            doFetch,
-            buildFirstPageParams(query, timeFilter, this.safeSearch, context),
-            context,
-          );
-
+  _readSerp(html, context) {
     const jsonStr = extractSerpJson(html);
     if (!jsonStr) {
       throw this._parseError(context, `${this.name} returned a page without parseable results`);
     }
-
-    let data;
     try {
-      data = JSON.parse(jsonStr);
+      return JSON.parse(jsonStr);
     } catch (e) {
       if (e?.name === "SentinelBreach") throw e;
       throw this._parseError(context, `${this.name} returned malformed result data`);
     }
+  }
+
+  async _firstPage(doFetch, query, timeFilter, context) {
+    return this._getPage(
+      doFetch,
+      buildFirstPageParams(query, timeFilter, this.safeSearch, context),
+      context,
+    );
+  }
+
+  async _pagingToken(doFetch, query, timeFilter, context) {
+    if (context?.carried?.sc) return context.carried.sc;
+    const data = this._readSerp(await this._firstPage(doFetch, query, timeFilter, context), context);
+    const sc = data?.render?.search_sc;
+    if (!sc) throw this._parseError(context, `${this.name} did not hand out a paging token`);
+    return sc;
+  }
+
+  async _fetchSerp(doFetch, query, page, timeFilter, context) {
+    if (page === 1) return this._firstPage(doFetch, query, timeFilter, context);
+    const sc = await this._pagingToken(doFetch, query, timeFilter, context);
+    return this._postPage(
+      doFetch,
+      buildNextPageBody(query, page, sc, this.safeSearch, context),
+      context,
+    );
+  }
+
+  async executeSearch(query, page = 1, timeFilter, context) {
+    const doFetch = context?.fetch ?? fetch;
+    const p = Math.max(1, page || 1);
+    const data = this._readSerp(await this._fetchSerp(doFetch, query, p, timeFilter, context), context);
 
     if (data?.render?.search_sc) context?.carry?.({ sc: data.render.search_sc });
 
     const mainline = data?.render?.presenter?.regions?.mainline;
     if (!Array.isArray(mainline)) {
       throw this._parseError(context, `${this.name} response layout was not recognised`);
+    }
+    if (!isReadableMainline(mainline)) {
+      throw this._parseError(context, `${this.name} returned no result block it recognises`);
     }
 
     return parseMainline(mainline, this.name, this.useAnonymousView);

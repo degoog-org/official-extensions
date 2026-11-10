@@ -34,8 +34,10 @@ const _esc = (s) => {
 
 const GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search";
 const GEOCODE_TTL_MS = 12 * 60 * 60 * 1000;
-const GEOCODE_MISS_TTL_MS = 60 * 60 * 1000;
+const GEOCODE_TIMEOUT_MS = 10000;
 const MAX_PLACE_LENGTH = 100;
+const FALLBACK_LOCALE = "en-GB";
+const LOG_NS = "time";
 
 let _fetch = (url, init) => fetch(url, init);
 let _places = null;
@@ -62,22 +64,33 @@ const _lang = (locale) => {
   return /^[a-z]{2,3}$/.test(lang) ? lang : "en";
 };
 
+const _dateLocale = (locale) => {
+  try {
+    return Intl.DateTimeFormat.supportedLocalesOf(locale || [])[0] || FALLBACK_LOCALE;
+  } catch {
+    return FALLBACK_LOCALE;
+  }
+};
+
+const _logReason = (err) => String(err?.message ?? err).replace(/\?\S*/g, "?[redacted]");
+
 const _geocode = async (place, lang) => {
   const key = `${lang}:${place.toLowerCase().replace(/\s+/g, " ")}`;
   const cached = _places ? await _places.get(key) : null;
-  if (cached) return cached.tz ? cached : null;
+  if (cached?.tz) return cached;
 
   const url = `${GEOCODE_URL}?name=${encodeURIComponent(place)}&count=1&language=${lang}&format=json`;
-  const res = await _fetch(url);
+  const res = await _fetch(url, { signal: AbortSignal.timeout(GEOCODE_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`Geocoding HTTP ${res.status}`);
   const data = await res.json();
   const hit = Array.isArray(data?.results) ? data.results[0] : null;
-  const tz = (hit && _canonicalZone(hit.timezone)) || "";
-  const label = tz ? [...new Set([hit.name, hit.admin1, hit.country].filter(Boolean))].join(", ") : "";
+  const tz = hit && _canonicalZone(hit.timezone);
+  if (!tz) return null;
+  const label = [...new Set([hit.name, hit.admin1, hit.country].filter(Boolean))].join(", ");
   const entry = { tz, label };
-  if (_places) await _places.set(key, entry, tz ? GEOCODE_TTL_MS : GEOCODE_MISS_TTL_MS);
+  if (_places) await _places.set(key, entry, GEOCODE_TTL_MS);
 
-  return tz ? entry : null;
+  return entry;
 };
 
 const _message = (title, key, place) => ({
@@ -122,19 +135,21 @@ export default {
         if (!found) return _message(title, "unknown", place);
         tz = found.tz;
         placeLabel = found.label;
-      } catch {
+      } catch (err) {
+        console.warn(LOG_NS, "geocoding lookup failed", _logReason(err));
         return _message(title, "lookupFailed", place);
       }
     }
     const now = new Date();
-    const timeStr = now.toLocaleTimeString("en-GB", {
+    const dateLocale = _dateLocale(context?.locale);
+    const timeStr = now.toLocaleTimeString(dateLocale, {
       timeZone: tz,
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
       hour12: false,
     });
-    const dateStr = now.toLocaleDateString("en-GB", {
+    const dateStr = now.toLocaleDateString(dateLocale, {
       timeZone: tz,
       weekday: "long",
       day: "numeric",

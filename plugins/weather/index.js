@@ -1,6 +1,9 @@
 let defaultCity = "";
 let useFahrenheit = false;
 let template = "";
+let _fetch = (url, init) => fetch(url, init);
+
+const FETCH_TIMEOUT_MS = 10000;
 
 const WEATHER_CODES = {
   0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
@@ -42,7 +45,7 @@ const _formatDay = (dateStr) => {
 };
 
 const _formatTime = (isoStr) => {
-  if (!isoStr) return "—";
+  if (!isoStr) return "-";
   const d = new Date(isoStr);
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: false });
 };  
@@ -77,6 +80,7 @@ export default {
 
   init(ctx) {
     template = ctx.template;
+    if (typeof ctx?.fetch === "function") _fetch = ctx.fetch;
   },
 
   configure(settings) {
@@ -88,17 +92,16 @@ export default {
     return true;
   },
 
-  async execute(args, context) {
-    const fetchFn = context?.fetch || fetch;
+  async execute(args) {
     const query = args.trim() || defaultCity;
     const t = this.t;
     const trCode = (code) => {
-      if (code == null || code === "") return "—";
+      if (code == null || code === "") return "-";
       const k = `weather-command.codes.${code}`;
-      if (!t) return WEATHER_CODES[code] || "—";
+      if (!t) return WEATHER_CODES[code] || "-";
       const v = t(k);
       if (v !== k) return v;
-      return WEATHER_CODES[code] || t("weather-command.codes.unknown") || "—";
+      return WEATHER_CODES[code] || t("weather-command.codes.unknown") || "-";
     };
 
     if (!query) {
@@ -112,7 +115,7 @@ export default {
     }
 
     try {
-      const geoRes = await fetchFn(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`);
+      const geoRes = await _fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
       if (!geoRes.ok) throw new Error(`Geocoding HTTP ${geoRes.status}`);
       const geoData = await geoRes.json();
 
@@ -130,7 +133,7 @@ export default {
       const tempUnit = useFahrenheit ? "fahrenheit" : "celsius";
       const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,cloud_cover,visibility&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max,uv_index_max,wind_speed_10m_max&hourly=temperature_2m,weather_code,precipitation_probability,precipitation&temperature_unit=${tempUnit}&timezone=auto&forecast_days=7`;
 
-      const weatherRes = await fetchFn(weatherUrl);
+      const weatherRes = await _fetch(weatherUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
       if (!weatherRes.ok) throw new Error(`Weather HTTP ${weatherRes.status}`);
       const weatherData = await weatherRes.json();
 
@@ -141,7 +144,7 @@ export default {
 
       const windDir = _windDirection(current.wind_direction_10m);
       const windStr = `${Math.round(current.wind_speed_10m)} ${curUnits.wind_speed_10m || "km/h"} ${windDir}`;
-      const visibilityKm = current.visibility != null ? (current.visibility >= 1000 ? `${(current.visibility / 1000).toFixed(1)} km` : `${Math.round(current.visibility)} m`) : "—";
+      const visibilityKm = current.visibility != null ? (current.visibility >= 1000 ? `${(current.visibility / 1000).toFixed(1)} km` : `${Math.round(current.visibility)} m`) : "-";
 
       const hourly = weatherData.hourly || {};
       const hourlyTimes = hourly.time || [];
@@ -158,11 +161,11 @@ export default {
           const t = hourlyTimes[h];
           if (typeof t !== "string" || t.slice(0, 10) !== dateStr) continue;
           const timeLabel = _formatTime(t);
-          const temp = hourlyTemp[h] != null ? `${Math.round(hourlyTemp[h])}` : "—";
+          const temp = hourlyTemp[h] != null ? `${Math.round(hourlyTemp[h])}` : "-";
           const code = hourlyCode[h];
           const desc = trCode(code);
-          const precipPct = hourlyPrecipPct[h] != null ? `${Math.round(hourlyPrecipPct[h])}%` : "—";
-          const precip = hourlyPrecip[h] != null && hourlyPrecip[h] > 0 ? `${hourlyPrecip[h].toFixed(1)}` : "—";
+          const precipPct = hourlyPrecipPct[h] != null ? `${Math.round(hourlyPrecipPct[h])}%` : "-";
+          const precip = hourlyPrecip[h] != null && hourlyPrecip[h] > 0 ? `${hourlyPrecip[h].toFixed(1)}` : "-";
           dayHours.push({ time: timeLabel, temp, desc, precipPct, precip, icon: _weatherIcon(code) });
         }
         hourlyByDay.push(dayHours);
@@ -175,9 +178,9 @@ export default {
         const dayName = _formatDay(dailyDates[i]);
         const code = daily.weather_code?.[i];
         const iconClass = _weatherIcon(code);
-        const high = daily.temperature_2m_max?.[i] != null ? `${Math.round(daily.temperature_2m_max[i])}${dailyUnits.temperature_2m_max || "°"}` : "—";
-        const low = daily.temperature_2m_min?.[i] != null ? `${Math.round(daily.temperature_2m_min[i])}${dailyUnits.temperature_2m_min || "°"}` : "—";
-        const precipPct = daily.precipitation_probability_max?.[i] != null ? `${Math.round(daily.precipitation_probability_max[i])}%` : "—";
+        const high = daily.temperature_2m_max?.[i] != null ? `${Math.round(daily.temperature_2m_max[i])}${dailyUnits.temperature_2m_max || "°"}` : "-";
+        const low = daily.temperature_2m_min?.[i] != null ? `${Math.round(daily.temperature_2m_min[i])}${dailyUnits.temperature_2m_min || "°"}` : "-";
+        const precipPct = daily.precipitation_probability_max?.[i] != null ? `${Math.round(daily.precipitation_probability_max[i])}%` : "-";
         weekRows += `<tr class="weather-week-row" data-day-index="${i}" role="button" tabindex="0"><td class="weather-day">${dayName}</td><td class="weather-day-icon"><i class="ti fa-solid ${iconClass}"></i></td><td class="weather-day-temps">${high} / ${low}</td><td class="weather-day-precip"><i class="ti fa-solid fa-droplet"></i> ${precipPct}</td></tr>`;
       }
 
@@ -185,21 +188,21 @@ export default {
       const todaySunset = _formatTime(daily.sunset?.[0]);
 
       return {
-        title: `Weather — ${locationName}`,
+        title: `Weather - ${locationName}`,
         html: _render({
           locationName,
           mainIcon,
           temp: `${Math.round(current.temperature_2m)}${curUnits.temperature_2m || "°C"}`,
           desc: trCode(current.weather_code),
           feels: `${Math.round(current.apparent_temperature)}${curUnits.apparent_temperature || "°C"}`,
-          high: daily.temperature_2m_max?.[0] != null ? `${Math.round(daily.temperature_2m_max[0])}${dailyUnits.temperature_2m_max || "°"}` : "—",
-          low: daily.temperature_2m_min?.[0] != null ? `${Math.round(daily.temperature_2m_min[0])}${dailyUnits.temperature_2m_min || "°"}` : "—",
+          high: daily.temperature_2m_max?.[0] != null ? `${Math.round(daily.temperature_2m_max[0])}${dailyUnits.temperature_2m_max || "°"}` : "-",
+          low: daily.temperature_2m_min?.[0] != null ? `${Math.round(daily.temperature_2m_min[0])}${dailyUnits.temperature_2m_min || "°"}` : "-",
           humidity: `${current.relative_humidity_2m}${curUnits.relative_humidity_2m || "%"}`,
           wind: windStr,
           pressure: `${Math.round(current.surface_pressure)} ${curUnits.surface_pressure || "hPa"}`,
           cloudCover: `${Math.round(current.cloud_cover)}${curUnits.cloud_cover || "%"}`,
           visibility: visibilityKm,
-          uv: daily.uv_index_max?.[0] != null ? daily.uv_index_max[0].toFixed(1) : "—",
+          uv: daily.uv_index_max?.[0] != null ? daily.uv_index_max[0].toFixed(1) : "-",
           todaySunrise: todaySunrise,
           todaySunset: todaySunset,
           weekRows,

@@ -434,11 +434,10 @@ body::after {
   box-shadow: none ;
 }
 
-.pagination .active {
-  background: var(--theme-pagination-active-bg) ;
+.pagination-current,
+.pagination-page-label {
+  background: var(--btn-bg) ;
   color: var(--btn-text) ;
-  border: none ;
-  box-shadow: none ;
 }
 
 .glance-box {
