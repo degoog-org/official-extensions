@@ -428,7 +428,7 @@
       "path": "engines/startpage",
       "name": "Startpage",
       "description": "Startpage web search. degoog gets through Startpage's Anubis check by itself, on any transport. Turn on Anonymous View if you want result links to open through Startpage's proxy.",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "minDegoogVersion": "1.1.0"
     },
     {

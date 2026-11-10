@@ -51,7 +51,7 @@ const _stripProxy = (url) => {
 export const parseMainline = (mainline, name, useAnonymousView) => {
   const results = [];
   for (const block of mainline) {
-    if (block?.display_type !== "web-google") continue;
+    if (typeof block?.display_type !== "string" || !block.display_type.startsWith("web-")) continue;
     if (!Array.isArray(block.results)) continue;
     for (const item of block.results) {
       let url = _stripProxy(item.clickUrl ?? item.url ?? "");
