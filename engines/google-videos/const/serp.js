@@ -25,6 +25,9 @@ export const SOFT_CAPTCHA_WAIT_MS = 10000;
 
 export const GOTO_PATH = "/goto";
 export const GOTO_PAGE_MAX_BYTES = 8192;
+export const GOTO_HOLD_MAX_BYTES = 65536;
+export const GOTO_HOLD_MAX_DELAY_MS = 30000;
+export const GOTO_HOLD_MAX_HOPS = 2;
 export const GOTO_HEADERS = {
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   "Accept-Language": "en-US,en;q=0.5",

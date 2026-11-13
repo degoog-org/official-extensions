@@ -71,7 +71,7 @@ export default class GoogleVideosEngine {
     }
 
     const links = parseDesktop(cheerio.load(html), this.name);
-    return resolveGotos(links, userAgent, context?.fetch ?? fetch);
+    return resolveGotos(links, userAgent, context);
   }
 
   async _fetchHtml(url, userAgent, context) {

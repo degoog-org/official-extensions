@@ -1,6 +1,7 @@
 import { SETTINGS_SCHEMA } from "./settings.js";
 import { buildHeaders, buildSearchUrl } from "./request.js";
 import { parseResults } from "./parse.js";
+import { resolveGoLinks } from "./go.js";
 
 export { regions } from "./const/regions.js";
 
@@ -20,11 +21,21 @@ export default class BraveEngine {
 
   async executeSearch(query, page = 1, timeFilter, context) {
     const doFetch = context?.fetch ?? fetch;
+    const headers = buildHeaders(context, this.safeSearch);
     const response = await doFetch(buildSearchUrl(query, page, timeFilter), {
-      headers: buildHeaders(context, this.safeSearch),
+      headers,
       redirect: "follow",
     });
     context?.sentinel?.(response, this.name);
-    return parseResults(await response.text(), this.name);
+    const parsed = parseResults(await response.text(), this.name);
+    const { results, cloaked } = await resolveGoLinks(parsed, headers, context);
+    if (cloaked > 0 && results.length === 0) throw this._unresolvedError(context, cloaked);
+    return results;
+  }
+
+  _unresolvedError(context, cloaked) {
+    const message = `${this.name} cloaked ${cloaked} result links behind /go/ and none of them resolved`;
+    if (context?.engineError) return context.engineError("blocked", message, { engine: this.name });
+    return new Error(message);
   }
 }
