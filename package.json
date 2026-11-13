@@ -556,6 +556,13 @@
       "description": "Reverse image search on Yandex. Finds pages that use the image and images that look like it. Uploads the searched image to Yandex.",
       "version": "1.0.1",
       "minDegoogVersion": "1.1.0"
+    },
+    {
+      "path": "engines/inaturalist-images",
+      "name": "iNaturalist",
+      "description": "Species photos from iNaturalist observations, with taxon names, observer and research-grade info, on the Images tab or with !nat.",
+      "version": "1.0.0",
+      "minDegoogVersion": "1.1.0"
     }
   ],
   "autocomplete": [
