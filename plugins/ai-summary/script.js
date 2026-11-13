@@ -55,21 +55,28 @@
   };
 
   const faviconHtml = (src) =>
-    src.f
+    src.f && !brokenIconSrcs.has(src.f)
       ? `<img class="glance-ai-cite-favicon" src="${escapeHtml(src.f)}" alt="" width="14" height="14">`
       : "";
 
   const hostLabel = (src) => src.h || hostOf(src.u) || src.u;
 
+  const brokenIconSrcs = new Set();
+
   const ICON_SELECTOR = ".glance-ai-stack-icon, .glance-ai-rail-icon, .glance-ai-cite-favicon";
 
   const dropBrokenIcon = (e) => {
-    if (e.target instanceof HTMLImageElement && e.target.matches(ICON_SELECTOR)) e.target.remove();
+    if (!(e.target instanceof HTMLImageElement) || !e.target.matches(ICON_SELECTOR)) return;
+    if (e.target.src) brokenIconSrcs.add(e.target.src);
+    e.target.remove();
   };
 
   const hydrateIcons = (root) => {
     root.querySelectorAll(ICON_SELECTOR).forEach((img) => {
-      if (img.complete && img.naturalWidth === 0) img.remove();
+      if (img.complete && img.naturalWidth === 0) {
+        if (img.src) brokenIconSrcs.add(img.src);
+        img.remove();
+      }
     });
   };
 
@@ -101,19 +108,33 @@
     );
   };
 
+  // Shelter code from text transforms (citations, highlights): fenced blocks,
+  // tilde blocks and inline runs of backticks are returned byte-identical.
+  // Unterminated segments (mid-stream) are sheltered to end of text.
+  const CODE_SEG_RE = /(```+[\s\S]*?(?:```+|$)|~~~+[\s\S]*?(?:~~~+|$)|`+[\s\S]*?(?:`+|$))/g;
+
+  const shelterCode = (text, transform) => {
+    const keep = [];
+    const sheltered = text.replace(CODE_SEG_RE, (seg) =>
+      `\uE000${keep.push(seg) - 1}\uE001`);
+    return transform(sheltered).replace(/\uE000(\d+)\uE001/g, (_, i) => keep[+i]);
+  };
+
   const injectCites = (text) => {
     if (!sources.length) return text;
-    return text.replace(CITE_RUN_RE, (run) => {
+    return shelterCode(text, (safe) => safe.replace(CITE_RUN_RE, (run) => {
       const picked = pickSrcs(run.match(/\d+/g) || []);
       return picked.length ? citeChip(picked) : run;
-    });
+    }));
   };
 
   const injectMarks = (text) =>
-    text.replace(HIGHLIGHT_RE, (_, inner) =>
-      inner.length <= HIGHLIGHT_MAX && !inner.includes("\n")
-        ? `<mark class="glance-ai-key">${inner}</mark>`
-        : inner
+    shelterCode(text, (safe) =>
+      safe.replace(HIGHLIGHT_RE, (_, inner) =>
+        inner.length <= HIGHLIGHT_MAX && !inner.includes("\n")
+          ? `<mark class="glance-ai-key">${inner}</mark>`
+          : inner
+      )
     );
 
   const renderRich = (text) => {
@@ -239,6 +260,16 @@
     let started = false;
     let thinking = null;
 
+    let paintQueued = false;
+    const paintThrottled = () => {
+      if (paintQueued) return;
+      paintQueued = true;
+      requestAnimationFrame(() => {
+        paintQueued = false;
+        paintRich(target, textBuf);
+      });
+    };
+
     const handlers = {
       onDelta: (chunk) => {
         if (!started) {
@@ -248,7 +279,7 @@
           onFirstText();
         }
         textBuf += chunk;
-        paintRich(target, textBuf);
+        paintThrottled();
       },
       onThinking: (text) => {
         if (started || !text) return;
