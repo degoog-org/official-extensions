@@ -537,7 +537,7 @@ export const slot = {
           );
           const collectionId = opts.collection && details?.belongs_to_collection?.id;
           const collection = collectionId
-            ? await _tmdb(apiKey, `collection/${collectionId}`, fetchFn)
+            ? await _tmdb(apiKey, `collection/${collectionId}`, fetchFn).catch(() => null)
             : null;
           return { item, details, cast: details?.credits?.cast || [], mediaType, collection };
         }),
