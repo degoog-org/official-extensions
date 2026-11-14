@@ -7,7 +7,40 @@
         "label": "API Anahtarı",
         "placeholder": "themoviedb.org adresinden ücretsiz alınabilir",
         "description": "Oyuncu fotoğraflarına ve filmografiye erişmek, film/dizi araması yapmak için bir anahtar gereklidir. https://www.themoviedb.org/settings/api adresinden edinebilirsiniz."
+      },
+      "browserLanguage": {
+        "label": "Tarayıcı dilini kullan",
+        "description": "TMDB'de varsa özetleri, sloganları ve biyografileri ziyaretçinin tarayıcı dilinde gösterir."
+      },
+      "details": {
+        "label": "Ek ayrıntıları göster",
+        "description": "Yaş sınırı, süre veya sezon sayısı, yayın durumu, türler, slogan ve orijinal ad."
+      },
+      "crew": {
+        "label": "Yönetmen ve senaristi göster",
+        "description": "Filmlerde yönetmen ve senarist, dizilerde yaratıcılar."
+      },
+      "collection": {
+        "label": "Seri bilgisini göster",
+        "description": "Filmin serinin kaçıncı filmi olduğunu gösterir. Seriye ait her film için bir ek istek gerektirir."
+      },
+      "personBio": {
+        "label": "Kişi biyografisini göster",
+        "description": "Kişinin filmografisinin üstünde fotoğraf, doğum tarihi, doğum yeri ve biyografi."
       }
+    },
+    "template": {
+      "director": "Yönetmen",
+      "writer": "Senarist",
+      "createdBy": "Yaratıcı",
+      "born": "Doğum",
+      "died": "Ölüm",
+      "hoursShort": "sa",
+      "minutesShort": "dk",
+      "season": "sezon",
+      "seasons": "sezon",
+      "episode": "bölüm",
+      "episodes": "bölüm"
     }
   }
 }

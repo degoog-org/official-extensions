@@ -7,7 +7,40 @@
         "label": "API Key",
         "placeholder": "Free at themoviedb.org",
         "description": "Key is needed in order to get cast photos, filmography, movie/TV search. Get one at https://www.themoviedb.org/settings/api"
+      },
+      "browserLanguage": {
+        "label": "Use browser language",
+        "description": "Show overviews, taglines and biographies in the visitor's browser language when TMDB has them."
+      },
+      "details": {
+        "label": "Show extra details",
+        "description": "Age rating, runtime or season count, status, genres, tagline and original title."
+      },
+      "crew": {
+        "label": "Show director and writer",
+        "description": "Director and writer for movies, creators for TV shows."
+      },
+      "collection": {
+        "label": "Show collection",
+        "description": "Which film of a series it is. Costs one extra request per movie in a collection."
+      },
+      "personBio": {
+        "label": "Show person biography",
+        "description": "Photo, birth date, place of birth and biography above a person's filmography."
       }
+    },
+    "template": {
+      "director": "Director",
+      "writer": "Writer",
+      "createdBy": "Created by",
+      "born": "Born",
+      "died": "Died",
+      "hoursShort": "h",
+      "minutesShort": "m",
+      "season": "season",
+      "seasons": "seasons",
+      "episode": "episode",
+      "episodes": "episodes"
     }
   }
 }
