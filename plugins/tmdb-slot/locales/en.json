@@ -28,6 +28,10 @@
         "label": "Show person biography",
         "description": "Photo, birth date, place of birth and biography above a person's filmography."
       },
+      "exactTitle": {
+        "label": "Exact title match",
+        "description": "Only show titles and people whose name matches the query exactly. Words like \"movie\" or \"series\" in the query still allow close matches."
+      },
       "minVotes": {
         "label": "Minimum votes",
         "description": "Hide movies and TV shows with fewer TMDB votes than this, so obscure titles that only share a name stay out. Words like \"movie\" or \"series\" in the query skip this check. Upcoming titles always show. 0 shows everything."

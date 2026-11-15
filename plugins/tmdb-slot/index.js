@@ -1,5 +1,5 @@
 let apiKey = "";
-const opts = { browserLanguage: true, details: true, crew: true, collection: true, personBio: true };
+const opts = { browserLanguage: true, details: true, crew: true, collection: true, personBio: true, exactTitle: true };
 let template = "";
 let _signProxy = null;
 
@@ -33,9 +33,11 @@ const _titleSimilarity = (query, title) => {
   const t = (title || "").toLowerCase().trim();
   if (!t) return 0;
   if (t === q) return 1;
-  if (t.startsWith(q) || q.startsWith(t)) return 0.9;
-  const qWords = q.split(/\s+/);
-  const tWords = t.split(/\s+/);
+  const qWords = q.split(/[^\p{L}\p{N}']+/u).filter(Boolean);
+  const tWords = t.split(/[^\p{L}\p{N}']+/u).filter(Boolean);
+  if (!qWords.length || !tWords.length) return 0;
+  const _startsWith = (words, prefix) => prefix.every((w, i) => words[i] === w);
+  if (_startsWith(tWords, qWords) || _startsWith(qWords, tWords)) return 0.9;
   const matches = qWords.filter((w) => tWords.includes(w)).length;
 
   return matches / Math.max(qWords.length, tWords.length);
@@ -48,6 +50,8 @@ const _isConfidentMatch = (query, result, mediaIntent) => {
   const pop = result.popularity || 0;
 
   if (sim >= 1 && pop >= 5) return true;
+  if (!opts.exactTitle && sim >= 0.9 && pop >= 15) return true;
+  if (!opts.exactTitle && sim >= 0.7 && pop >= 40) return true;
   if (mediaIntent && sim >= 0.9) return true;
   if (mediaIntent && sim >= 0.7 && pop >= 10) return true;
 
@@ -68,7 +72,8 @@ const _esc = (s) => {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/\{\{/g, "&#123;&#123;");
 };
 
 const _imgUrl = (path, size) => {
@@ -286,9 +291,9 @@ const _buildItemPanel = (item, details, cast, mediaType, collection, locale) => 
   const status = details?.status && details.status !== "Released" ? details.status : "";
   const genres = (details?.genres || []).map((g) => g.name).join(", ");
   const extra = opts.details
-    ? [_certification(details, mediaType, locale.region), _lengthInfo(details, mediaType), status, genres]
+    ? [_esc(_certification(details, mediaType, locale.region)), _lengthInfo(details, mediaType), _esc(status), _esc(genres)]
     : [];
-  const metaLine = [typeLabel, year, ...extra].filter(Boolean).join(" · ");
+  const metaLine = [typeLabel, _esc(year), ...extra].filter(Boolean).join(" · ");
   const originalHtml =
     opts.details && original && original !== title
       ? `<div class="tmdb-original-title">${_esc(original)}</div>`
@@ -309,7 +314,7 @@ const _buildItemPanel = (item, details, cast, mediaType, collection, locale) => 
     ? `<a href="${_esc(tmdbHref)}" target="_blank" rel="noopener" class="imdb-title-link"><h3 class="imdb-title">${_esc(title)}</h3></a>`
     : `<h3 class="imdb-title">${_esc(title)}</h3>`;
 
-  return `<div class="imdb-hero">${posterHtml}<div class="imdb-hero-text"><div class="imdb-meta">${_esc(metaLine)}</div>${titleHtml}${originalHtml}${tagline}${crewBlock}${collectionHtml}</div></div>${plotBlock}${castSection}${seasonsSection}`;
+  return `<div class="imdb-hero">${posterHtml}<div class="imdb-hero-text"><div class="imdb-meta">${metaLine}</div>${titleHtml}${originalHtml}${tagline}${crewBlock}${collectionHtml}</div></div>${plotBlock}${castSection}${seasonsSection}`;
 };
 
 const _wrapTabs = (tabs) => {
@@ -385,6 +390,14 @@ export const slot = {
       type: "toggle",
       default: "true",
       description: "Photo, birth date, place of birth and biography above a person's filmography.",
+    },
+    {
+      key: "exactTitle",
+      label: "Exact title match",
+      type: "toggle",
+      default: "true",
+      description:
+        "Only show titles and people whose name matches the query exactly. Words like \"movie\" or \"series\" in the query still allow close matches.",
     },
     {
       key: "minVotes",

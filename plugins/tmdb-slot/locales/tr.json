@@ -28,6 +28,10 @@
         "label": "Kişi biyografisini göster",
         "description": "Kişinin filmografisinin üstünde fotoğraf, doğum tarihi, doğum yeri ve biyografi."
       },
+      "exactTitle": {
+        "label": "Tam başlık eşleşmesi",
+        "description": "Yalnızca adı sorguyla tam olarak eşleşen yapımları ve kişileri gösterir. Sorguda \"movie\" veya \"series\" gibi kelimeler varsa yakın eşleşmelere yine izin verilir."
+      },
       "minVotes": {
         "label": "En az oy sayısı",
         "description": "TMDB'de bundan az oyu olan film ve dizileri gizler; böylece yalnızca adı aynı olan az bilinen yapımlar çıkmaz. Sorguda \"movie\" veya \"series\" gibi kelimeler varsa bu kontrol atlanır. Henüz çıkmamış yapımlar her zaman gösterilir. 0 hepsini gösterir."
