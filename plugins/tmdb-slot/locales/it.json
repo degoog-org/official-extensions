@@ -7,6 +7,10 @@
         "label": "Chiave API",
         "placeholder": "Gratis su themoviedb.org",
         "description": "Serve per cast, filmografia e ricerca film/serie. Ottienila su https://www.themoviedb.org/settings/api"
+      },
+      "minVotes": {
+        "label": "Voti minimi",
+        "description": "Nasconde film e serie con meno voti TMDB di questo valore, così i titoli poco noti con lo stesso nome restano fuori. Parole come \"movie\" o \"series\" nella ricerca saltano il controllo. I titoli non ancora usciti vengono sempre mostrati. 0 mostra tutto."
       }
     }
   }

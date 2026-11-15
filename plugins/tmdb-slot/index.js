@@ -9,6 +9,8 @@ const PROFILE_SIZE = "w185";
 const MAX_TABS = 5;
 const DEFAULT_LANG = "en-US";
 const DEFAULT_REGION = "US";
+const DEFAULT_MIN_VOTES = 50;
+let minVotes = DEFAULT_MIN_VOTES;
 const T_PREFIX = "tmdb-slot.template";
 
 const MEDIA_KEYWORDS =
@@ -386,6 +388,15 @@ export const slot = {
       default: "true",
       description: "Photo, birth date, place of birth and biography above a person's filmography.",
     },
+    {
+      key: "minVotes",
+      label: "Minimum votes",
+      type: "number",
+      min: "0",
+      default: String(DEFAULT_MIN_VOTES),
+      description:
+        "Hide movies and TV shows with fewer TMDB votes than this, so obscure titles that only share a name stay out. Words like \"movie\" or \"series\" in the query skip this check. Upcoming titles always show. 0 shows everything.",
+    },
   ],
 
   init(ctx) {
@@ -397,6 +408,8 @@ export const slot = {
     const raw = (settings && settings.apiKey) || "";
     apiKey = typeof raw === "string" ? raw.trim() : "";
     for (const key of Object.keys(opts)) opts[key] = String(settings?.[key] ?? "true") === "true";
+    const votes = Number.parseInt(settings?.minVotes, 10);
+    minVotes = votes >= 0 ? votes : DEFAULT_MIN_VOTES;
   },
 
   trigger(query) {
@@ -513,8 +526,15 @@ export const slot = {
       const mediaResults = allResults.filter(
         (r) => r.media_type === "movie" || r.media_type === "tv",
       );
+      const today = new Date().toISOString().slice(0, 10);
       const matches = mediaResults
         .filter((r) => _isConfidentMatch(searchTerm, r, mediaIntent))
+        .filter(
+          (r) =>
+            mediaIntent ||
+            (r.vote_count || 0) >= minVotes ||
+            (r.release_date || r.first_air_date || "") > today,
+        )
         .slice(0, MAX_TABS);
       if (matches.length === 0) return { title: "", html: "" };
 
