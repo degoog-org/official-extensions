@@ -48,8 +48,6 @@ const _isConfidentMatch = (query, result, mediaIntent) => {
   const pop = result.popularity || 0;
 
   if (sim >= 1 && pop >= 5) return true;
-  if (sim >= 0.9 && pop >= 15) return true;
-  if (sim >= 0.7 && pop >= 40) return true;
   if (mediaIntent && sim >= 0.9) return true;
   if (mediaIntent && sim >= 0.7 && pop >= 10) return true;
 
