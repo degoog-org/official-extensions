@@ -27,8 +27,31 @@ const _snippet = (observation) => {
   return parts.join(" · ");
 };
 
-export const parseItems = (data, source) =>
+// For text-search fallbacks (no taxon resolved): drop observations whose taxon
+// only matches the query through stray metadata in iNat's whole-text index
+// ("trump" -> 36k unrelated observations). Require a query token (>= 3 chars)
+// to word-hit the taxon's common or scientific name; the loose two-way prefix
+// lets "opiliones" match *Phalangium opilio* and "cats" match "Cat".
+const _nameRelevant = (query, observation) => {
+  const tokens = String(query || "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length >= 3);
+  if (tokens.length === 0) return true;
+  const taxon = observation?.taxon ?? {};
+  const words = `${taxon.preferred_common_name ?? ""} ${taxon.name ?? ""} ${observation?.species_guess ?? ""}`
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  if (words.length === 0) return false;
+  return tokens.some((t) =>
+    words.some((w) => w.startsWith(t) || t.startsWith(w)),
+  );
+};
+
+export const parseItems = (data, source, query) =>
   (data?.results ?? [])
+    .filter((observation) => _nameRelevant(query, observation))
     .map((observation) => {
       const photo = (observation?.photos ?? []).find((p) => p?.url);
       if (!photo) return null;

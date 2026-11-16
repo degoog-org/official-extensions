@@ -84,7 +84,9 @@ export default class InaturalistImagesEngine {
         headers: buildHeaders(context),
       });
       context?.sentinel?.(response, this.name);
-      return parseItems(await response.json(), this.name);
+      // When a taxon resolved, results are already taxon-scoped; only the
+      // text-search fallback needs the name-relevance filter.
+      return parseItems(await response.json(), this.name, taxonId ? "" : query);
     } catch (e) {
       if (e?.name === "SentinelBreach") throw e;
       return [];
