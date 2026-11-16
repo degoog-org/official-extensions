@@ -4,3 +4,9 @@ export const FALLBACK_UA =
 export const BASE_URL = "https://search.brave.com/";
 
 export const TIME_RANGE_MAP = { day: "pd", week: "pw", month: "pm", year: "py" };
+
+export const SEARCH_ORIGIN = "https://search.brave.com";
+export const GO_PATH_PREFIX = "/go/";
+export const GO_TIMEOUT_MS = 5000;
+export const GO_PAGE_MAX_BYTES = 65536;
+export const GO_CONCURRENCY = 5;

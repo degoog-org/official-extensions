@@ -279,8 +279,8 @@
       "path": "engines/google",
       "name": "Google",
       "description": "Google web search. Only works through the 4play or FlareSolverr transport for now.",
-      "version": "1.5.0",
-      "minDegoogVersion": "1.1.0",
+      "version": "1.6.0",
+      "minDegoogVersion": "1.2.0",
       "legacyIds": [
         "google",
         "google-engine"
@@ -312,8 +312,8 @@
       "path": "engines/google-videos",
       "name": "Google Videos",
       "description": "Google video search.",
-      "version": "1.3.1",
-      "minDegoogVersion": "1.1.0",
+      "version": "1.4.0",
+      "minDegoogVersion": "1.2.0",
       "legacyIds": [
         "google-videos",
         "google-videos-engine"
@@ -367,8 +367,8 @@
       "path": "engines/brave",
       "name": "Brave Search",
       "description": "Brave web search by scraping HTML. For API access use Brave API Search. We found curl-impersonate works best with Brave, so it's now the default transport. If you're still on curl or fetch, switch to curl-impersonate in advanced options.",
-      "version": "1.2.0",
-      "minDegoogVersion": "1.1.0",
+      "version": "1.3.0",
+      "minDegoogVersion": "1.2.0",
       "legacyIds": [
         "brave",
         "brave-engine"
@@ -378,8 +378,8 @@
       "path": "engines/brave-news",
       "name": "Brave News",
       "description": "Brave news search.",
-      "version": "1.1.0",
-      "minDegoogVersion": "1.1.0",
+      "version": "1.2.0",
+      "minDegoogVersion": "1.2.0",
       "legacyIds": [
         "brave-news",
         "brave-news-engine"
