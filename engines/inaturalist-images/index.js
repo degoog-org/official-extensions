@@ -58,7 +58,15 @@ export default class InaturalistImagesEngine {
       const res = await doFetch(buildResolveUrl(query), {
         headers: buildHeaders(context),
       });
-      verdict = InaturalistImagesEngine._pick((await res.json())?.results, query);
+      const candidates = (await res.json())?.results ?? [];
+      if (candidates.length === 0) {
+        // No taxon matches the query at all, so the text search could only
+        // hit stray metadata ("boobs" -> 22k unrelated plant observations).
+        // A subject worth showing is always named somewhere.
+        verdict = "none";
+      } else {
+        verdict = InaturalistImagesEngine._pick(candidates, query);
+      }
     } catch {
       // resolution is best-effort; fall back to text search
     }
@@ -71,6 +79,7 @@ export default class InaturalistImagesEngine {
 
     try {
       const taxonId = await this._resolveTaxon(query, doFetch, context);
+      if (taxonId === "none") return [];
       const response = await doFetch(buildSearchUrl(query, page, taxonId), {
         headers: buildHeaders(context),
       });
