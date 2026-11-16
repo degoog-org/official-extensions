@@ -42,7 +42,7 @@ const _nameRelevant = (query, observation) => {
   const words = `${taxon.preferred_common_name ?? ""} ${taxon.name ?? ""} ${observation?.species_guess ?? ""}`
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter(Boolean);
+    .filter((w) => w.length >= 3);
   if (words.length === 0) return false;
   return tokens.some((t) =>
     words.some((w) => w.startsWith(t) || t.startsWith(w)),
