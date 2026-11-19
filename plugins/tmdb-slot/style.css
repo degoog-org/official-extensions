@@ -488,3 +488,44 @@ a.imdb-cast-card:hover .imdb-cast-name {
 .tmdb-season-link:hover {
   text-decoration: underline;
 }
+
+.tmdb-tagline {
+  margin: 0 0 0.35rem;
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.tmdb-crew {
+  font-size: 0.8125rem;
+}
+
+.tmdb-crew-label {
+  color: var(--text-secondary);
+}
+
+.tmdb-original-title {
+  margin: -0.2rem 0 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.imdb-result a.tmdb-collection {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.imdb-result a.tmdb-collection:hover {
+  text-decoration: underline;
+}
+
+.tmdb-bio {
+  display: -webkit-box;
+  line-clamp: 4;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

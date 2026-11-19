@@ -7,7 +7,50 @@
         "label": "API Key",
         "placeholder": "Free at themoviedb.org",
         "description": "Key is needed in order to get cast photos, filmography, movie/TV search. Get one at https://www.themoviedb.org/settings/api"
+      },
+      "browserLanguage": {
+        "label": "Use browser language",
+        "description": "Show overviews, taglines and biographies in the visitor's browser language when TMDB has them."
+      },
+      "details": {
+        "label": "Show extra details",
+        "description": "Age rating, runtime or season count, status, genres, tagline and original title."
+      },
+      "crew": {
+        "label": "Show director and writer",
+        "description": "Director and writer for movies, creators for TV shows."
+      },
+      "collection": {
+        "label": "Show collection",
+        "description": "Which film of a series it is. Costs one extra request per movie in a collection."
+      },
+      "personBio": {
+        "label": "Show person biography",
+        "description": "Photo, birth date, place of birth and biography above a person's filmography."
+      },
+      "exactTitle": {
+        "label": "Exact title match",
+        "description": "Only show titles and people whose name matches the query exactly. Words like \"movie\" or \"series\" in the query still allow close matches."
+      },
+      "minVotes": {
+        "label": "Minimum votes",
+        "description": "Hide movies and TV shows with fewer TMDB votes than this, so obscure titles that only share a name stay out. Words like \"movie\" or \"series\" in the query skip this check. Upcoming titles always show. 0 shows everything."
       }
+    },
+    "template": {
+      "director": "Director",
+      "writer": "Writer",
+      "createdBy": "Created by",
+      "born": "Born",
+      "died": "Died",
+      "hoursShort": "h",
+      "minutesShort": "m",
+      "season": "season",
+      "seasons": "seasons",
+      "episode": "episode",
+      "episodes": "episodes",
+      "topBilledCast": "Top Billed Cast",
+      "seriesCast": "Series Cast"
     }
   }
 }
