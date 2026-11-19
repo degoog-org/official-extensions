@@ -49,7 +49,9 @@
       "season": "sezon",
       "seasons": "sezon",
       "episode": "bölüm",
-      "episodes": "bölüm"
+      "episodes": "bölüm",
+      "topBilledCast": "Başroldeki Oyuncular",
+      "seriesCast": "Dizi Oyuncuları"
     }
   }
 }

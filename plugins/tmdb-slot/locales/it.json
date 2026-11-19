@@ -9,6 +9,26 @@
         "placeholder": "Gratis su themoviedb.org",
         "description": "Serve per cast, filmografia e ricerca film/serie. Ottienila su https://www.themoviedb.org/settings/api"
       },
+      "browserLanguage": {
+        "label": "Usa la lingua del browser",
+        "description": "Mostra trame, slogan e biografie nella lingua del browser del visitatore, se disponibili su TMDB."
+      },
+      "details": {
+        "label": "Mostra dettagli aggiuntivi",
+        "description": "Classificazione per età, durata o numero di stagioni, stato, generi, slogan e titolo originale."
+      },
+      "crew": {
+        "label": "Mostra regista e sceneggiatore",
+        "description": "Regista e sceneggiatore per i film, ideatori per le serie TV."
+      },
+      "collection": {
+        "label": "Mostra la saga",
+        "description": "Indica quale film della saga è. Richiede una richiesta in più per ogni film che fa parte di una saga."
+      },
+      "personBio": {
+        "label": "Mostra la biografia",
+        "description": "Foto, data e luogo di nascita e biografia sopra la filmografia di una persona."
+      },
       "exactTitle": {
         "label": "Corrispondenza esatta del titolo",
         "description": "Mostra solo titoli e persone il cui nome corrisponde esattamente alla ricerca. Parole come \"film\" o \"serie\" nella ricerca consentono comunque corrispondenze simili."
@@ -17,6 +37,21 @@
         "label": "Voti minimi",
         "description": "Nasconde film e serie con meno voti TMDB di questo valore, così i titoli poco noti con lo stesso nome restano fuori. Parole come \"film\" o \"serie\" nella ricerca saltano il controllo. I titoli non ancora usciti vengono sempre mostrati. 0 mostra tutto."
       }
+    },
+    "template": {
+      "director": "Regia",
+      "writer": "Sceneggiatura",
+      "createdBy": "Ideata da",
+      "born": "Nascita",
+      "died": "Morte",
+      "hoursShort": "h",
+      "minutesShort": "min",
+      "season": "stagione",
+      "seasons": "stagioni",
+      "episode": "episodio",
+      "episodes": "episodi",
+      "topBilledCast": "Cast principale",
+      "seriesCast": "Cast della serie"
     }
   }
 }

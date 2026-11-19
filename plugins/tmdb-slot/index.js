@@ -7,6 +7,7 @@ const IMAGE_BASE = "https://image.tmdb.org/t/p";
 const POSTER_SIZE = "w185";
 const PROFILE_SIZE = "w185";
 const MAX_TABS = 5;
+const MAX_TITLE_LOOKUPS = 3;
 const DEFAULT_LANG = "en-US";
 const DEFAULT_REGION = "US";
 const DEFAULT_MIN_VOTES = 50;
@@ -21,16 +22,23 @@ const CAST_PATTERN = /^(.+?)\s+cast\s*$/i;
 const NON_MEDIA_PATTERN =
   /^(how\s|what\s(is|are|does|do)\s(a|an|the)?\s?(best\s)?(way|method|difference|meaning|purpose|reason)|why\s|where\s(can|do|is)|when\s(did|does|is|was)|can\si|should\si|how\sto|define\s|weather|recipe|price\sof|buy\s|download\s|install\s|code\s|error\s|fix\s|debug\s|www\.|https?:)/i;
 
-const KEYWORDS_KEY = "tmdb-slot.keywords";
+const LOCALE_NS = "tmdb-slot";
 
 const _keywordPattern = (list) => {
   const words = String(list || "")
     .split(",")
-    .map((w) => w.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"))
-    .filter(Boolean);
+    .map((w) => w.trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)
+    .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"));
   if (!words.length) return null;
 
   return new RegExp(`(?<![\\p{L}\\p{N}])(${words.join("|")})(?![\\p{L}\\p{N}])`, "iu");
+};
+
+const _keywordPatterns = (t) => {
+  const lists = Object.values(t?.translations || {}).map((bank) => bank?.[LOCALE_NS]?.keywords);
+  return [_keywordPattern(lists.filter(Boolean).join(",")), MEDIA_KEYWORDS].filter(Boolean);
 };
 
 const _hasMediaIntent = (query, patterns) => {
@@ -114,6 +122,15 @@ const _tmdb = async (key, path, fetchFn = fetch) => {
   return res.json();
 };
 
+const _allTitles = async (result, fetchFn) => {
+  const data = await _tmdb(apiKey, `${result.media_type}/${result.id}/translations`, fetchFn).catch(() => null);
+  return [
+    result.original_title,
+    result.original_name,
+    ...(data?.translations || []).map((tr) => tr.data?.title || tr.data?.name),
+  ].filter(Boolean);
+};
+
 const _localeInfo = (locale) => {
   const m = String(locale || "").match(/^([a-z]{2})(?:[-_]([a-z]{2}))?$/i);
   const lang = m && m[1].toLowerCase() !== "en" ? m[1].toLowerCase() : null;
@@ -130,6 +147,10 @@ const _localized = (details, field, locale) => {
 };
 
 const _t = (key) => `{{ t:${T_PREFIX}.${key} }}`;
+
+const _creditsKey = (mediaType) => (mediaType === "tv" ? "aggregate_credits" : "credits");
+
+const _castHeading = (mediaType) => _t(mediaType === "tv" ? "seriesCast" : "topBilledCast");
 
 const _formatDate = (iso, locale) =>
   new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(new Date(iso));
@@ -151,7 +172,7 @@ const _buildCastStrip = (cast) => {
     .slice(0, 24)
     .map((c) => {
       const name = _esc(c.name || "");
-      const character = c.character ? _esc(c.character) : "";
+      const character = _esc(c.character || c.roles?.[0]?.character || "");
       const photoUrl = _imgUrl(c.profile_path, PROFILE_SIZE);
       const img = photoUrl
         ? `<img src="${_esc(photoUrl)}" alt="" loading="lazy" class="imdb-cast-photo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
@@ -317,7 +338,7 @@ const _buildItemPanel = (item, details, cast, mediaType, collection, locale) => 
   const collectionHtml = opts.collection ? _buildCollection(details, collection, item.id) : "";
   const castStrip = _buildCastStrip(cast);
   const castSection = castStrip
-      ? `<details class="tmdb-accordion" open><summary class="tmdb-accordion-summary">Cast<span class="tmdb-accordion-meta">${cast.length} ${cast.length === 1 ? "person" : "people"}</span></summary><div class="tmdb-accordion-body"><div class="imdb-cast-scroll"><div class="imdb-cast-strip">${castStrip}</div></div></div></details>`
+      ? `<details class="tmdb-accordion" open><summary class="tmdb-accordion-summary">${_castHeading(mediaType)}<span class="tmdb-accordion-meta">${cast.length} ${cast.length === 1 ? "person" : "people"}</span></summary><div class="tmdb-accordion-body"><div class="imdb-cast-scroll"><div class="imdb-cast-strip">${castStrip}</div></div></div></details>`
     : "";
   const seasonsSection = mediaType === "tv" ? _buildSeasonsSection(details, item.id) : "";
   const plotBlock = plot ? `<p class="imdb-plot">${_esc(plot)}</p>` : "";
@@ -449,8 +470,7 @@ export const slot = {
     const { intent, term } = _parseQuery(query);
     if (!term) return { title: "", html: "" };
 
-    const localWords = this.t?.(KEYWORDS_KEY, undefined, context?.locale);
-    const patterns = [localWords !== KEYWORDS_KEY && _keywordPattern(localWords), MEDIA_KEYWORDS].filter(Boolean);
+    const patterns = _keywordPatterns(this.t);
     const searchTerm = _stripMediaKeywords(term, patterns) || term;
     const mediaIntent = _hasMediaIntent(query, patterns);
     const locale = _localeInfo(opts.browserLanguage ? context?.locale : undefined);
@@ -467,7 +487,7 @@ export const slot = {
           allResults[0];
         if (!item || !item.id) return { title: "", html: "" };
         const mediaType = item.media_type || "movie";
-        const cred = await _tmdb(apiKey, `${mediaType}/${item.id}/credits`, fetchFn);
+        const cred = await _tmdb(apiKey, `${mediaType}/${item.id}/${_creditsKey(mediaType)}`, fetchFn);
         const cast = cred?.cast || [];
         const title = item.title || item.name || "";
         const year = (item.release_date || item.first_air_date || "").slice(0, 4);
@@ -479,7 +499,7 @@ export const slot = {
         const metaLine = [typeLabel, year].filter(Boolean).join(" · ");
         const castStrip = _buildCastStrip(cast);
         const castSection = castStrip
-          ? `<h4 class="imdb-cast-heading">Cast</h4><div class="imdb-cast-scroll"><div class="imdb-cast-strip">${castStrip}</div></div>`
+          ? `<h4 class="imdb-cast-heading">${_castHeading(mediaType)}</h4><div class="imdb-cast-scroll"><div class="imdb-cast-strip">${castStrip}</div></div>`
           : "";
         const tmdbHref = item.id ? `https://www.themoviedb.org/${mediaType}/${item.id}` : "";
         const titleHtml = tmdbHref
@@ -552,14 +572,24 @@ export const slot = {
         (r) => r.media_type === "movie" || r.media_type === "tv",
       );
       const today = new Date().toISOString().slice(0, 10);
-      const matches = mediaResults
+      let matches = mediaResults
         .filter((r) => _isConfidentMatch(searchTerm, r, mediaIntent))
         .filter(
           (r) =>
             mediaIntent ||
             (r.vote_count || 0) >= minVotes ||
             (r.release_date || r.first_air_date || "") > today,
-        )
+        );
+      if (matches.length === 0 && mediaIntent) {
+        const candidates = mediaResults.slice(0, MAX_TITLE_LOOKUPS);
+        const titles = await Promise.all(candidates.map((r) => _allTitles(r, fetchFn)));
+        matches = candidates.filter((r, i) =>
+          titles[i].some((title) => _isConfidentMatch(searchTerm, { ...r, title }, true)),
+        );
+      }
+      const exact = matches.filter((r) => _titleSimilarity(searchTerm, r.title || r.name) >= 1);
+      matches = (exact.length ? exact : matches)
+        .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
         .slice(0, MAX_TABS);
       if (matches.length === 0) return { title: "", html: "" };
 
@@ -577,14 +607,14 @@ export const slot = {
           const ratings = mediaType === "tv" ? "content_ratings" : "release_dates";
           const details = await _tmdb(
             apiKey,
-            `${mediaType}/${item.id}?append_to_response=credits,${ratings}${translations}`,
+            `${mediaType}/${item.id}?append_to_response=${_creditsKey(mediaType)},${ratings}${translations}`,
             fetchFn,
           );
           const collectionId = opts.collection && details?.belongs_to_collection?.id;
           const collection = collectionId
             ? await _tmdb(apiKey, `collection/${collectionId}`, fetchFn).catch(() => null)
             : null;
-          return { item, details, cast: details?.credits?.cast || [], mediaType, collection };
+          return { item, details, cast: details?.[_creditsKey(mediaType)]?.cast || [], mediaType, collection };
         }),
       );
 

@@ -2,7 +2,6 @@
   "tmdb-slot": {
     "name": "TMDb",
     "description": "Shows movie/TV show details above search results.",
-    "keywords": "",
     "settings": {
       "apiKey": {
         "label": "API Key",
@@ -49,7 +48,9 @@
       "season": "season",
       "seasons": "seasons",
       "episode": "episode",
-      "episodes": "episodes"
+      "episodes": "episodes",
+      "topBilledCast": "Top Billed Cast",
+      "seriesCast": "Series Cast"
     }
   }
 }
