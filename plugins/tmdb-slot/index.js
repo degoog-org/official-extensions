@@ -15,7 +15,7 @@ let minVotes = DEFAULT_MIN_VOTES;
 const T_PREFIX = "tmdb-slot.template";
 
 const MEDIA_KEYWORDS =
-  /\b(movie|film|show|series|cast|actor|actress|director|season|episode|trailer|anime|manga|tv|imdb|tmdb|netflix|hulu|streaming|watch|rating|review|screenplay|box\s?office|filmography|remake|sequel|prequel|dubbed|subbed|ost|soundtrack)\b/i;
+  /(?<![\p{L}\p{N}])(movie|film|show|series|cast|actor|actress|director|season|episode|trailer|anime|manga|tv|imdb|tmdb|netflix|hulu|streaming|watch|rating|review|screenplay|box\s?office|filmography|remake|sequel|prequel|dubbed|subbed|ost|soundtrack)(?![\p{L}\p{N}])/iu;
 
 const CAST_PATTERN = /^(.+?)\s+cast\s*$/i;
 
@@ -56,11 +56,12 @@ const _titleSimilarity = (query, title) => {
   const qWords = q.split(/[^\p{L}\p{N}']+/u).filter(Boolean);
   const tWords = t.split(/[^\p{L}\p{N}']+/u).filter(Boolean);
   if (!qWords.length || !tWords.length) return 0;
+  if (qWords.join(" ") === tWords.join(" ")) return 1;
   const _startsWith = (words, prefix) => prefix.every((w, i) => words[i] === w);
   if (_startsWith(tWords, qWords) || _startsWith(qWords, tWords)) return 0.9;
-  const matches = qWords.filter((w) => tWords.includes(w)).length;
+  const matches = [...new Set(qWords)].filter((w) => tWords.includes(w)).length;
 
-  return matches / Math.max(qWords.length, tWords.length);
+  return Math.min(matches / Math.max(qWords.length, tWords.length), 0.9);
 };
 
 const _isConfidentMatch = (query, result, mediaIntent) => {
@@ -78,9 +79,12 @@ const _isConfidentMatch = (query, result, mediaIntent) => {
   return false;
 };
 
+const _titlesOf = (result) =>
+  [result.title || result.name, result.original_title || result.original_name].filter(Boolean);
+
 const _stripMediaKeywords = (query, patterns) => {
   return patterns
-    .reduce((q, p) => q.replace(p, ""), query)
+    .reduce((q, p) => q.replace(new RegExp(p.source, `${p.flags}g`), ""), query)
     .replace(/\s{2,}/g, " ")
     .trim();
 };
@@ -573,7 +577,7 @@ export const slot = {
       );
       const today = new Date().toISOString().slice(0, 10);
       let matches = mediaResults
-        .filter((r) => _isConfidentMatch(searchTerm, r, mediaIntent))
+        .filter((r) => _titlesOf(r).some((title) => _isConfidentMatch(searchTerm, { ...r, title }, mediaIntent)))
         .filter(
           (r) =>
             mediaIntent ||
@@ -587,7 +591,7 @@ export const slot = {
           titles[i].some((title) => _isConfidentMatch(searchTerm, { ...r, title }, true)),
         );
       }
-      const exact = matches.filter((r) => _titleSimilarity(searchTerm, r.title || r.name) >= 1);
+      const exact = matches.filter((r) => _titlesOf(r).some((title) => _titleSimilarity(searchTerm, title) >= 1));
       matches = (exact.length ? exact : matches)
         .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
         .slice(0, MAX_TABS);
