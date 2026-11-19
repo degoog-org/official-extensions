@@ -514,7 +514,7 @@ export const slot = {
       }
 
       const person = allResults.find((r) => r.media_type === "person");
-      if (person && person.id && _isConfidentMatch(searchTerm, person, mediaIntent)) {
+      if (person && person.id && _isConfidentMatch(searchTerm, person, false)) {
         const info = await _tmdb(
           apiKey,
           `person/${person.id}?append_to_response=movie_credits,tv_credits${translations}`,
