@@ -21,8 +21,20 @@ const CAST_PATTERN = /^(.+?)\s+cast\s*$/i;
 const NON_MEDIA_PATTERN =
   /^(how\s|what\s(is|are|does|do)\s(a|an|the)?\s?(best\s)?(way|method|difference|meaning|purpose|reason)|why\s|where\s(can|do|is)|when\s(did|does|is|was)|can\si|should\si|how\sto|define\s|weather|recipe|price\sof|buy\s|download\s|install\s|code\s|error\s|fix\s|debug\s|www\.|https?:)/i;
 
-const _hasMediaIntent = (query) => {
-  if (MEDIA_KEYWORDS.test(query)) return true;
+const KEYWORDS_KEY = "tmdb-slot.keywords";
+
+const _keywordPattern = (list) => {
+  const words = String(list || "")
+    .split(",")
+    .map((w) => w.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"))
+    .filter(Boolean);
+  if (!words.length) return null;
+
+  return new RegExp(`(?<![\\p{L}\\p{N}])(${words.join("|")})(?![\\p{L}\\p{N}])`, "iu");
+};
+
+const _hasMediaIntent = (query, patterns) => {
+  if (patterns.some((p) => p.test(query))) return true;
   if (CAST_PATTERN.test(query)) return true;
 
   return false;
@@ -58,9 +70,9 @@ const _isConfidentMatch = (query, result, mediaIntent) => {
   return false;
 };
 
-const _stripMediaKeywords = (query) => {
-  return query
-    .replace(MEDIA_KEYWORDS, "")
+const _stripMediaKeywords = (query, patterns) => {
+  return patterns
+    .reduce((q, p) => q.replace(p, ""), query)
     .replace(/\s{2,}/g, " ")
     .trim();
 };
@@ -437,8 +449,10 @@ export const slot = {
     const { intent, term } = _parseQuery(query);
     if (!term) return { title: "", html: "" };
 
-    const searchTerm = _stripMediaKeywords(term) || term;
-    const mediaIntent = _hasMediaIntent(query);
+    const localWords = this.t?.(KEYWORDS_KEY, undefined, context?.locale);
+    const patterns = [localWords !== KEYWORDS_KEY && _keywordPattern(localWords), MEDIA_KEYWORDS].filter(Boolean);
+    const searchTerm = _stripMediaKeywords(term, patterns) || term;
+    const mediaIntent = _hasMediaIntent(query, patterns);
     const locale = _localeInfo(opts.browserLanguage ? context?.locale : undefined);
     const dateLocale = /^[a-z]{2}(-[a-z]{2})?$/i.test(context?.locale) ? context.locale : DEFAULT_LANG;
     const translations = locale.lang ? ",translations" : "";

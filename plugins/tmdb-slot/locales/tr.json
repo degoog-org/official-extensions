@@ -2,6 +2,7 @@
   "tmdb-slot": {
     "name": "TMDb",
     "description": "Arama sonuçlarının üzerinde film/dizi ayrıntılarını gösterir.",
+    "keywords": "dizi, dizisi, filmi, oyuncu, oyuncular, oyuncuları, yönetmen, yönetmeni, sezon, bölüm, fragman, fragmanı, izle, belgesel, çizgi film, devam filmi, dublaj, altyazı, altyazılı, film müziği",
     "settings": {
       "apiKey": {
         "label": "API Anahtarı",
@@ -30,11 +31,11 @@
       },
       "exactTitle": {
         "label": "Tam başlık eşleşmesi",
-        "description": "Yalnızca adı sorguyla tam olarak eşleşen yapımları ve kişileri gösterir. Sorguda \"movie\" veya \"series\" gibi kelimeler varsa yakın eşleşmelere yine izin verilir."
+        "description": "Yalnızca adı sorguyla tam olarak eşleşen yapımları ve kişileri gösterir. Sorguda \"film\" veya \"dizi\" gibi kelimeler varsa yakın eşleşmelere yine izin verilir."
       },
       "minVotes": {
         "label": "En az oy sayısı",
-        "description": "TMDB'de bundan az oyu olan film ve dizileri gizler; böylece yalnızca adı aynı olan az bilinen yapımlar çıkmaz. Sorguda \"movie\" veya \"series\" gibi kelimeler varsa bu kontrol atlanır. Henüz çıkmamış yapımlar her zaman gösterilir. 0 hepsini gösterir."
+        "description": "TMDB'de bundan az oyu olan film ve dizileri gizler; böylece yalnızca adı aynı olan az bilinen yapımlar çıkmaz. Sorguda \"film\" veya \"dizi\" gibi kelimeler varsa bu kontrol atlanır. Henüz çıkmamış yapımlar her zaman gösterilir. 0 hepsini gösterir."
       }
     },
     "template": {

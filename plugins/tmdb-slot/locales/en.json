@@ -2,6 +2,7 @@
   "tmdb-slot": {
     "name": "TMDb",
     "description": "Shows movie/TV show details above search results.",
+    "keywords": "",
     "settings": {
       "apiKey": {
         "label": "API Key",

@@ -2,6 +2,7 @@
   "tmdb-slot": {
     "name": "TMDb",
     "description": "Mostra dettagli di film e serie sopra i risultati di ricerca.",
+    "keywords": "serie, telefilm, attore, attrice, attori, regista, stagione, episodio, puntata, trama, doppiato, sottotitoli, cartone animato, colonna sonora",
     "settings": {
       "apiKey": {
         "label": "Chiave API",
@@ -10,11 +11,11 @@
       },
       "exactTitle": {
         "label": "Corrispondenza esatta del titolo",
-        "description": "Mostra solo titoli e persone il cui nome corrisponde esattamente alla ricerca. Parole come \"movie\" o \"series\" nella ricerca consentono comunque corrispondenze simili."
+        "description": "Mostra solo titoli e persone il cui nome corrisponde esattamente alla ricerca. Parole come \"film\" o \"serie\" nella ricerca consentono comunque corrispondenze simili."
       },
       "minVotes": {
         "label": "Voti minimi",
-        "description": "Nasconde film e serie con meno voti TMDB di questo valore, così i titoli poco noti con lo stesso nome restano fuori. Parole come \"movie\" o \"series\" nella ricerca saltano il controllo. I titoli non ancora usciti vengono sempre mostrati. 0 mostra tutto."
+        "description": "Nasconde film e serie con meno voti TMDB di questo valore, così i titoli poco noti con lo stesso nome restano fuori. Parole come \"film\" o \"serie\" nella ricerca saltano il controllo. I titoli non ancora usciti vengono sempre mostrati. 0 mostra tutto."
       }
     }
   }
