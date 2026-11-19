@@ -48,13 +48,15 @@ const _hasMediaIntent = (query, patterns) => {
   return false;
 };
 
+const TITLE_SEPARATORS = /[^\p{L}\p{N}\p{S}'#]+/u;
+
 const _titleSimilarity = (query, title) => {
   const q = query.toLowerCase().trim();
   const t = (title || "").toLowerCase().trim();
   if (!t) return 0;
   if (t === q) return 1;
-  const qWords = q.split(/[^\p{L}\p{N}']+/u).filter(Boolean);
-  const tWords = t.split(/[^\p{L}\p{N}']+/u).filter(Boolean);
+  const qWords = q.split(TITLE_SEPARATORS).filter(Boolean);
+  const tWords = t.split(TITLE_SEPARATORS).filter(Boolean);
   if (!qWords.length || !tWords.length) return 0;
   if (qWords.join(" ") === tWords.join(" ")) return 1;
   const _startsWith = (words, prefix) => prefix.every((w, i) => words[i] === w);
