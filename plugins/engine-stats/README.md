@@ -46,6 +46,8 @@ responses, red past 25% failures.
 - **Retention (hours)**, default 48, capped at 336. Older hourly buckets are
   dropped.
 - **Default window**, used when `!engine-stats` runs without an argument.
+- **Gate behind auth**, off by default. When on, only people signed in to
+  Settings can see the stats. Recording keeps running either way.
 
 ## Storage
 

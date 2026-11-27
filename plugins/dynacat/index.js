@@ -19,6 +19,7 @@ let _page = "";
 let _showOnHome = true;
 let _showOnMobile = true;
 let _refreshSeconds = 60;
+let _gateBehindAuth = false;
 
 let _signProxyUrl = null;
 let _fetch = null;
@@ -38,6 +39,10 @@ const client = () =>
     password: _password,
     fetchFn: _fetch || fetch,
   });
+
+const isOpenTo = (context) => !_gateBehindAuth || context?.authenticated === true;
+
+const shallNotPass = () => json({ error: "You shall not pass!" }, 401);
 
 const activePage = async () => (await readSelectedPage()) || _page;
 
@@ -158,6 +163,14 @@ export default {
       description: "How long degoog caches widget data before asking Dynacat again.",
     },
     {
+      key: "gateBehindAuth",
+      label: "Gate behind auth",
+      type: "toggle",
+      default: "false",
+      description:
+        "Only people signed in to Settings see the dashboard, on the home page and through the bang, and can change its page or layout.",
+    },
+    {
       key: "username",
       label: "Username",
       type: "text",
@@ -215,10 +228,13 @@ export default {
     _showOnMobile = enabled(settings.showOnMobile);
     const refresh = parseInt(String(settings.refreshSeconds ?? "60"), 10);
     _refreshSeconds = Number.isFinite(refresh) && refresh > 0 ? refresh : 60;
+    _gateBehindAuth =
+      settings.gateBehindAuth === true || settings.gateBehindAuth === "true";
     _cache = null;
   },
 
-  async execute(args) {
+  async execute(args, context) {
+    if (!isOpenTo(context)) return { title: "Dynacat", html: "" };
     const slug = await activePage();
     if (!_baseUrl || !slug) {
       return {
@@ -258,7 +274,8 @@ export default {
     {
       method: "get",
       path: "/cards",
-      handler: async (req) => {
+      handler: async (req, context) => {
+        if (!isOpenTo(context)) return shallNotPass();
         const slug = await activePage();
         const base = {
           configured: Boolean(_baseUrl),
@@ -290,6 +307,7 @@ export default {
     {
       method: "post",
       path: "/page",
+      auth: true,
       handler: async (req) => {
         try {
           const body = await req.json();
@@ -306,6 +324,7 @@ export default {
     {
       method: "post",
       path: "/layout",
+      auth: true,
       handler: async (req) => {
         try {
           const body = await req.json();

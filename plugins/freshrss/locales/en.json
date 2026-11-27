@@ -30,6 +30,10 @@
       "showOnDesktop": {
         "label": "Show on desktop",
         "description": "Display the feed on the home page on desktop too (horizontal scrolling)."
+      },
+      "gateBehindAuth": {
+        "label": "Gate behind auth",
+        "description": "Only people signed in to Settings see your feed, on the home page and through the bang, and can mark articles as read."
       }
     }
   }

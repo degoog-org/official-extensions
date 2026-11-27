@@ -10,6 +10,15 @@ const HISTORY_PATH = join(process.cwd(), "data", "history.json");
 const PER_PAGE = 20;
 let maxEntries = 1000;
 let apiBase = "";
+let gateBehindAuth = false;
+
+const _isOpenTo = (context) => !gateBehindAuth || context?.authenticated === true;
+
+const _shallNotPass = () =>
+  new Response(JSON.stringify({ error: "You shall not pass!" }), {
+    status: 401,
+    headers: { "Content-Type": "application/json" },
+  });
 
 const _getDataDir = () => {
   return join(process.cwd(), "data");
@@ -67,6 +76,13 @@ export default {
       placeholder: "1000",
       description: "Maximum number of history entries to keep (oldest removed when exceeded).",
     },
+    {
+      key: "gateBehindAuth",
+      label: "Gate behind auth",
+      type: "toggle",
+      default: "false",
+      description: "Only people signed in to Settings can read, add to or delete the history. Everyone else's searches are not recorded.",
+    },
   ],
 
   init(ctx) {
@@ -76,9 +92,11 @@ export default {
   configure(settings) {
     const n = parseInt(settings.maxEntries, 10);
     maxEntries = Number.isFinite(n) && n > 0 ? Math.min(100000, n) : 1000;
+    gateBehindAuth = settings.gateBehindAuth === true || settings.gateBehindAuth === "true";
   },
 
   async execute(args, context) {
+    if (!_isOpenTo(context)) return { title: "Search history", html: "" };
     const pageFromArgs = parseInt(String(args || "").trim(), 10);
     const pageNum = Math.max(1, context?.page ?? (Number.isFinite(pageFromArgs) ? pageFromArgs : 1));
     const entries = await _loadHistory();
@@ -107,7 +125,8 @@ export default {
     {
       method: "get",
       path: "/list",
-      handler: async (req) => {
+      handler: async (req, context) => {
+        if (!_isOpenTo(context)) return _shallNotPass();
         const url = new URL(req.url);
         const limitParam = url.searchParams.get("limit");
         const limit = limitParam ? Math.min(100, Math.max(1, parseInt(limitParam, 10) || 10)) : null;
@@ -123,7 +142,8 @@ export default {
     {
       method: "post",
       path: "/append",
-      handler: async (req) => {
+      handler: async (req, context) => {
+        if (!_isOpenTo(context)) return _shallNotPass();
         let body;
         try {
           const text = await req.text();
@@ -167,7 +187,8 @@ export default {
     {
       method: "get",
       path: "/delete",
-      handler: async (req) => {
+      handler: async (req, context) => {
+        if (!_isOpenTo(context)) return _shallNotPass();
         const url = new URL(req.url);
         const id = url.searchParams.get("id");
         const returnBang = url.searchParams.get("return") === "bang";

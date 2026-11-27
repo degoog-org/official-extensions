@@ -7,6 +7,10 @@
         "label": "Uygulamalar (JSON)",
         "placeholder": "[{\"label\":\"Gmail\",\"icon\":\"https://.../icon.png\",\"url\":\"https://mail.google.com\"}]",
         "description": "{label, icon, url} nesnelerinden oluşan bir JSON dizisi. Etiket ve URL zorunludur; simge bir görsel URL'sidir ve kullanılamadığında yerine etiketin ilk harfi gösterilir."
+      },
+      "gateBehindAuth": {
+        "label": "Oturum açmayı zorunlu kıl",
+        "description": "Uygulama ızgarasını yalnızca Ayarlar'da oturum açmış kişiler görür. Diğerleri başlatıcıyı görmez ve uygulama listesi gizli kalır."
       }
     }
   }

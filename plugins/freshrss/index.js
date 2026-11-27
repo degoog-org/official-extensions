@@ -20,6 +20,7 @@ let _apiPassword = "";
 let _category = "";
 let _unreadOnly = false;
 let _showOnDesktop = false;
+let _gateBehindAuth = false;
 let _signProxyUrl = null;
 let _signFaviconUrl = null;
 let _template = "";
@@ -220,6 +221,14 @@ const _search = async (query, page, fetchFn) => {
 
 const _notConfigured = () => !_instanceUrl || !_username || !_apiPassword;
 
+const _isOpenTo = (context) => !_gateBehindAuth || context?.authenticated === true;
+
+const _shallNotPass = () =>
+  new Response(JSON.stringify({ error: "You shall not pass!" }), {
+    status: 401,
+    headers: { "Content-Type": "application/json" },
+  });
+
 const slot = {
   isClientExposed: false,
   name: "FreshRSS",
@@ -279,6 +288,14 @@ const slot = {
       description:
         "Display the feed on the home page on desktop too (horizontal scrolling).",
     },
+    {
+      key: "gateBehindAuth",
+      label: "Gate behind auth",
+      type: "toggle",
+      default: "false",
+      description:
+        "Only people signed in to Settings see your feed, on the home page and through the bang, and can mark articles as read.",
+    },
   ],
 
   async init(ctx) {
@@ -297,6 +314,8 @@ const slot = {
       settings.unreadOnly === true || settings.unreadOnly === "true";
     _showOnDesktop =
       settings.showOnDesktop === true || settings.showOnDesktop === "true";
+    _gateBehindAuth =
+      settings.gateBehindAuth === true || settings.gateBehindAuth === "true";
     _authToken = null;
     _authAt = 0;
     _writeToken = null;
@@ -309,6 +328,7 @@ const slot = {
     const fetchFn = context?.fetch || fetch;
     const page = context?.page ?? 1;
     const query = args.trim();
+    if (!_isOpenTo(context)) return { title: "FreshRSS", html: "" };
     if (_notConfigured()) {
       return {
         title: "FreshRSS",
@@ -337,7 +357,8 @@ const routes = [
   {
     method: "get",
     path: "/feed",
-    handler: async (req) => {
+    handler: async (req, context) => {
+      if (!_isOpenTo(context)) return _shallNotPass();
       const empty = {
         results: [],
         showOnDesktop: _showOnDesktop,
@@ -374,7 +395,8 @@ const routes = [
   {
     method: "post",
     path: "/mark-read",
-    handler: async (req) => {
+    handler: async (req, context) => {
+      if (!_isOpenTo(context)) return _shallNotPass();
       const json = { "Content-Type": "application/json" };
       try {
         const { id } = await req.json();
@@ -405,7 +427,8 @@ const routes = [
   {
     method: "get",
     path: "/feed/stream",
-    handler: async () => {
+    handler: async (_req, context) => {
+      if (!_isOpenTo(context)) return _shallNotPass();
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {

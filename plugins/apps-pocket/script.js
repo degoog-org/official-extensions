@@ -12,6 +12,9 @@ const _escapeHtml = (str) => {
 
 let cachedApps = null;
 let inflight = null;
+let locked = false;
+
+const _isAuthenticated = () => window.__DEGOOG_AUTH__?.authenticated === true;
 
 const _fetchApps = async () => {
   const controller = new AbortController();
@@ -21,6 +24,10 @@ const _fetchApps = async () => {
       signal: controller.signal,
       cache: "no-store",
     });
+    if (res.status === 401) {
+      locked = true;
+      return [];
+    }
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data?.apps) ? data.apps : [];
@@ -90,6 +97,11 @@ async function _openPanel(btn, panel) {
   panel.style.display = "block";
   _renderView(panel, cachedApps);
   const apps = await _refreshApps();
+  if (locked) {
+    _closePanel(panel);
+    btn.hidden = true;
+    return;
+  }
   if (panel.style.display === "none") return;
   const rendered = panel.dataset.rendered || "";
   const next = JSON.stringify(apps);
@@ -169,10 +181,9 @@ const _findTarget = () => {
   );
 };
 
-function _init() {
-  _refreshApps();
+function _startMounting() {
   const tryMount = () => {
-    if (document.getElementById(LAUNCHER_ID)) return;
+    if (locked || document.getElementById(LAUNCHER_ID)) return;
     const el = _findTarget();
     if (el) _mountButton(el);
   };
@@ -181,6 +192,17 @@ function _init() {
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
+  });
+}
+
+function _init() {
+  const ready = _refreshApps();
+  if (_isAuthenticated()) {
+    _startMounting();
+    return;
+  }
+  ready.then(() => {
+    if (!locked) _startMounting();
   });
 }
 

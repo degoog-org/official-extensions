@@ -1,6 +1,13 @@
 const HISTORY_API = `/api/plugin/${__PLUGIN_ID__}`;
 const HISTORY_LIST_URL = `${HISTORY_API}/list?limit=10`;
 
+let locked = false;
+
+const _readList = (res) => {
+  if (res.status === 401) locked = true;
+  return res.ok ? res.json() : [];
+};
+
 const CLOCK_ICON =
   "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' aria-hidden='true'><circle cx='12' cy='12' r='10'/><path d='M12 6v6l4 2'/></svg>";
 const TRASH_ICON =
@@ -57,8 +64,8 @@ function renderHistoryDropdown(entries, input, dropdown, performSearch) {
         e.stopPropagation();
         fetch(`${HISTORY_API}/delete?id=${encodeURIComponent(id)}`, { method: "GET" })
           .then(() => fetch(HISTORY_LIST_URL))
-          .then((r) => r.json())
-          .then((list) => renderHistoryDropdown(list, input, dropdown, performSearch))
+          .then(_readList)
+          .then((list) => renderHistoryDropdown(Array.isArray(list) ? list : [], input, dropdown, performSearch))
           .catch(() => {});
       });
     }
@@ -66,9 +73,9 @@ function renderHistoryDropdown(entries, input, dropdown, performSearch) {
 }
 
 function fetchAndShowHistory(input, dropdown, performSearch) {
-  if (!input || input.value.trim() !== "") return;
+  if (locked || !input || input.value.trim() !== "") return;
   fetch(HISTORY_LIST_URL)
-    .then((r) => r.json())
+    .then(_readList)
     .then((list) => {
       if (input.value.trim() === "") renderHistoryDropdown(Array.isArray(list) ? list : [], input, dropdown, performSearch);
     })
@@ -77,13 +84,17 @@ function fetchAndShowHistory(input, dropdown, performSearch) {
 
 const appendHistory = (entry) => {
   const q = (entry || "").trim();
-  if (!q || q === "!history" || q.startsWith("!history ")) return;
+  if (locked || !q || q === "!history" || q.startsWith("!history ")) return;
   fetch(`${HISTORY_API}/append`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ entry: q }),
     keepalive: true,
-  }).catch(() => {});
+  })
+    .then((res) => {
+      if (res.status === 401) locked = true;
+    })
+    .catch(() => {});
 }
 
 function initSearchHistory() {

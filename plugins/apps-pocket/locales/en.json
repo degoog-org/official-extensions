@@ -7,6 +7,10 @@
         "label": "Apps (JSON)",
         "placeholder": "[{\"label\":\"Gmail\",\"icon\":\"https://.../icon.png\",\"url\":\"https://mail.google.com\"}]",
         "description": "JSON array of {label, icon, url}. Labels and URLs are required; icon is an image URL and falls back to the first letter of the label."
+      },
+      "gateBehindAuth": {
+        "label": "Gate behind auth",
+        "description": "Only people signed in to Settings see the apps grid. Everyone else gets no launcher and the apps list stays private."
       }
     }
   }

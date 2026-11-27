@@ -30,6 +30,10 @@
       "showOnDesktop": {
         "label": "Mostra su desktop",
         "description": "Mostra il feed nella home anche su desktop (scorrimento orizzontale)."
+      },
+      "gateBehindAuth": {
+        "label": "Richiedi l'accesso",
+        "description": "Solo chi ha effettuato l'accesso alle Impostazioni vede il tuo feed, sulla home e tramite il bang, e può segnare gli articoli come letti."
       }
     }
   }

@@ -2,7 +2,7 @@
 
 Type `!4play` or `!fourplay` to see a live status card for the lolcat 4play transport. It shows the connection state, warmed sessions with time left until they expire, which proxy each session uses, blocked origins with their cooldowns, how many containers are in use, open captcha tabs, how replays are sent and the background warmup schedule.
 
-By default only admins see the card. Anyone can run the bang, but the status and clear controls only unlock for users logged into the settings panel. The plugin settings let you change that. Keep `admin`, use `open` on a trusted local instance, or use `locked` to turn the status API off on a public one.
+By default only admins see the card. Anyone can run the bang, but the status, test and clear controls only unlock for people signed in to Settings. The plugin settings let you change that. Keep `admin`, use `open` on a trusted local instance, or use `locked` to turn the status API off on a public one.
 
 ## What's on the card
 
@@ -34,9 +34,10 @@ The app only gives a transport its cache handle on the transport's first fetch. 
 - The lolcat 4play transport, installed and connected.
 - For sessions that are always ready, set the transport's "Background warmup interval".
 - The proxy tags and the proxies list need a Degoog version that gives plugins `ctx.proxies`. Older versions show the card without them.
+- Degoog 1.3.0 or newer, which tells plugins whether a request passed the Settings login.
 
 ## Settings
 
-- **Status view access.** `admin` needs a valid settings session. `open` skips the session check, so anyone who can run the bang can view and clear 4play status. `locked` turns the status API off for everyone.
+- **Status view access.** `admin` only lets people signed in to Settings view, test and clear 4play status. `open` lets anyone who can run the bang use the card. `locked` turns the status API off for everyone.
 - **4play transport.** The 4play transports that have announced themselves.
 - **Firefox browser link.** A URL that opens the Firefox running the 4play extension. With it set, the card shows an "Open Firefox" button and a link on every captcha that needs you.

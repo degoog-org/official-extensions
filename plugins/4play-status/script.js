@@ -11,7 +11,6 @@
         : currentScript?.src.match(/\/plugins\/([^/]+)\//)?.[1] || "";
     return pluginId ? `/api/plugin/${encodeURIComponent(pluginId)}` : "";
   };
-  const TOKEN_KEY = "degoog-settings-token";
   const REFRESH_MS = 10000;
   const TICK_MS = 1000;
   const RECONNECT_MIN_MS = 2000;
@@ -43,18 +42,6 @@
     if (h < 24) return `${h}h ${m % 60}m`;
     return `${Math.floor(h / 24)}d ${h % 24}h`;
   };
-
-  const authHeaders = () => {
-    const token = sessionStorage.getItem(TOKEN_KEY) || "";
-    return token ? { "x-settings-token": token } : {};
-  };
-
-  const authFetch = (url, init = {}) =>
-    fetch(url, {
-      credentials: "same-origin",
-      ...init,
-      headers: { ...authHeaders(), ...(init.headers || {}) },
-    });
 
   const initCard = (root) => {
     const body = root.querySelector("[data-body]");
@@ -100,6 +87,7 @@
     ) => {
       clearAllBtn.hidden = true;
       testBtn.hidden = true;
+      testResult.hidden = true;
       setSubtitle("admin only");
       body.innerHTML = hero("fa-lock", message);
     };
@@ -430,7 +418,7 @@
     const fetchStatus = async () => {
       try {
         if (!apiBase) throw new Error("plugin api base unavailable");
-        const res = await authFetch(`${apiBase}/status`);
+        const res = await fetch(`${apiBase}/status`);
         if (res.status === 401) {
           renderLocked();
           return false;
@@ -443,7 +431,7 @@
           const detail = await res.json().catch(() => null);
           renderLocked(
             detail?.error ||
-              "The admin check could not reach the settings API. Check the server logs.",
+              "The 4play status API is unavailable. Check the server logs.",
           );
           return false;
         }
@@ -467,11 +455,15 @@
     const yeetSessions = async (scope, key = null) => {
       body.classList.add("fourplay-busy");
       try {
-        const res = await authFetch(`${apiBase}/clear`, {
+        const res = await fetch(`${apiBase}/clear`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(bodyFor(scope, key)),
         });
+        if (res.status === 401) {
+          renderLocked();
+          return;
+        }
         const data = await res.json().catch(() => ({}));
         if (!res.ok && res.status !== 202) {
           throw new Error(data?.error || `status ${res.status}`);
@@ -494,7 +486,11 @@
       testBtn.disabled = true;
       setTestResult("Fetching https://example.com through the transport...", "");
       try {
-        const res = await authFetch(`${apiBase}/ping`, { method: "POST" });
+        const res = await fetch(`${apiBase}/ping`, { method: "POST" });
+        if (res.status === 401) {
+          renderLocked();
+          return;
+        }
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.error || `status ${res.status}`);
         const via = data?.transport ? ` via ${data.transport}` : "";
@@ -631,8 +627,9 @@
       const controller = new AbortController();
       live$ = controller;
       let locked = false;
+      let renew = false;
       try {
-        const res = await authFetch(`${apiBase}/stream`, {
+        const res = await fetch(`${apiBase}/stream`, {
           headers: { Accept: "text/event-stream" },
           signal: controller.signal,
         });
@@ -645,9 +642,8 @@
           setLive("stream");
           backoff = RECONNECT_MIN_MS;
           await readEvents(res, (event, data) => {
-            if (event === "locked") {
-              locked = true;
-              renderLocked();
+            if (event === "renew") {
+              renew = true;
               return;
             }
             try {
@@ -665,6 +661,10 @@
         if (live$ === controller) live$ = null;
       }
       if (asleep() || locked || controller.signal.aborted) return;
+      if (renew) {
+        retryTimer = setTimeout(stream, 0);
+        return;
+      }
       setLive("polling");
       startPolling();
       retryTimer = setTimeout(stream, backoff);
@@ -693,6 +693,16 @@
         if (unlocked) stream();
       });
     };
+
+    if (root.dataset.locked === "settings") {
+      renderLocked("The 4play status view is locked in plugin settings.");
+      return;
+    }
+
+    if (root.dataset.locked === "admin") {
+      renderLocked();
+      return;
+    }
 
     document.addEventListener("visibilitychange", onVisibility);
 

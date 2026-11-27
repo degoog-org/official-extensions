@@ -35,6 +35,7 @@ const DEFAULT_NEWS_FEED_URLS = [
 
 let feedUrls = [];
 let showOnDesktop = false;
+let gateBehindAuth = false;
 
 const _parseRssOrAtom = (xml, feedUrl) => {
   try {
@@ -329,6 +330,14 @@ const _renderResultsHtml = (items, page, query) => {
   return items.map(_renderResultItem).join("");
 };
 
+const _isOpenTo = (context) => !gateBehindAuth || context?.authenticated === true;
+
+const _shallNotPass = () =>
+  new Response(JSON.stringify({ error: "You shall not pass!" }), {
+    status: 401,
+    headers: { "Content-Type": "application/json" },
+  });
+
 const _serializeItem = (item) => {
   return {
     title: item.title,
@@ -367,6 +376,14 @@ const slot = {
       description:
         "Display the news feed on the home page on desktop too (horizontal scrolling).",
     },
+    {
+      key: "gateBehindAuth",
+      label: "Gate behind auth",
+      type: "toggle",
+      default: "false",
+      description:
+        "Only people signed in to Settings see your feeds, on the home page and through the bang.",
+    },
   ],
 
   async init(ctx) {
@@ -403,9 +420,12 @@ const slot = {
     feedUrls = parsed;
     showOnDesktop =
       settings.showOnDesktop === true || settings.showOnDesktop === "true";
+    gateBehindAuth =
+      settings.gateBehindAuth === true || settings.gateBehindAuth === "true";
   },
 
   async execute(args, context) {
+    if (!_isOpenTo(context)) return { title: "RSS Feeds", html: "" };
     const fetchFn = context?.fetch || fetch;
     const page = context?.page ?? 1;
     const query = args.trim();
@@ -437,7 +457,8 @@ const routes = [
   {
     method: "get",
     path: "/feed",
-    handler: async (req) => {
+    handler: async (req, context) => {
+      if (!_isOpenTo(context)) return _shallNotPass();
       const url = new URL(req.url);
       const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
       const items = await _searchFeeds("", page);
@@ -451,7 +472,8 @@ const routes = [
   {
     method: "get",
     path: "/feed/stream",
-    handler: async () => {
+    handler: async (_req, context) => {
+      if (!_isOpenTo(context)) return _shallNotPass();
       const urls = _getActiveUrls();
       const capped = urls.slice(0, MAX_FEEDS_PER_REQUEST);
       const encoder = new TextEncoder();

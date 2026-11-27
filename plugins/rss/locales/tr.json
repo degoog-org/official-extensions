@@ -11,6 +11,10 @@
       "showOnDesktop": {
         "label": "Haberleri masaüstünde göster",
         "description": "Haber akışını masaüstünde de ana sayfada göster (yatay kaydırma)."
+      },
+      "gateBehindAuth": {
+        "label": "Oturum açmayı zorunlu kıl",
+        "description": "Akışlarınızı ana sayfada ve bang ile yalnızca Ayarlar'da oturum açmış kişiler görür."
       }
     }
   }

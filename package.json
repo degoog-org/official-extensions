@@ -8,9 +8,9 @@
       "path": "plugins/4play-status",
       "name": "4play status",
       "description": "!4play shows live 4play transport status. Access can be admin-only, open, or locked.",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "type": "command",
-      "minDegoogVersion": "1.1.0"
+      "minDegoogVersion": "1.3.0"
     },
     {
       "path": "plugins/ai-summary",
@@ -63,8 +63,9 @@
       "path": "plugins/search-history",
       "name": "Search history",
       "description": "Stores search history in data/history.json with timestamps; !history shows a paginated, deletable list.",
-      "version": "1.3.0",
-      "type": "command"
+      "version": "1.4.0",
+      "type": "command",
+      "minDegoogVersion": "1.3.0"
     },
     {
       "path": "plugins/tmdb-slot",
@@ -116,17 +117,17 @@
       "path": "plugins/rss",
       "name": "Home RSS Feeds",
       "description": "Shows RSS feed items above search results.",
-      "version": "1.7.0",
+      "version": "1.8.0",
       "type": "slot",
-      "minDegoogVersion": "1.0.0"
+      "minDegoogVersion": "1.3.0"
     },
     {
       "path": "plugins/freshrss",
       "name": "FreshRSS",
       "description": "Shows feeds from your FreshRSS instance, same layout as the home RSS plugin, through the FreshRSS API.",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "slot",
-      "minDegoogVersion": "1.0.0"
+      "minDegoogVersion": "1.3.0"
     },
     {
       "path": "plugins/github-slot",
@@ -140,17 +141,17 @@
       "path": "plugins/apps-pocket",
       "name": "Apps pocket",
       "description": "App grid next to the settings icon. You manage the list in plugin settings.",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "type": "command",
-      "minDegoogVersion": "1.0.0"
+      "minDegoogVersion": "1.3.0"
     },
     {
       "path": "plugins/engine-stats",
       "name": "Engine stats",
       "description": "Records per-engine response times, failure rates and result counts, then shows them with !engine-stats.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "interceptor",
-      "minDegoogVersion": "0.26.0"
+      "minDegoogVersion": "1.3.0"
     },
     {
       "path": "plugins/spell-check",
@@ -186,8 +187,8 @@
       "path": "plugins/dynacat",
       "name": "Dynacat",
       "description": "Puts Dynacat widgets on the home page and behind !dynacat. The token stays on the server. A picker sets which widgets show, how wide they are, and in what order.",
-      "version": "1.0.1",
-      "minDegoogVersion": "1.1.0",
+      "version": "1.1.0",
+      "minDegoogVersion": "1.3.0",
       "type": "command"
     },
     {
