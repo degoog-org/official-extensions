@@ -423,6 +423,10 @@
           renderLocked();
           return false;
         }
+        if (res.status === 403) {
+          renderLocked("The 4play status view is locked in plugin settings.");
+          return false;
+        }
         if (res.status === 503) {
           const detail = await res.json().catch(() => null);
           renderLocked(
@@ -629,7 +633,7 @@
           headers: { Accept: "text/event-stream" },
           signal: controller.signal,
         });
-        if (res.status === 401) {
+        if (res.status === 401 || res.status === 403) {
           locked = true;
           await fetchStatus();
         } else {
@@ -690,7 +694,12 @@
       });
     };
 
-    if (root.dataset.locked === "true") {
+    if (root.dataset.locked === "settings") {
+      renderLocked("The 4play status view is locked in plugin settings.");
+      return;
+    }
+
+    if (root.dataset.locked === "admin") {
       renderLocked();
       return;
     }

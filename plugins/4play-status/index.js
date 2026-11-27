@@ -16,7 +16,7 @@ let template = "";
 let useCacheFn = null;
 let proxies = null;
 let firefoxUrl = "";
-let gateBehindAuth = true;
+let accessMode = "admin";
 let outgoingFetch = null;
 let pluginApiBase = "";
 let transportChoice = "";
@@ -43,7 +43,14 @@ const controlCacheFor = (name) =>
 
 const UNAUTHORIZED = "You shall not pass!";
 
-const isOpenTo = (context) => !gateBehindAuth || context?.authenticated === true;
+const isOpenTo = (context) =>
+  accessMode === "open" ||
+  (accessMode === "admin" && context?.authenticated === true);
+
+const lockReason = (context) => {
+  if (accessMode === "locked") return "settings";
+  return isOpenTo(context) ? "" : "admin";
+};
 
 const discoveredTransports = async () => {
   if (!useCacheFn) return [];
@@ -172,6 +179,9 @@ const snapshot = async () => {
 };
 
 const guarded = (handler) => async (req, context) => {
+  if (accessMode === "locked") {
+    return jsonResponse({ error: "the 4play status view is locked in plugin settings" }, 403);
+  }
   if (!isOpenTo(context)) return jsonResponse({ error: UNAUTHORIZED }, 401);
   if (!useCacheFn) {
     log("useCache was never provided by the app; cannot reach the transport");
@@ -346,12 +356,13 @@ export default {
 
   settingsSchema: [
     {
-      key: "gateBehindAuth",
-      label: "Gate behind auth",
-      type: "toggle",
-      default: "true",
+      key: "accessMode",
+      label: "Status view access",
+      type: "select",
+      options: ["admin", "open", "locked"],
+      default: "admin",
       description:
-        "Only people signed in to Settings can view, test and clear 4play status. Turn it off on a trusted local instance to let anyone who can run the bang use the card.",
+        "admin only lets people signed in to Settings view, test and clear 4play status. open lets anyone who can run the bang use the card. locked turns the status API off for everyone.",
     },
     {
       key: "transportName",
@@ -364,6 +375,7 @@ export default {
       },
       description:
         "The transport this card reports on. 4play transports announce themselves on their first fetch, so the list fills up once you've searched through one. Leave it on the first entry unless you run more than one.",
+      visibleWhen: { key: "accessMode", equals: ["admin", "open"] },
     },
     {
       key: "firefoxUrl",
@@ -372,6 +384,7 @@ export default {
       default: "",
       description:
         "A URL that opens the Firefox running the 4play extension, such as a noVNC address like http://192.168.86.233:6080. The card then shows an 'Open Firefox' button and a link next to each captcha that needs you. It can't open a specific tab, so you pick the flagged one yourself.",
+      visibleWhen: { key: "accessMode", equals: ["admin", "open"] },
     },
   ],
 
@@ -396,8 +409,8 @@ export default {
   },
 
   configure(settings) {
-    gateBehindAuth =
-      settings?.gateBehindAuth === true || settings?.gateBehindAuth === "true";
+    const mode = String(settings?.accessMode || "admin").trim();
+    accessMode = ["admin", "open", "locked"].includes(mode) ? mode : "admin";
     transportChoice = String(settings?.transportName || "").trim();
     firefoxUrl = String(settings?.firefoxUrl || "").trim();
   },
@@ -407,7 +420,7 @@ export default {
       title: "4play status",
       html: template
         .replace("{{apiBase}}", pluginApiBase)
-        .replace("{{locked}}", String(!isOpenTo(context))),
+        .replace("{{locked}}", lockReason(context)),
     };
   },
 };

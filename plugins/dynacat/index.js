@@ -307,8 +307,8 @@ export default {
     {
       method: "post",
       path: "/page",
-      handler: async (req, context) => {
-        if (!isOpenTo(context)) return shallNotPass();
+      auth: true,
+      handler: async (req) => {
         try {
           const body = await req.json();
           const slug = String(body?.page || "").trim();
@@ -324,8 +324,8 @@ export default {
     {
       method: "post",
       path: "/layout",
-      handler: async (req, context) => {
-        if (!isOpenTo(context)) return shallNotPass();
+      auth: true,
+      handler: async (req) => {
         try {
           const body = await req.json();
           const slug = String(body?.page || "") || (await activePage());

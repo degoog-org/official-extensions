@@ -8,6 +8,7 @@
   var API = "/api/plugin/" + __PLUGIN_ID__;
   var state = { cards: [], pages: [], draft: null, page: "", pageName: "", error: "", timer: null };
   var root = null;
+  var canEdit = Boolean(window.__DEGOOG_AUTH__ && window.__DEGOOG_AUTH__.authenticated === true);
 
   function el(tag, className, text) {
     var node = document.createElement(tag);
@@ -87,7 +88,15 @@
       return card.visible;
     });
     if (visible.length === 0) {
-      grid.appendChild(el("p", "dyn-empty", "Nothing picked yet. Use Customize to choose widgets."));
+      grid.appendChild(
+        el(
+          "p",
+          "dyn-empty",
+          canEdit
+            ? "Nothing picked yet. Use Customize to choose widgets."
+            : "Nothing picked yet. Sign in to Settings to choose widgets.",
+        ),
+      );
       return grid;
     }
     visible.forEach(function (card) {
@@ -222,7 +231,7 @@
     var bar = el("div", "dyn-bar");
     var label = el("div", "dyn-bar-label");
     label.appendChild(el("span", "dyn-bar-name", "Dynacat"));
-    if (state.pages.length > 0) label.appendChild(renderPageSelect());
+    if (canEdit && state.pages.length > 0) label.appendChild(renderPageSelect());
     else label.appendChild(el("span", "dyn-bar-page", state.pageName || state.page));
     bar.appendChild(label);
 
@@ -253,7 +262,7 @@
       refreshPicker();
     });
     customize.disabled = Boolean(state.draft) || !state.page;
-    tools.appendChild(customize);
+    if (canEdit) tools.appendChild(customize);
     bar.appendChild(tools);
 
     root.appendChild(bar);
@@ -263,7 +272,15 @@
       return;
     }
     if (!state.page) {
-      root.appendChild(el("p", "dyn-empty", "Pick a Dynacat page to build your dashboard from."));
+      root.appendChild(
+        el(
+          "p",
+          "dyn-empty",
+          canEdit
+            ? "Pick a Dynacat page to build your dashboard from."
+            : "Sign in to Settings to pick a Dynacat page.",
+        ),
+      );
       return;
     }
     if (state.draft) root.appendChild(renderPicker());

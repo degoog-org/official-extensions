@@ -29,11 +29,11 @@ You don't need any CORS setup. degoog fetches server side, so the token never re
 | Show on mobile | Hide it on narrow screens if you prefer |
 | Refresh interval | Seconds degoog caches widget data before asking Dynacat again |
 | Username / Password | Only for pages restricted with `allowed-users` |
-| Gate behind auth | Off by default. When on, only people signed in to Settings see the dashboard and can change its page or layout |
+| Gate behind auth | Off by default. When on, only people signed in to Settings see the dashboard. Changing the page or layout always needs a Settings sign-in |
 
 ## Picking what matters
 
-The **Customize** button on the dashboard opens a picker. There you can show or hide each widget on the selected page, make it single or double width, and change the order. degoog saves your layout per page in `data/dynacat-dashboard.json`, so widgets you add in Dynacat later show up at the end and leave your layout alone.
+The **Customize** button on the dashboard opens a picker. It only shows for people signed in to Settings. There you can show or hide each widget on the selected page, make it single or double width, and change the order. degoog saves your layout per page in `data/dynacat-dashboard.json`, so widgets you add in Dynacat later show up at the end and leave your layout alone.
 
 The picker leaves out widgets Dynacat exposes no data for, such as search, bookmarks, clock, to-do and calendar. Widget types without their own renderer fall back to stat tiles and short tables.
 
