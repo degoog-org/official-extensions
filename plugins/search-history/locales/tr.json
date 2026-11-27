@@ -7,6 +7,10 @@
         "label": "Maksimum kayıt sayısı",
         "placeholder": "1000",
         "description": "Saklanacak maksimum geçmiş kaydı sayısı (bu sınır aşılırsa en eski kayıtlar silinir)."
+      },
+      "gateBehindAuth": {
+        "label": "Oturum açmayı zorunlu kıl",
+        "description": "Geçmişi yalnızca Ayarlar'da oturum açmış kişiler okuyabilir, ekleyebilir veya silebilir. Diğer kişilerin aramaları kaydedilmez."
       }
     }
   }

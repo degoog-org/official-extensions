@@ -22,6 +22,10 @@
         "label": "Password",
         "placeholder": "Password di accesso RomM",
         "description": "Fallback legacy se non e configurato un token API."
+      },
+      "gateBehindAuth": {
+        "label": "Richiedi l'accesso",
+        "description": "Solo chi ha effettuato l'accesso alle Impostazioni può cercare nella tua libreria RomM."
       }
     }
   }

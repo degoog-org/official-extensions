@@ -7,6 +7,10 @@
         "label": "Numero massimo voci",
         "placeholder": "1000",
         "description": "Numero massimo di voci da tenere (le più vecchie vengono rimosse)."
+      },
+      "gateBehindAuth": {
+        "label": "Richiedi l'accesso",
+        "description": "Solo chi ha effettuato l'accesso alle Impostazioni può leggere, aggiungere o eliminare la cronologia. Le ricerche degli altri non vengono registrate."
       }
     }
   }

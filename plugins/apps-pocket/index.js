@@ -1,5 +1,8 @@
 let apps = [];
 let _signProxyUrl = null;
+let gateBehindAuth = false;
+
+const _isOpenTo = (context) => !gateBehindAuth || context?.authenticated === true;
 
 const _resolveIcon = (raw) => {
   const s = typeof raw === "string" ? raw.trim() : "";
@@ -68,6 +71,14 @@ export default {
         },
       ],
     },
+    {
+      key: "gateBehindAuth",
+      label: "Gate behind auth",
+      type: "toggle",
+      default: "false",
+      description:
+        "Only people signed in to Settings see the apps grid. Everyone else gets no launcher and the apps list stays private.",
+    },
   ],
 
   init(ctx) {
@@ -75,6 +86,8 @@ export default {
   },
 
   configure(settings) {
+    gateBehindAuth =
+      settings?.gateBehindAuth === true || settings?.gateBehindAuth === "true";
     const raw =
       typeof settings?.appsJson === "string" ? settings.appsJson.trim() : "";
     if (!raw) {
@@ -88,7 +101,8 @@ export default {
     }
   },
 
-  async execute() {
+  async execute(_args, context) {
+    if (!_isOpenTo(context)) return { title: "Apps", html: "" };
     const html = `<div class="apps-pocket-bang">Configure your apps in Settings → Plugins → Apps pocket.</div>`;
     return { title: "Apps", html };
   },
@@ -97,8 +111,10 @@ export default {
     {
       method: "get",
       path: "/apps",
-      handler: async () =>
-        _json({ apps: apps.map((app) => ({ ...app, icon: _resolveIcon(app.icon) })) }),
+      handler: async (_req, context) => {
+        if (!_isOpenTo(context)) return _json({ error: "You shall not pass!" }, 401);
+        return _json({ apps: apps.map((app) => ({ ...app, icon: _resolveIcon(app.icon) })) });
+      },
     },
   ],
 };

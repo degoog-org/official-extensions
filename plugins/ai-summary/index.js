@@ -100,6 +100,10 @@ const jsonError = (msg, status) =>
     headers: { "Content-Type": "application/json" },
   });
 
+const isOpenTo = (context) => !_settings.gateBehindAuth || context?.authenticated === true;
+
+const UNAUTHORIZED = "You shall not pass!";
+
 export const slot = {
   id: AI_SUMMARY_ID,
   settingsId: AI_SUMMARY_ID,
@@ -138,6 +142,7 @@ export const slot = {
   },
 
   async execute(query, context) {
+    if (!isOpenTo(context)) return { html: "" };
     const results = context?.results ?? [];
     if (results.length === 0) return { html: "" };
     if (!_settings.model) return { html: "" };
@@ -172,7 +177,8 @@ export const routes = [
   {
     method: "post",
     path: ROUTE_STREAM,
-    async handler(req) {
+    async handler(req, context) {
+      if (!isOpenTo(context)) return jsonError(UNAUTHORIZED, 401);
       let body;
       try {
         body = await req.json();
@@ -199,7 +205,8 @@ export const routes = [
   {
     method: "post",
     path: ROUTE_CHAT,
-    async handler(req) {
+    async handler(req, context) {
+      if (!isOpenTo(context)) return jsonError(UNAUTHORIZED, 401);
       let body;
       try {
         body = await req.json();

@@ -13,6 +13,7 @@ export const TRIGGER = "engine-stats";
 
 let _template = "";
 let _defaultWindow = DEFAULT_WINDOW;
+let _gateBehindAuth = false;
 
 const log = (msg, err) => {
   if (err) console.warn(`[engine-stats] ${msg}`, err);
@@ -31,6 +32,8 @@ const applySettings = (settings) => {
   setRetention(settings?.retentionHours ?? 48);
   const wanted = String(settings?.defaultWindow ?? DEFAULT_WINDOW);
   _defaultWindow = WINDOWS.includes(wanted) ? wanted : DEFAULT_WINDOW;
+  _gateBehindAuth =
+    settings?.gateBehindAuth === true || settings?.gateBehindAuth === "true";
 };
 
 export const plugin = {
@@ -54,6 +57,14 @@ export const plugin = {
       default: DEFAULT_WINDOW,
       options: WINDOWS,
       description: "Window shown when !engine-stats is used without an argument.",
+    },
+    {
+      key: "gateBehindAuth",
+      label: "Gate behind auth",
+      type: "toggle",
+      default: "false",
+      description:
+        "Only people signed in to Settings can see the stats. Recording keeps running for every search either way.",
     },
   ],
 };
@@ -102,7 +113,10 @@ export const command = {
     await loadStats();
   },
 
-  async execute(args) {
+  async execute(args, context) {
+    if (_gateBehindAuth && context?.authenticated !== true) {
+      return { title: "Engine stats", html: "" };
+    }
     const label = pickWindow(args);
     const rows = snapshot(windowMs(label));
 

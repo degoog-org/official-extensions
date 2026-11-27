@@ -7,6 +7,10 @@
         "label": "Max entries",
         "placeholder": "1000",
         "description": "Maximum number of history entries to keep (oldest removed when exceeded)."
+      },
+      "gateBehindAuth": {
+        "label": "Gate behind auth",
+        "description": "Only people signed in to Settings can read, add to or delete the history. Everyone else's searches are not recorded."
       }
     }
   }

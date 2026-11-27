@@ -18,3 +18,7 @@ The API uses a separate password from your login password:
 1. Go to your **Profile** (top-right menu → your username)
 2. Scroll to **API password**
 3. Enter a password and save, this is what you put in the plugin settings, not your login password
+
+### 3. Keep it private (optional)
+
+Turn on **Gate behind auth** in the plugin settings and only people signed in to Settings see your feed and can mark articles as read. It's off by default.

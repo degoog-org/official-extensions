@@ -1,5 +1,4 @@
-const AUTH_PATH = "/api/settings/auth";
-const TRANSPORT_TEST_PATH = "/api/extensions/transports";
+const TEST_URL = "https://example.com";
 const STATUS_TTL_MS = 24 * 60 * 60 * 1000;
 const CONTROL_TTL_MS = 60 * 1000;
 const DISCOVERY_NAMESPACE = "transport:4play:discovery";
@@ -11,13 +10,14 @@ const ACK_WAIT_MS = 10_000;
 const ACK_POLL_MS = 250;
 const STREAM_TICK_MS = 1500;
 const STREAM_HEARTBEAT_MS = 5000;
-const STREAM_RECHECK_MS = 60_000;
+const STREAM_RENEW_MS = 60_000;
 
 let template = "";
 let useCacheFn = null;
 let proxies = null;
 let firefoxUrl = "";
-let accessMode = "admin";
+let gateBehindAuth = true;
+let outgoingFetch = null;
 let pluginApiBase = "";
 let transportChoice = "";
 
@@ -41,113 +41,9 @@ const statusCacheFor = (name) =>
 const controlCacheFor = (name) =>
   useCacheFn ? useCacheFn(`transport:${name}:control`, CONTROL_TTL_MS) : null;
 
-const DEFAULT_PORT = 4444;
+const UNAUTHORIZED = "You shall not pass!";
 
-const apiBaseFor = (reqUrl) => {
-  const url = new URL(reqUrl);
-  const base = url.pathname.split("/api/plugin/")[0];
-  return `${url.origin}${base}`;
-};
-
-const loopbackBase = (reqUrl) => {
-  const port = Number(process.env.DEGOOG_PORT) || DEFAULT_PORT;
-  const base = new URL(reqUrl).pathname.split("/api/plugin/")[0];
-  return `http://127.0.0.1:${port}${base}`;
-};
-
-const selfBases = (reqUrl) => [loopbackBase(reqUrl), apiBaseFor(reqUrl)];
-
-const overSelf = async (req, run) => {
-  let lastError = null;
-  for (const base of selfBases(req.url)) {
-    try {
-      return await run(base);
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError || new Error("no reachable api base");
-};
-
-const SETTINGS_TOKEN_COOKIE = "settings-token";
-
-const tokenFromCookie = (req) => {
-  const raw = req.headers.get("cookie");
-  if (!raw) return "";
-
-  const match = raw
-    .split(";")
-    .find((part) => part.trim().startsWith(`${SETTINGS_TOKEN_COOKIE}=`));
-  return match?.split("=")[1]?.trim() || "";
-};
-
-const tokenFromHeader = (req) => req.headers.get("x-settings-token") || "";
-
-const tokenCandidates = (req) =>
-  [tokenFromCookie(req), tokenFromHeader(req)].filter(Boolean);
-
-const authHeadersForToken = (token) => {
-  return token ? { "x-settings-token": token } : {};
-};
-
-const authHeaders = (req) => authHeadersForToken(tokenCandidates(req)[0] || "");
-
-const VERDICT = Object.freeze({
-  GRANTED: "granted",
-  DENIED: "denied",
-  UNREACHABLE: "unreachable",
-});
-
-const askAuth = async (base, req, token) => {
-  const cookie = req.headers.get("cookie");
-  const res = await fetch(`${base}${AUTH_PATH}`, {
-    headers: {
-      Accept: "application/json",
-      ...(cookie ? { cookie } : {}),
-      ...authHeadersForToken(token),
-    },
-  });
-  if (!res.ok) return false;
-  if (!(res.headers.get("content-type") || "").includes("application/json")) return false;
-  const data = await res.json().catch(() => null);
-  return data?.valid === true;
-};
-
-const gandalfVerdict = async (req) => {
-  const candidates = tokenCandidates(req);
-  const tokens = candidates.length > 0 ? candidates : [""];
-  let reached = false;
-
-  for (const base of selfBases(req.url)) {
-    for (const token of tokens) {
-      try {
-        if (await askAuth(base, req, token)) return VERDICT.GRANTED;
-        reached = true;
-      } catch (error) {
-        log(`auth check via ${base} failed: ${error?.message || error}`);
-      }
-    }
-    if (reached) break;
-  }
-
-  return reached ? VERDICT.DENIED : VERDICT.UNREACHABLE;
-};
-
-const accessDecision = async (req) => {
-  if (accessMode === "open") return { ok: true };
-  if (accessMode === "locked") return { ok: false, status: 403 };
-
-  const verdict = await gandalfVerdict(req);
-  if (verdict === VERDICT.GRANTED) return { ok: true };
-  if (verdict === VERDICT.UNREACHABLE) {
-    return {
-      ok: false,
-      status: 503,
-      error: "could not reach the settings auth endpoint to verify admin access",
-    };
-  }
-  return { ok: false, status: 401, error: "You shall not pass!" };
-};
+const isOpenTo = (context) => !gateBehindAuth || context?.authenticated === true;
 
 const discoveredTransports = async () => {
   if (!useCacheFn) return [];
@@ -275,9 +171,8 @@ const snapshot = async () => {
   };
 };
 
-const guarded = (handler) => async (req) => {
-  const access = await accessDecision(req);
-  if (!access.ok) return jsonResponse({ error: access.error }, access.status);
+const guarded = (handler) => async (req, context) => {
+  if (!isOpenTo(context)) return jsonResponse({ error: UNAUTHORIZED }, 401);
   if (!useCacheFn) {
     log("useCache was never provided by the app; cannot reach the transport");
     return jsonResponse({ error: "cache unavailable" }, 503);
@@ -293,7 +188,7 @@ const streamHandler = async (req) => {
   let beat = null;
   let last = "";
   let closed = false;
-  let checkedAt = Date.now();
+  const openedAt = Date.now();
 
   const stop = () => {
     closed = true;
@@ -313,16 +208,13 @@ const streamHandler = async (req) => {
       };
       const tick = async () => {
         if (closed) return;
-        if (Date.now() - checkedAt > STREAM_RECHECK_MS) {
-          checkedAt = Date.now();
-          if (!(await accessDecision(req)).ok) {
-            send("event: locked\ndata: {}\n\n");
-            stop();
-            try {
-              controller.close();
-            } catch {}
-            return;
-          }
+        if (Date.now() - openedAt > STREAM_RENEW_MS) {
+          send("event: renew\ndata: {}\n\n");
+          stop();
+          try {
+            controller.close();
+          } catch {}
+          return;
         }
         try {
           const payload = JSON.stringify(await snapshot());
@@ -357,30 +249,26 @@ const streamHandler = async (req) => {
   });
 };
 
-const pingHandler = async (req) => {
+const pingHandler = async () => {
   const resolved = await resolveTransport();
   if (!resolved.name) {
     return jsonResponse({ error: "no 4play transport found" }, 404);
   }
+  if (!outgoingFetch) {
+    log("fetch was never provided by the app; cannot wake the transport");
+    return jsonResponse({ error: "fetch unavailable" }, 503);
+  }
 
   try {
-    const res = await overSelf(req, (base) =>
-      fetch(
-        `${base}${TRANSPORT_TEST_PATH}/${encodeURIComponent(resolved.name)}/test`,
-        { method: "POST", headers: authHeaders(req) },
-      ),
-    );
-    const data = await res.json().catch(() => ({}));
-    log(
-      `wake fetch through ${resolved.name}: ${data?.ok ? "ok" : `failed (${data?.message || res.status})`}`,
-    );
-    return jsonResponse(
-      { ok: Boolean(data?.ok), transport: resolved.name, message: data?.message || null },
-      200,
-    );
+    const res = await outgoingFetch(TEST_URL, {}, resolved.name);
+    await res.body?.cancel().catch(() => {});
+    const message = res.ok ? `OK (${res.status})` : `HTTP ${res.status}`;
+    log(`wake fetch through ${resolved.name}: ${res.ok ? "ok" : `failed (${message})`}`);
+    return jsonResponse({ ok: res.ok, transport: resolved.name, message }, 200);
   } catch (error) {
-    log(`wake fetch through ${resolved.name} failed: ${error?.message || error}`);
-    return jsonResponse({ error: "wake fetch failed" }, 502);
+    const message = error?.message || String(error);
+    log(`wake fetch through ${resolved.name} failed: ${message}`);
+    return jsonResponse({ ok: false, transport: resolved.name, message }, 200);
   }
 };
 
@@ -452,19 +340,18 @@ export default {
   isClientExposed: false,
   name: "4play status",
   description:
-    "Live status of the 4play transport, with its connection, warmed origins, the proxy each one rides, blocked sessions and open captchas. Admin only.",
+    "Live status of the 4play transport, with its connection, warmed origins, the proxy each one rides, blocked sessions and open captchas.",
   trigger: TRIGGER,
   aliases: ["fourplay"],
 
   settingsSchema: [
     {
-      key: "accessMode",
-      label: "Status view access",
-      type: "select",
-      options: ["admin", "open", "locked"],
-      default: "admin",
+      key: "gateBehindAuth",
+      label: "Gate behind auth",
+      type: "toggle",
+      default: "true",
       description:
-        "admin needs a valid settings session. open lets anyone who can run the bang view and clear 4play status. locked turns the status API off for everyone.",
+        "Only people signed in to Settings can view, test and clear 4play status. Turn it off on a trusted local instance to let anyone who can run the bang use the card.",
     },
     {
       key: "transportName",
@@ -477,7 +364,6 @@ export default {
       },
       description:
         "The transport this card reports on. 4play transports announce themselves on their first fetch, so the list fills up once you've searched through one. Leave it on the first entry unless you run more than one.",
-      visibleWhen: { key: "accessMode", equals: ["admin", "open"] },
     },
     {
       key: "firefoxUrl",
@@ -486,7 +372,6 @@ export default {
       default: "",
       description:
         "A URL that opens the Firefox running the 4play extension, such as a noVNC address like http://192.168.86.233:6080. The card then shows an 'Open Firefox' button and a link next to each captcha that needs you. It can't open a specific tab, so you pick the flagged one yourself.",
-      visibleWhen: { key: "accessMode", equals: ["admin", "open"] },
     },
   ],
 
@@ -507,19 +392,22 @@ export default {
     useCacheFn = ctx.useCache;
     proxies = ctx.proxies || null;
     pluginApiBase = ctx.apiBase || "";
+    outgoingFetch = ctx.fetch || null;
   },
 
   configure(settings) {
-    const mode = String(settings?.accessMode || "admin").trim();
-    accessMode = ["admin", "open", "locked"].includes(mode) ? mode : "admin";
+    gateBehindAuth =
+      settings?.gateBehindAuth === true || settings?.gateBehindAuth === "true";
     transportChoice = String(settings?.transportName || "").trim();
     firefoxUrl = String(settings?.firefoxUrl || "").trim();
   },
 
-  execute() {
+  execute(_args, context) {
     return {
       title: "4play status",
-      html: template.replace("{{apiBase}}", pluginApiBase),
+      html: template
+        .replace("{{apiBase}}", pluginApiBase)
+        .replace("{{locked}}", String(!isOpenTo(context))),
     };
   },
 };

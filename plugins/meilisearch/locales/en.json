@@ -37,6 +37,10 @@
         "label": "Thumbnail Field",
         "placeholder": "thumbnail",
         "description": "Document field for the result thumbnail image (optional)"
+      },
+      "gateBehindAuth": {
+        "label": "Gate behind auth",
+        "description": "Only people signed in to Settings can search your Meilisearch indexes"
       }
     }
   }

@@ -29,6 +29,7 @@ You don't need any CORS setup. degoog fetches server side, so the token never re
 | Show on mobile | Hide it on narrow screens if you prefer |
 | Refresh interval | Seconds degoog caches widget data before asking Dynacat again |
 | Username / Password | Only for pages restricted with `allowed-users` |
+| Gate behind auth | Off by default. When on, only people signed in to Settings see the dashboard and can change its page or layout |
 
 ## Picking what matters
 

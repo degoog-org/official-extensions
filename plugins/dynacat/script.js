@@ -35,6 +35,7 @@
 
   function load(force) {
     return fetch(API + "/cards" + (force ? "?force=1" : "")).then(function (res) {
+      if (res.status === 401) throw new Error("You shall not pass!");
       return res.json();
     });
   }
