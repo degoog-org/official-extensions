@@ -9,19 +9,6 @@ let username = "";
 let password = "";
 let template = "";
 let resultItemTpl = "";
-let gateBehindAuth = false;
-
-const _isOpenTo = (context) => !gateBehindAuth || context?.authenticated === true;
-
-const _gatedThumbRoute = {
-  ...thumb.route,
-  handler: (req, context) => {
-    if (!_isOpenTo(context)) {
-      return Response.json({ error: "You shall not pass!" }, { status: 401 });
-    }
-    return thumb.route.handler(req);
-  },
-};
 
 const ROMM_LOGO =
   "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@refs/heads/main/svg/romm.svg";
@@ -205,16 +192,9 @@ export default {
       description: "Older login, only used when no API token is set.",
       visibleWhen: { key: "apiToken", equals: "" },
     },
-    {
-      key: "gateBehindAuth",
-      label: "Gate behind auth",
-      type: "toggle",
-      default: "false",
-      description: "Only people signed in to Settings can search your RomM library.",
-    },
   ],
 
-  routes: [_gatedThumbRoute],
+  routes: [thumb.route],
 
   async init(ctx) {
     if (ctx.signProxyUrl) _signProxyUrl = ctx.signProxyUrl;
@@ -228,7 +208,6 @@ export default {
     apiToken = _normalizeApiToken(settings.apiToken);
     username = settings.username || "";
     password = settings.password || "";
-    gateBehindAuth = settings.gateBehindAuth === true || settings.gateBehindAuth === "true";
   },
 
   async isConfigured() {
@@ -236,7 +215,6 @@ export default {
   },
 
   async execute(args, context) {
-    if (!_isOpenTo(context)) return { title: "RomM Search", html: "" };
     const fetchFn = context?.fetch || fetch;
     if (!rommUrl || (!apiToken && (!username || !password))) {
       return {

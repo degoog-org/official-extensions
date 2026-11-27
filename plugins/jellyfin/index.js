@@ -18,7 +18,6 @@ let _signFaviconUrl = null;
 let thumbHeight = 400;
 let previewHeight = 1600;
 let _searchTypes = null;
-let gateBehindAuth = false;
 
 function escHtml(s) {
   return String(s)
@@ -274,13 +273,6 @@ const _schema = () => [
     optionsFrom: { dependsOn: [], refreshLabel: _tr("options.loadTabs", "Load tabs"), auto: true },
     description: "The results tab !jellyfin opens on.",
   },
-  {
-    key: "gateBehindAuth",
-    label: "Gate behind auth",
-    type: "toggle",
-    default: "false",
-    description: "Only people signed in to Settings can search your Jellyfin library.",
-  },
 ];
 
 const jellyfin = {
@@ -306,7 +298,6 @@ const jellyfin = {
     searchType = typeof settings.searchType === "string" && settings.searchType ? settings.searchType : "web";
     thumbHeight = _height(settings.thumbHeight, 400);
     previewHeight = _height(settings.previewHeight, 1600);
-    gateBehindAuth = settings.gateBehindAuth === true || settings.gateBehindAuth === "true";
   },
 
   async getFieldOptions(key) {
@@ -323,9 +314,6 @@ const jellyfin = {
   },
 
   async execute(args, context) {
-    if (gateBehindAuth && context?.authenticated !== true) {
-      return { title: _tr("messages.title", "Jellyfin"), html: "" };
-    }
     const result = await jellyfin.run(args, context);
     return searchType && searchType !== "web" ? { ...result, searchType } : result;
   },

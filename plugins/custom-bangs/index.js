@@ -1,9 +1,6 @@
 import { buildBangUrl } from "./url.js";
 
 let bangs = [];
-let gateBehindAuth = false;
-
-const isOpenTo = (context) => !gateBehindAuth || context?.authenticated === true;
 
 const escHtml = (s) => {
   return String(s)
@@ -201,19 +198,9 @@ export default {
         },
       ],
     },
-    {
-      key: "gateBehindAuth",
-      label: "Gate behind auth",
-      type: "toggle",
-      default: "false",
-      description:
-        "Only people signed in to Settings can see and use your custom bangs. Useful when they point at private services.",
-    },
   ],
 
   configure(settings) {
-    gateBehindAuth =
-      settings?.gateBehindAuth === true || settings?.gateBehindAuth === "true";
     const raw = typeof settings?.bangs === "string" ? settings.bangs.trim() : "";
     if (!raw) {
       bangs = [];
@@ -230,15 +217,11 @@ export default {
     {
       method: "get",
       path: "/bangs",
-      handler: async (_req, context) =>
-        isOpenTo(context)
-          ? _json({ bangs })
-          : _json({ error: "You shall not pass!" }, 401),
+      handler: async () => _json({ bangs }),
     },
   ],
 
-  async execute(_args, context) {
-    if (!isOpenTo(context)) return { title: "Custom Bangs", html: "" };
+  async execute() {
     if (!bangs.length) {
       return {
         title: "Custom Bangs",

@@ -22,10 +22,6 @@
         "label": "Password",
         "placeholder": "RomM login password",
         "description": "Older login, only used when no API token is set."
-      },
-      "gateBehindAuth": {
-        "label": "Gate behind auth",
-        "description": "Only people signed in to Settings can search your RomM library."
       }
     }
   }

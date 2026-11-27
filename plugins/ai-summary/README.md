@@ -35,7 +35,6 @@ Pick the provider first, and the settings below it change to match. Each provide
 | Thinking | Auto, On or Off. Auto (default) sends no thinking flags, so the model does what it does by default. On asks it to think and streams thoughts live, clearing them when the answer starts. Off sends the provider's flag to turn thinking off. Gemini 3 models can't turn thinking off, so Off runs them at the lowest level, see Gemini. Other models that can't do On or Off answer with an error, so pick them only for models that support them. Coming from the old toggle, on stays On and off becomes Auto. Pick Off to get the old off back on Ollama, llama.cpp, vLLM, OpenRouter and Gemini |
 | Reasoning effort | OpenAI, OpenRouter, Gemini and Perplexity, with thinking on. Low, medium or high |
 | Only trigger on questions | Summarize only when the query ends with `?` |
-| Gate behind auth | Off by default. When on, only people signed in to Settings get summaries and follow-up chat |
 | Hide summary on error | Remove the box instead of showing the error |
 | Open links in a new tab | Off by default. Citations, sources and links in the answer open in a new tab |
 | Answer in the visitor's language | Perplexity only, on by default. Sends the browser's language as `language_preference` |

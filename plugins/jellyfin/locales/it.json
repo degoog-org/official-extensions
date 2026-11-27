@@ -33,10 +33,6 @@
       "searchType": {
         "label": "Mostra i risultati in",
         "description": "La scheda dei risultati su cui si apre !jellyfin."
-      },
-      "gateBehindAuth": {
-        "label": "Richiedi l'accesso",
-        "description": "Solo chi ha effettuato l'accesso alle Impostazioni può cercare nella tua libreria Jellyfin."
       }
     },
     "options": {

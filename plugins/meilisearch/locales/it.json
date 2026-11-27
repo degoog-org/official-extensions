@@ -37,10 +37,6 @@
         "label": "Campo miniatura",
         "placeholder": "thumbnail",
         "description": "Campo per l'immagine di anteprima (opzionale)"
-      },
-      "gateBehindAuth": {
-        "label": "Richiedi l'accesso",
-        "description": "Solo chi ha effettuato l'accesso alle Impostazioni può cercare nei tuoi indici Meilisearch"
       }
     }
   }

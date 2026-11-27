@@ -69,7 +69,6 @@ export const parseSettings = (raw) => {
     enableInputStyling: asBool(raw["enableInputStyling"]),
     openLinksInNewTab: asBool(raw["openLinksInNewTab"]),
     sendBrowserLanguage: asBoolOr(raw["sendBrowserLanguage"], true),
-    gateBehindAuth: asBool(raw["gateBehindAuth"]),
   };
 };
 
@@ -174,14 +173,6 @@ export const settingsSchema = [
     label: "Only trigger on questions (?)",
     type: "toggle",
     description: "Only summarize when the query ends with `?`.",
-  },
-  {
-    key: "gateBehindAuth",
-    label: "Gate behind auth",
-    type: "toggle",
-    default: "false",
-    description:
-      "Only people signed in to Settings get summaries and follow-up chat, so strangers on a public instance can't spend your API credits.",
   },
   {
     key: "hideOnError",

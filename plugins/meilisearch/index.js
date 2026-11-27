@@ -8,7 +8,6 @@ let contentField = "content";
 let thumbnailField = "thumbnail";
 let template = "";
 let resultItemTpl = "";
-let gateBehindAuth = false;
 
 function escHtml(s) {
   return String(s)
@@ -145,13 +144,6 @@ export default {
       placeholder: "thumbnail",
       description: "Document field for the result thumbnail image (optional)",
     },
-    {
-      key: "gateBehindAuth",
-      label: "Gate behind auth",
-      type: "toggle",
-      default: "false",
-      description: "Only people signed in to Settings can search your Meilisearch indexes",
-    },
   ],
 
   async init(ctx) {
@@ -171,7 +163,6 @@ export default {
     urlField = settings.urlField || "url";
     contentField = settings.contentField || "content";
     thumbnailField = settings.thumbnailField || "thumbnail";
-    gateBehindAuth = settings.gateBehindAuth === true || settings.gateBehindAuth === "true";
   },
 
   async isConfigured() {
@@ -179,9 +170,6 @@ export default {
   },
 
   async execute(args, context) {
-    if (gateBehindAuth && context?.authenticated !== true) {
-      return { title: "Meilisearch", html: "" };
-    }
     const fetchFn = context?.fetch || fetch;
     if (!meiliUrl || indexes.length === 0) {
       return {
